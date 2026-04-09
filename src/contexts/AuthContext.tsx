@@ -4,7 +4,7 @@ import {
   loadSession, saveSession, clearSession,
   loadCachedRecords, saveCachedRecords,
   loadCachedMetas, saveCachedMetas,
-  api, MACHINES_DEFAULT, today,
+  api, MACHINES_DEFAULT,
 } from "@/lib/api";
 
 export interface MetaInfo {
@@ -31,10 +31,22 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
+// Normalize numeric fields — backend returns everything as strings
+function normalizeRecords(raw: any[]): ProdRecord[] {
+  return (raw || [])
+    .map((rec: any) => ({
+      ...rec,
+      machineId: Number(rec.machineId) || 0,
+      meta:      Number(rec.meta)      || 0,
+      producao:  Number(rec.producao)  || 0,
+    }))
+    .filter((rec: ProdRecord) => rec.machineId > 0 && rec.date);
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<Session | null>(loadSession);
+  const [user, setUser]       = useState<Session | null>(loadSession);
   const [machines, setMachines] = useState<Machine[]>(MACHINES_DEFAULT);
-  const [metas, setMetas] = useState<Record<number, number>>(() => {
+  const [metas, setMetas]     = useState<Record<number, number>>(() => {
     const cached = loadCachedMetas();
     if (cached) return cached;
     const m: Record<number, number> = {};
@@ -42,8 +54,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return m;
   });
   const [metasInfo, setMetasInfo] = useState<Record<number, MetaInfo>>({});
-  const [records, setRecords] = useState<ProdRecord[]>(loadCachedRecords);
+  // Pre-populate from cache — shown instantly while fresh data loads in background
+  const [records, setRecords] = useState<ProdRecord[]>(() => normalizeRecords(loadCachedRecords()));
   const [loading, setLoading] = useState(false);
+
+  // ── Fetch helpers ─────────────────────────────────────────────
 
   const refreshMachines = useCallback(async () => {
     if (!user) return;
@@ -67,48 +82,62 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch {}
   }, [user]);
 
+  // Full refresh — shows loading skeleton (use only when cache is empty)
   const refreshData = useCallback(async () => {
     if (!user) return;
     setLoading(true);
     try {
       const r = await api("getAll", {}, user);
-      // Backend returns all fields as strings — normalize numeric fields here
-      const data: ProdRecord[] = (r.data || []).map((rec: any) => ({
-        ...rec,
-        machineId: Number(rec.machineId) || 0,
-        meta: Number(rec.meta) || 0,
-        producao: Number(rec.producao) || 0,
-      })).filter((rec: ProdRecord) => rec.machineId > 0 && rec.date);
+      const data = normalizeRecords(r.data);
       setRecords(data);
       saveCachedRecords(data);
     } catch {}
     setLoading(false);
   }, [user]);
 
-  // Initial load on login
-  useEffect(() => {
-    if (user) {
-      refreshMachines();
-      refreshMetas();
-      refreshData();
-    }
-  }, [user, refreshMachines, refreshMetas, refreshData]);
+  // Silent refresh — updates data in background, no skeleton flicker
+  const silentRefreshData = useCallback(async () => {
+    if (!user) return;
+    try {
+      const r = await api("getAll", {}, user);
+      const data = normalizeRecords(r.data);
+      setRecords(data);
+      saveCachedRecords(data);
+    } catch {}
+  }, [user]);
 
-  // Polling: refresh data every 15 seconds
+  // ── Initial load ──────────────────────────────────────────────
+  // Run all 3 fetches in parallel.
+  // If cache exists: show stale data immediately + silent background refresh.
+  // If no cache: show loading skeleton until data arrives.
   useEffect(() => {
     if (!user) return;
-    const interval = setInterval(() => {
-      refreshData();
-    }, 15000);
-    return () => clearInterval(interval);
-  }, [user, refreshData]);
+    const hasCached = loadCachedRecords().length > 0;
+    refreshMachines();
+    refreshMetas();
+    if (hasCached) {
+      silentRefreshData(); // cache already displayed — no skeleton
+    } else {
+      refreshData();       // nothing to show — use skeleton
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
+
+  // ── Polling every 60 s — always silent ───────────────────────
+  useEffect(() => {
+    if (!user) return;
+    const id = setInterval(silentRefreshData, 60_000);
+    return () => clearInterval(id);
+  }, [user, silentRefreshData]);
+
+  // ── Auth actions ──────────────────────────────────────────────
 
   const login = async (nome: string, senha: string) => {
     const r = await api("login", { nome, senha });
     const session: Session = {
-      token: r.session.token,
-      nome: r.session.nome,
-      role: r.session.role,
+      token:     r.session.token,
+      nome:      r.session.nome,
+      role:      r.session.role,
       expiresAt: r.session.expiresAt,
     };
     saveSession(session);
@@ -118,9 +147,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const register = async (nome: string, senha: string, inviteCode: string) => {
     const r = await api("register", { nome, senha, inviteCode });
     const session: Session = {
-      token: r.session.token,
-      nome: r.session.nome,
-      role: r.session.role,
+      token:     r.session.token,
+      nome:      r.session.nome,
+      role:      r.session.role,
       expiresAt: r.session.expiresAt,
     };
     saveSession(session);
@@ -134,7 +163,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, machines, metas, metasInfo, records, loading, login, register, logout, refreshData, refreshMachines, refreshMetas, setRecords }}>
+    <AuthContext.Provider value={{
+      user, machines, metas, metasInfo, records, loading,
+      login, register, logout,
+      refreshData, refreshMachines, refreshMetas,
+      setRecords,
+    }}>
       {children}
     </AuthContext.Provider>
   );

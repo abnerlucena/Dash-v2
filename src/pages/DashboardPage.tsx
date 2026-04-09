@@ -29,24 +29,25 @@ const DashboardPage = () => {
   const [activeTab, setActiveTab] = useState<TabId>("dashboard");
   const [dashSubTab, setDashSubTab] = useState<DashboardSubTab>("resumo");
   const [selectedTurno, setSelectedTurno] = useState("TODOS");
+  const [selectedMachine, setSelectedMachine] = useState("TODAS");
   const [fullscreenChart, setFullscreenChart] = useState<string | null>(null);
   const [showAdmin, setShowAdmin] = useState(false);
 
-  // Date range filter — default to last 30 days
-  const defaultFrom = useMemo(() => {
+  // Date range — default to last 30 days
+  const [dateFrom, setDateFrom] = useState(() => {
     const d = new Date(); d.setDate(d.getDate() - 30); return fmt(d);
-  }, []);
-  const [dateFrom, setDateFrom] = useState(defaultFrom);
-  const [dateTo, setDateTo] = useState(today());
+  });
+  const [dateTo, setDateTo] = useState(() => today());
 
   const filteredRecords = useMemo(() => {
     return records.filter(r => {
       if (dateFrom && r.date < dateFrom) return false;
-      if (dateTo && r.date > dateTo) return false;
-      if (selectedTurno !== "TODOS" && r.turno !== selectedTurno) return false;
+      if (dateTo   && r.date > dateTo)   return false;
+      if (selectedTurno !== "TODOS"  && r.turno       !== selectedTurno)   return false;
+      if (selectedMachine !== "TODAS" && r.machineName !== selectedMachine) return false;
       return true;
     });
-  }, [records, selectedTurno, dateFrom, dateTo]);
+  }, [records, selectedTurno, selectedMachine, dateFrom, dateTo]);
 
   const machineAgg = useMemo(() => {
     const agg: Record<number, { totalProd: number; totalMeta: number; days: Set<string> }> = {};
@@ -175,23 +176,40 @@ const DashboardPage = () => {
                 <div className="flex flex-wrap items-end gap-3 bg-card rounded-xl p-4 border border-border shadow-sm" style={{ borderRadius: 12 }}>
                   <div>
                     <label className="text-[11px] font-semibold text-muted-foreground mb-1 block uppercase">De</label>
-                    <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className="text-sm bg-background border border-border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/30 font-semibold" style={{ borderRadius: 6 }} />
+                    <input
+                      type="date"
+                      value={dateFrom}
+                      max={dateTo || undefined}
+                      onChange={e => setDateFrom(e.target.value)}
+                      className="text-sm bg-background border border-border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/30 font-semibold"
+                      style={{ borderRadius: 6 }}
+                    />
                   </div>
                   <div>
                     <label className="text-[11px] font-semibold text-muted-foreground mb-1 block uppercase">Até</label>
-                    <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} className="text-sm bg-background border border-border rounded-md py-2 focus:outline-none focus:ring-2 focus:ring-primary/30 font-semibold px-[10px]" style={{ borderRadius: 6 }} />
+                    <input
+                      type="date"
+                      value={dateTo}
+                      min={dateFrom || undefined}
+                      onChange={e => setDateTo(e.target.value)}
+                      className="text-sm bg-background border border-border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/30 font-semibold"
+                      style={{ borderRadius: 6 }}
+                    />
                   </div>
                   <div>
                     <label className="text-[11px] font-semibold text-muted-foreground mb-1 block uppercase">Máquina</label>
-                    <select className="text-sm bg-background border border-border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/30 font-semibold" style={{ borderRadius: 6 }}>
-                      <option>TODAS</option>
-                      {machines.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+                    <select value={selectedMachine} onChange={e => setSelectedMachine(e.target.value)}
+                      className="text-sm bg-background border border-border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/30 font-semibold"
+                      style={{ borderRadius: 6 }}>
+                      <option value="TODAS">TODAS</option>
+                      {machines.map(m => <option key={m.id} value={m.name}>{m.name}</option>)}
                     </select>
                   </div>
                   <div>
                     <label className="text-[11px] font-semibold text-muted-foreground mb-1 block uppercase">Turno</label>
                     <select value={selectedTurno} onChange={e => setSelectedTurno(e.target.value)}
-                      className="text-sm bg-background border border-border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/30 font-semibold" style={{ borderRadius: 6 }}>
+                      className="text-sm bg-background border border-border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/30 font-semibold"
+                      style={{ borderRadius: 6 }}>
                       <option value="TODOS">TODOS</option>
                       {TURNOS.map(t => <option key={t} value={t}>{t}</option>)}
                     </select>
