@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { BarChart3, TrendingUp, Factory, Activity, ClipboardEdit, FileText } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { TURNOS, pctColor } from "@/lib/api";
+import { TURNOS, pctColor, fmt, today } from "@/lib/api";
 import { getBarChartOption, getAreaChartOption, getPieChartOption, getHorizontalBarOption } from "@/lib/chart-options";
 
 import WEGHeader from "@/components/WEGHeader";
@@ -32,10 +32,21 @@ const DashboardPage = () => {
   const [fullscreenChart, setFullscreenChart] = useState<string | null>(null);
   const [showAdmin, setShowAdmin] = useState(false);
 
+  // Date range filter — default to last 30 days
+  const defaultFrom = useMemo(() => {
+    const d = new Date(); d.setDate(d.getDate() - 30); return fmt(d);
+  }, []);
+  const [dateFrom, setDateFrom] = useState(defaultFrom);
+  const [dateTo, setDateTo] = useState(today());
+
   const filteredRecords = useMemo(() => {
-    if (selectedTurno === "TODOS") return records;
-    return records.filter(r => r.turno === selectedTurno);
-  }, [records, selectedTurno]);
+    return records.filter(r => {
+      if (dateFrom && r.date < dateFrom) return false;
+      if (dateTo && r.date > dateTo) return false;
+      if (selectedTurno !== "TODOS" && r.turno !== selectedTurno) return false;
+      return true;
+    });
+  }, [records, selectedTurno, dateFrom, dateTo]);
 
   const machineAgg = useMemo(() => {
     const agg: Record<number, { totalProd: number; totalMeta: number; days: Set<string> }> = {};
@@ -75,6 +86,16 @@ const DashboardPage = () => {
   const totalProd = machineAgg.reduce((s, m) => s + m.totalProd, 0);
   const totalMeta = machineAgg.reduce((s, m) => s + m.totalMeta, 0);
   const pctGeral = totalMeta > 0 ? Math.round(totalProd / totalMeta * 100) : 0;
+
+  // Tx. Apontamento: % de combos (máquina × data × turno) preenchidos vs possível
+  const appointmentRate = useMemo(() => {
+    const uniqueDates = new Set(filteredRecords.map(r => r.date));
+    if (uniqueDates.size === 0 || machines.length === 0) return 0;
+    const turnoCount = selectedTurno === "TODOS" ? TURNOS.length : 1;
+    const possible = machines.length * uniqueDates.size * turnoCount;
+    const actual = new Set(filteredRecords.map(r => `${r.machineId}_${r.date}_${r.turno}`)).size;
+    return Math.round(Math.min(actual / possible, 1) * 100);
+  }, [filteredRecords, machines, selectedTurno]);
 
   const barData = machineAgg.filter(m => m.totalMeta > 0 || m.totalProd > 0).map(m => ({ name: m.name, meta: m.totalMeta, producao: m.totalProd }));
   const hbarData = machineAgg.filter(m => m.totalMeta > 0).map(m => ({ name: m.name, pct: m.pct }));
@@ -154,11 +175,11 @@ const DashboardPage = () => {
                 <div className="flex flex-wrap items-end gap-3 bg-card rounded-xl p-4 border border-border shadow-sm" style={{ borderRadius: 12 }}>
                   <div>
                     <label className="text-[11px] font-semibold text-muted-foreground mb-1 block uppercase">De</label>
-                    <input type="date" className="text-sm bg-background border border-border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/30 font-semibold" style={{ borderRadius: 6 }} />
+                    <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className="text-sm bg-background border border-border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/30 font-semibold" style={{ borderRadius: 6 }} />
                   </div>
                   <div>
                     <label className="text-[11px] font-semibold text-muted-foreground mb-1 block uppercase">Até</label>
-                    <input type="date" className="text-sm bg-background border border-border rounded-md py-2 focus:outline-none focus:ring-2 focus:ring-primary/30 font-semibold px-[10px]" style={{ borderRadius: 6 }} />
+                    <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} className="text-sm bg-background border border-border rounded-md py-2 focus:outline-none focus:ring-2 focus:ring-primary/30 font-semibold px-[10px]" style={{ borderRadius: 6 }} />
                   </div>
                   <div>
                     <label className="text-[11px] font-semibold text-muted-foreground mb-1 block uppercase">Máquina</label>
@@ -196,7 +217,7 @@ const DashboardPage = () => {
                 </div>
 
                 {/* KPI Cards */}
-                <KPICards totalProd={totalProd} totalMeta={totalMeta} pctGeral={pctGeral} recordCount={filteredRecords.length} loading={loading} />
+                <KPICards totalProd={totalProd} totalMeta={totalMeta} pctGeral={pctGeral} recordCount={filteredRecords.length} machineCount={machines.length} appointmentRate={appointmentRate} tendency={null} loading={loading} />
 
                 {/* Sub-tab content with animations */}
                 <AnimatePresence mode="wait">

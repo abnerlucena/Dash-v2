@@ -72,7 +72,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setLoading(true);
     try {
       const r = await api("getAll", {}, user);
-      const data = (r.data || []) as ProdRecord[];
+      // Backend returns all fields as strings — normalize numeric fields here
+      const data: ProdRecord[] = (r.data || []).map((rec: any) => ({
+        ...rec,
+        machineId: Number(rec.machineId) || 0,
+        meta: Number(rec.meta) || 0,
+        producao: Number(rec.producao) || 0,
+      })).filter((rec: ProdRecord) => rec.machineId > 0 && rec.date);
       setRecords(data);
       saveCachedRecords(data);
     } catch {}
