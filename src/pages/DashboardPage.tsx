@@ -1,0 +1,560 @@
+import { useState, useMemo } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { BarChart3, TrendingUp, Factory, Activity, ClipboardEdit, FileText } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { TURNOS, pctColor } from "@/lib/api";
+import { getBarChartOption, getAreaChartOption, getPieChartOption, getHorizontalBarOption } from "@/lib/chart-options";
+
+import WEGHeader from "@/components/WEGHeader";
+import BottomNav, { type TabId } from "@/components/BottomNav";
+import KPICards from "@/components/KPICards";
+import FilterBar from "@/components/FilterBar";
+import ChartCard from "@/components/ChartCard";
+import ChartFullscreen from "@/components/ChartFullscreen";
+import MachineTable from "@/components/MachineTable";
+import ProductionEntry from "@/components/ProductionEntry";
+import ReportsTab from "@/components/ReportsTab";
+import AdminPanel from "@/components/AdminPanel";
+import MachineCardMobile from "@/components/MachineCardMobile";
+import MobileDetailCards from "@/components/MobileDetailCards";
+import MetasTab from "@/components/MetasTab";
+import FeedbacksTab from "@/components/FeedbacksTab";
+
+type DashboardSubTab = "resumo" | "detalhado" | "turnos" | "graficos" | "analytics";
+
+const DashboardPage = () => {
+  const { user, machines, metas, records, loading } = useAuth();
+  const isMobile = useIsMobile();
+  const [activeTab, setActiveTab] = useState<TabId>("dashboard");
+  const [dashSubTab, setDashSubTab] = useState<DashboardSubTab>("resumo");
+  const [selectedTurno, setSelectedTurno] = useState("TODOS");
+  const [fullscreenChart, setFullscreenChart] = useState<string | null>(null);
+  const [showAdmin, setShowAdmin] = useState(false);
+
+  const filteredRecords = useMemo(() => {
+    if (selectedTurno === "TODOS") return records;
+    return records.filter(r => r.turno === selectedTurno);
+  }, [records, selectedTurno]);
+
+  const machineAgg = useMemo(() => {
+    const agg: Record<number, { totalProd: number; totalMeta: number; days: Set<string> }> = {};
+    for (const r of filteredRecords) {
+      if (!agg[r.machineId]) agg[r.machineId] = { totalProd: 0, totalMeta: 0, days: new Set() };
+      agg[r.machineId].totalProd += r.producao;
+      agg[r.machineId].totalMeta += r.meta;
+      agg[r.machineId].days.add(r.date);
+    }
+    return machines.map(m => {
+      const a = agg[m.id];
+      const totalProd = a?.totalProd ?? 0;
+      const totalMeta = a?.totalMeta ?? 0;
+      const pct = totalMeta > 0 ? Math.round(totalProd / totalMeta * 100) : 0;
+      return { id: m.id, name: m.name, totalProd, totalMeta, pct, days: a?.days.size ?? 0 };
+    });
+  }, [filteredRecords, machines]);
+
+  const dayAgg = useMemo(() => {
+    const agg: Record<string, { totalProd: number; totalMeta: number }> = {};
+    for (const r of filteredRecords) {
+      if (!agg[r.date]) agg[r.date] = { totalProd: 0, totalMeta: 0 };
+      agg[r.date].totalProd += r.producao;
+      agg[r.date].totalMeta += r.meta;
+    }
+    return Object.entries(agg)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([date, d]) => ({ date: date.slice(5), producao: d.totalProd, meta: d.totalMeta }));
+  }, [filteredRecords]);
+
+  const turnoAgg = useMemo(() => {
+    const agg: Record<string, number> = {};
+    for (const r of records) { agg[r.turno] = (agg[r.turno] ?? 0) + r.producao; }
+    return TURNOS.map(t => ({ name: t, value: agg[t] ?? 0 }));
+  }, [records]);
+
+  const totalProd = machineAgg.reduce((s, m) => s + m.totalProd, 0);
+  const totalMeta = machineAgg.reduce((s, m) => s + m.totalMeta, 0);
+  const pctGeral = totalMeta > 0 ? Math.round(totalProd / totalMeta * 100) : 0;
+
+  const barData = machineAgg.filter(m => m.totalMeta > 0 || m.totalProd > 0).map(m => ({ name: m.name, meta: m.totalMeta, producao: m.totalProd }));
+  const hbarData = machineAgg.filter(m => m.totalMeta > 0).map(m => ({ name: m.name, pct: m.pct }));
+
+  const barOption = getBarChartOption(barData, isMobile);
+  const areaOption = getAreaChartOption(dayAgg, isMobile);
+  const pieOption = getPieChartOption(turnoAgg, isMobile);
+  const hbarOption = getHorizontalBarOption(hbarData, isMobile);
+
+  // Main nav tabs
+  const mainTabs: { id: TabId; label: string }[] = [
+    { id: "entry", label: "Apontamento" },
+    { id: "dashboard", label: "Dashboard" },
+    { id: "history", label: "Histórico" },
+    { id: "metas", label: "Metas" },
+    { id: "feedbacks", label: "Feedbacks" },
+  ];
+
+  // Dashboard sub-tabs
+  const subTabs: { id: DashboardSubTab; label: string }[] = [
+    { id: "resumo", label: "Resumo" },
+    { id: "detalhado", label: "Detalhado" },
+    { id: "turnos", label: "Turnos" },
+    { id: "graficos", label: "Gráficos" },
+    { id: "analytics", label: "Analytics" },
+  ];
+
+  // Top 3 best and worst
+  const sorted = [...machineAgg].filter(m => m.totalMeta > 0).sort((a, b) => b.pct - a.pct);
+  const top3 = sorted.slice(0, 3);
+  const bottom3 = [...sorted].reverse().slice(0, 3);
+
+  return (
+    <div className="min-h-screen bg-background">
+      <WEGHeader onAdminClick={() => setShowAdmin(true)} />
+
+      {/* Desktop main tab nav */}
+      {!isMobile && (
+        <div className="bg-card border-b border-border">
+          <div className="max-w-[1400px] mx-auto px-4 py-2.5">
+            <nav className="flex items-center gap-2 overflow-x-auto">
+              {mainTabs.map(t => (
+                <button key={t.id} onClick={() => setActiveTab(t.id)}
+                  className={`px-5 py-2 text-sm font-semibold transition-all border ${
+                    activeTab === t.id
+                      ? "text-white border-transparent shadow-sm"
+                      : "text-foreground border-border hover:bg-muted/60"
+                  }`}
+                  style={{
+                    borderRadius: 20,
+                    ...(activeTab === t.id ? { background: "#0066B3" } : {}),
+                  }}>
+                  {t.label}
+                </button>
+              ))}
+            </nav>
+          </div>
+        </div>
+      )}
+
+      <main className={`max-w-[1400px] mx-auto px-4 py-4 space-y-4 ${isMobile ? "pb-24" : ""}`}>
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={activeTab}
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -12 }}
+            transition={{ duration: 0.2, ease: "easeInOut" }}
+          >
+            {/* ── APONTAMENTO ── */}
+            {activeTab === "entry" && <ProductionEntry />}
+
+            {/* ── DASHBOARD ── */}
+            {activeTab === "dashboard" && (
+              <div className="space-y-4">
+                {/* Filters row */}
+                <div className="flex flex-wrap items-end gap-3 bg-card rounded-xl p-4 border border-border shadow-sm" style={{ borderRadius: 12 }}>
+                  <div>
+                    <label className="text-[11px] font-semibold text-muted-foreground mb-1 block uppercase">De</label>
+                    <input type="date" className="text-sm bg-background border border-border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/30 font-semibold" style={{ borderRadius: 6 }} />
+                  </div>
+                  <div>
+                    <label className="text-[11px] font-semibold text-muted-foreground mb-1 block uppercase">Até</label>
+                    <input type="date" className="text-sm bg-background border border-border rounded-md py-2 focus:outline-none focus:ring-2 focus:ring-primary/30 font-semibold px-[10px]" style={{ borderRadius: 6 }} />
+                  </div>
+                  <div>
+                    <label className="text-[11px] font-semibold text-muted-foreground mb-1 block uppercase">Máquina</label>
+                    <select className="text-sm bg-background border border-border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/30 font-semibold" style={{ borderRadius: 6 }}>
+                      <option>TODAS</option>
+                      {machines.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-[11px] font-semibold text-muted-foreground mb-1 block uppercase">Turno</label>
+                    <select value={selectedTurno} onChange={e => setSelectedTurno(e.target.value)}
+                      className="text-sm bg-background border border-border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/30 font-semibold" style={{ borderRadius: 6 }}>
+                      <option value="TODOS">TODOS</option>
+                      {TURNOS.map(t => <option key={t} value={t}>{t}</option>)}
+                    </select>
+                  </div>
+
+                  {/* Sub-tabs on the right */}
+                  <div className="ml-auto flex items-center gap-1.5 flex-wrap overflow-x-auto">
+                    {subTabs.map(st => (
+                      <button key={st.id} onClick={() => setDashSubTab(st.id)}
+                        className={`px-4 py-2 text-xs font-semibold border transition-all ${
+                          dashSubTab === st.id
+                            ? "text-white border-transparent shadow-sm"
+                            : "bg-card text-foreground border-border hover:bg-muted"
+                        }`}
+                        style={{
+                          borderRadius: 20,
+                          ...(dashSubTab === st.id ? { background: "#0066B3" } : {}),
+                        }}>
+                        {st.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* KPI Cards */}
+                <KPICards totalProd={totalProd} totalMeta={totalMeta} pctGeral={pctGeral} recordCount={filteredRecords.length} loading={loading} />
+
+                {/* Sub-tab content with animations */}
+                <AnimatePresence mode="wait">
+                  <motion.div
+                    key={dashSubTab}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    transition={{ duration: 0.2, ease: "easeInOut" }}
+                  >
+                {dashSubTab === "resumo" && (
+                  <div className="space-y-4">
+                    {/* Top 3 best & worst */}
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                      <div className="bg-card rounded-xl border border-border shadow-sm p-4" style={{ borderRadius: 12 }}>
+                        <h3 className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: "#22C55E" }}>Top 3 Melhores</h3>
+                        <div className="space-y-2">
+                          {top3.map((m, i) => (
+                            <div key={m.id} className="flex items-center gap-3">
+                              <span className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white" style={{ backgroundColor: "#0066B3" }}>{i + 1}</span>
+                              <span className="flex-1 text-sm font-medium text-foreground">{m.name}</span>
+                              <span className="text-sm font-extrabold px-2.5 py-0.5 rounded-full" style={{ color: pctColor(m.pct), backgroundColor: `${pctColor(m.pct)}15`, borderRadius: 20 }}>{m.pct}%</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="bg-card rounded-xl border border-border shadow-sm p-4" style={{ borderRadius: 12 }}>
+                        <h3 className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: "#EF4444" }}>3 Que Mais Precisam de Atenção</h3>
+                        <div className="space-y-2">
+                          {bottom3.map((m, i) => (
+                            <div key={m.id} className="flex items-center gap-3">
+                              <span className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white" style={{ backgroundColor: "#F59E0B" }}>{i + 1}</span>
+                              <span className="flex-1 text-sm font-medium text-foreground">{m.name}</span>
+                              <span className="text-sm font-extrabold px-2.5 py-0.5 rounded-full" style={{ color: pctColor(m.pct), backgroundColor: `${pctColor(m.pct)}15`, borderRadius: 20 }}>{m.pct}%</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Export + Machine Table */}
+                    <div>
+                      <button className="mb-3 flex items-center gap-2 px-4 py-2.5 text-sm font-bold text-white rounded-lg transition-all hover:opacity-90"
+                        style={{ background: "linear-gradient(135deg, #003366, #0066B3)", borderRadius: 8 }}>
+                        Exportar
+                      </button>
+                      {loading ? <DetailsSkeleton isMobile={isMobile} /> : 
+                        isMobile ? <MobileDetailCards machines={machineAgg} totalProd={totalProd} totalMeta={totalMeta} pctGeral={pctGeral} /> :
+                        <MachineTable machines={machineAgg} totalProd={totalProd} totalMeta={totalMeta} pctGeral={pctGeral} />
+                      }
+                    </div>
+                  </div>
+                )}
+
+                {dashSubTab === "detalhado" && (
+                  <div>
+                    {loading ? <OverviewSkeleton isMobile={isMobile} /> : isMobile ? (
+                      <div className="grid grid-cols-1 gap-2">
+                        {machineAgg.map((m, i) => <MachineCardMobile key={m.id} machine={m} index={i} />)}
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        {machineAgg.map((m) => {
+                          const machineRecords = filteredRecords.filter(r => r.machineId === m.id);
+                          const dateMap: Record<string, Record<string, number>> = {};
+                          for (const r of machineRecords) {
+                            if (!dateMap[r.date]) dateMap[r.date] = {};
+                            dateMap[r.date][r.turno] = (dateMap[r.date][r.turno] ?? 0) + r.producao;
+                          }
+                          const dates = Object.entries(dateMap)
+                            .sort(([a], [b]) => b.localeCompare(a))
+                            .map(([date, turnos]) => ({
+                              date,
+                              t1: turnos["TURNO 1"] ?? 0,
+                              t2: turnos["TURNO 2"] ?? 0,
+                              t3: turnos["TURNO 3"] ?? 0,
+                              total: Object.values(turnos).reduce((s, v) => s + v, 0),
+                            }));
+                          if (dates.length === 0) return null;
+                          return (
+                            <motion.div key={m.id}
+                              initial={{ opacity: 0, y: 12 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              transition={{ duration: 0.25 }}
+                              className="bg-card rounded-xl border border-border shadow-sm overflow-hidden" style={{ borderRadius: 12 }}>
+                              {/* Machine header */}
+                              <div className="flex items-center justify-between px-4 py-2.5" style={{ background: '#003366' }}>
+                                <span className="text-xs font-bold text-white uppercase tracking-wider">{m.name}</span>
+                                <span className="text-[11px] text-white/80">
+                                  Total: {m.totalProd.toLocaleString("pt-BR")} pç — {m.pct}% meta
+                                </span>
+                              </div>
+                              {/* Records table */}
+                              <table className="w-full text-sm">
+                                <thead>
+                                  <tr className="border-b border-border" style={{ background: '#F8FAFC' }}>
+                                    <th className="text-left px-4 py-2 text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Data</th>
+                                    <th className="text-center px-3 py-2 text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Turno 1</th>
+                                    <th className="text-center px-3 py-2 text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Turno 2</th>
+                                    <th className="text-center px-3 py-2 text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Turno 3</th>
+                                    <th className="text-right px-4 py-2 text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Total Dia</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {dates.map((d, i) => (
+                                    <tr key={d.date} className="border-b border-border/40 hover:bg-muted/30 transition-colors"
+                                      style={{ background: i % 2 === 0 ? '#fff' : '#F8FAFC' }}>
+                                      <td className="px-4 py-2.5 font-semibold text-foreground text-xs">
+                                        {d.date.split("-").reverse().join("/")}
+                                      </td>
+                                      <td className="px-3 py-2.5 text-center text-sm text-muted-foreground">
+                                        {d.t1 > 0 ? d.t1.toLocaleString("pt-BR") : "—"}
+                                      </td>
+                                      <td className="px-3 py-2.5 text-center text-sm text-muted-foreground">
+                                        {d.t2 > 0 ? d.t2.toLocaleString("pt-BR") : "—"}
+                                      </td>
+                                      <td className="px-3 py-2.5 text-center text-sm text-muted-foreground">
+                                        {d.t3 > 0 ? d.t3.toLocaleString("pt-BR") : "—"}
+                                      </td>
+                                      <td className="px-4 py-2.5 text-right font-bold text-foreground">
+                                        {d.total.toLocaleString("pt-BR")}
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </motion.div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {dashSubTab === "turnos" && (
+                  <div className="space-y-4">
+                    {loading ? <TurnosSkeleton /> : (
+                    <>
+                    {/* Comparativo por Turno table */}
+                    <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden" style={{ borderRadius: 12 }}>
+                      <div className="px-4 py-2.5" style={{ background: '#003366' }}>
+                        <span className="text-xs font-bold text-white uppercase tracking-wider">Comparativo por Turno</span>
+                      </div>
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b border-border" style={{ background: '#F8FAFC' }}>
+                            <th className="text-left px-4 py-2 text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Máquina</th>
+                            <th className="text-center px-3 py-2 text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Turno 1</th>
+                            <th className="text-center px-3 py-2 text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Turno 2</th>
+                            <th className="text-center px-3 py-2 text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Turno 3</th>
+                            <th className="text-right px-3 py-2 text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Total</th>
+                            <th className="text-center px-4 py-2 text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Melhor</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {machineAgg.map((m) => {
+                            const mRecords = records.filter(r => r.machineId === m.id);
+                            const t1 = mRecords.filter(r => r.turno === "TURNO 1").reduce((s, r) => s + r.producao, 0);
+                            const t2 = mRecords.filter(r => r.turno === "TURNO 2").reduce((s, r) => s + r.producao, 0);
+                            const t3 = mRecords.filter(r => r.turno === "TURNO 3").reduce((s, r) => s + r.producao, 0);
+                            const total = t1 + t2 + t3;
+                            const best = t1 >= t2 && t1 >= t3 ? "TURNO 1" : t2 >= t1 && t2 >= t3 ? "TURNO 2" : "TURNO 3";
+                            const t1Pct = total > 0 ? Math.round(t1 / total * 100) : 0;
+                            const t2Pct = total > 0 ? Math.round(t2 / total * 100) : 0;
+                            const t3Pct = total > 0 ? Math.round(t3 / total * 100) : 0;
+                            if (total === 0) return null;
+                            return (
+                              <tr key={m.id} className="border-b border-border/40 hover:bg-muted/30 transition-colors">
+                                <td className="px-4 py-3 font-semibold text-foreground text-xs">{m.name}</td>
+                                <td className="px-3 py-3 text-center">
+                                  {t1 > 0 ? <><span className="font-bold">{t1.toLocaleString("pt-BR")}</span><br/><span className="text-[10px] text-muted-foreground">{t1Pct}%</span></> : <span className="text-muted-foreground">—</span>}
+                                </td>
+                                <td className="px-3 py-3 text-center">
+                                  {t2 > 0 ? <><span className="font-bold">{t2.toLocaleString("pt-BR")}</span><br/><span className="text-[10px] text-muted-foreground">{t2Pct}%</span></> : <span className="text-muted-foreground">—</span>}
+                                </td>
+                                <td className="px-3 py-3 text-center">
+                                  {t3 > 0 ? <><span className="font-bold">{t3.toLocaleString("pt-BR")}</span><br/><span className="text-[10px] text-muted-foreground">{t3Pct}%</span></> : <span className="text-muted-foreground">—</span>}
+                                </td>
+                                <td className="px-3 py-3 text-right font-bold text-foreground">{total.toLocaleString("pt-BR")}</td>
+                                <td className="px-4 py-3 text-center">
+                                  <span className="text-[10px] font-bold px-2.5 py-1 rounded-full inline-block" style={{ color: '#0066B3', backgroundColor: '#0066B315', borderRadius: 20 }}>
+                                    {best}
+                                  </span>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                    </>
+                    )}
+                  </div>
+                )}
+
+                {dashSubTab === "graficos" && (
+                  <>
+                    {loading ? <ChartsSkeleton isMobile={isMobile} /> : (
+                      <div className={isMobile ? "space-y-3" : "grid grid-cols-1 lg:grid-cols-2 gap-4"}>
+                        <ChartCard title="Produção vs Meta por Máquina" subtitle="Comparativo entre produção real e meta estabelecida"
+                          option={barOption} height={isMobile ? Math.max(280, barData.length * 48) : 400}
+                          onExpand={() => setFullscreenChart("bar")} />
+                        <ChartCard title="Distribuição por Turno" subtitle="Percentual de produção em cada turno"
+                          option={pieOption} height={isMobile ? 280 : 400}
+                          onExpand={() => setFullscreenChart("pie")} />
+                        <ChartCard title="Tendência de Produção" subtitle="Evolução diária da produção no período"
+                          option={areaOption} height={isMobile ? 280 : 300}
+                          onExpand={() => setFullscreenChart("area")} />
+                        <ChartCard title="Ranking de Performance" subtitle="Máquinas ordenadas por % da meta"
+                          option={hbarOption} height={isMobile ? Math.max(260, hbarData.length * 38) : 300}
+                          onExpand={() => setFullscreenChart("hbar")} />
+                      </div>
+                    )}
+                  </>
+                )}
+
+                {dashSubTab === "analytics" && (
+                  <div className="bg-card rounded-xl border border-border shadow-sm p-6 text-center" style={{ borderRadius: 12 }}>
+                    <Activity size={40} className="mx-auto text-muted-foreground mb-3" />
+                    <h3 className="text-sm font-bold text-foreground mb-1">Analytics Avançado</h3>
+                    <p className="text-xs text-muted-foreground">Módulo de analytics em desenvolvimento. Em breve disponível.</p>
+                  </div>
+                )}
+                  </motion.div>
+                </AnimatePresence>
+
+                {/* Fullscreen charts */}
+                <ChartFullscreen open={fullscreenChart === "bar"} onClose={() => setFullscreenChart(null)} title="Produção vs Meta" option={getBarChartOption(barData, false)} />
+                <ChartFullscreen open={fullscreenChart === "hbar"} onClose={() => setFullscreenChart(null)} title="% Atingimento" option={getHorizontalBarOption(hbarData, false)} />
+                <ChartFullscreen open={fullscreenChart === "area"} onClose={() => setFullscreenChart(null)} title="Tendência Diária" option={getAreaChartOption(dayAgg, false)} />
+                <ChartFullscreen open={fullscreenChart === "pie"} onClose={() => setFullscreenChart(null)} title="Distribuição por Turno" option={getPieChartOption(turnoAgg, false)} />
+              </div>
+            )}
+
+            {/* ── HISTÓRICO ── */}
+            {activeTab === "history" && (loading ? <HistorySkeleton /> : <ReportsTab />)}
+
+            {/* ── METAS ── */}
+            {activeTab === "metas" && (loading ? <MetasSkeleton /> : <MetasTab />)}
+
+            {/* ── FEEDBACKS ── */}
+            {activeTab === "feedbacks" && (loading ? <FeedbacksSkeleton /> : <FeedbacksTab />)}
+          </motion.div>
+        </AnimatePresence>
+      </main>
+
+      {isMobile && <BottomNav activeTab={activeTab} onTabChange={setActiveTab} />}
+      {showAdmin && <AdminPanel onClose={() => setShowAdmin(false)} />}
+    </div>
+  );
+};
+
+/* Skeleton loaders */
+const SkeletonBox = ({ className = "" }: { className?: string }) => (
+  <div className={`animate-pulse rounded-xl bg-muted ${className}`} />
+);
+
+const OverviewSkeleton = ({ isMobile }: { isMobile: boolean }) => (
+  <div className={`grid ${isMobile ? "grid-cols-1" : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"} gap-3`}>
+    {Array.from({ length: 8 }).map((_, i) => (
+      <div key={i} className="bg-card rounded-xl p-4 border border-border" style={{ borderRadius: 12 }}>
+        <div className="flex items-start justify-between mb-3">
+          <SkeletonBox className="h-4 w-28 rounded-md" />
+          <SkeletonBox className="h-5 w-12 rounded-full" />
+        </div>
+        <SkeletonBox className="h-2 w-full rounded-full mb-3" />
+        <div className="flex justify-between">
+          <SkeletonBox className="h-3 w-16 rounded-md" />
+          <SkeletonBox className="h-3 w-16 rounded-md" />
+        </div>
+      </div>
+    ))}
+  </div>
+);
+
+const ChartsSkeleton = ({ isMobile }: { isMobile: boolean }) => (
+  <div className={`${isMobile ? "space-y-3" : "grid grid-cols-1 lg:grid-cols-2 gap-4"}`}>
+    {Array.from({ length: 4 }).map((_, i) => (
+      <div key={i} className={`bg-card rounded-xl border border-border p-4 ${!isMobile && i === 0 ? "lg:col-span-2" : ""}`} style={{ borderRadius: 12 }}>
+        <SkeletonBox className="h-4 w-40 rounded-md mb-4" />
+        <SkeletonBox className={`w-full rounded-lg ${isMobile ? "h-[260px]" : i === 0 ? "h-[380px]" : "h-[280px]"}`} />
+      </div>
+    ))}
+  </div>
+);
+
+const DetailsSkeleton = ({ isMobile }: { isMobile: boolean }) => (
+  <div className="space-y-2">
+    {isMobile ? (
+      <>
+        <SkeletonBox className="h-24 w-full rounded-2xl" />
+        {Array.from({ length: 5 }).map((_, i) => <SkeletonBox key={i} className="h-20 w-full rounded-xl" />)}
+      </>
+    ) : (
+      <div className="bg-card rounded-xl border border-border overflow-hidden" style={{ borderRadius: 12 }}>
+        <SkeletonBox className="h-10 w-full rounded-none" />
+        {Array.from({ length: 6 }).map((_, i) => <SkeletonBox key={i} className="h-12 w-full rounded-none" />)}
+      </div>
+    )}
+  </div>
+);
+
+const TurnosSkeleton = () => (
+  <div className="bg-card rounded-xl border border-border overflow-hidden" style={{ borderRadius: 12 }}>
+    <SkeletonBox className="h-10 w-full rounded-none" />
+    <div className="p-1">
+      <div className="grid grid-cols-6 gap-2 p-3">
+        {Array.from({ length: 6 }).map((_, i) => <SkeletonBox key={i} className="h-4 rounded-md" />)}
+      </div>
+      {Array.from({ length: 6 }).map((_, i) => (
+        <div key={i} className="grid grid-cols-6 gap-2 px-3 py-2">
+          {Array.from({ length: 6 }).map((_, j) => <SkeletonBox key={j} className="h-5 rounded-md" />)}
+        </div>
+      ))}
+    </div>
+  </div>
+);
+
+const MetasSkeleton = () => (
+  <div className="space-y-6">
+    <div className="bg-card rounded-xl border border-border p-5" style={{ borderRadius: 12 }}>
+      <SkeletonBox className="h-3 w-48 rounded-md mb-4" />
+      <div className="grid grid-cols-3 gap-4">
+        {Array.from({ length: 3 }).map((_, i) => <SkeletonBox key={i} className="h-20 rounded-lg" />)}
+      </div>
+    </div>
+    <div className="bg-card rounded-xl border border-border overflow-hidden" style={{ borderRadius: 12 }}>
+      <SkeletonBox className="h-10 w-full rounded-none" />
+      {Array.from({ length: 6 }).map((_, i) => <SkeletonBox key={i} className="h-12 w-full rounded-none" />)}
+    </div>
+  </div>
+);
+
+const FeedbacksSkeleton = () => (
+  <div className="space-y-5">
+    <div className="bg-card rounded-xl border border-border p-5" style={{ borderRadius: 12 }}>
+      <div className="flex flex-wrap gap-4">
+        {Array.from({ length: 3 }).map((_, i) => <SkeletonBox key={i} className="h-10 w-36 rounded-md" />)}
+      </div>
+    </div>
+    <div className="grid grid-cols-3 gap-4">
+      {Array.from({ length: 3 }).map((_, i) => <SkeletonBox key={i} className="h-40 rounded-xl" />)}
+    </div>
+  </div>
+);
+
+const HistorySkeleton = () => (
+  <div className="space-y-4">
+    <div className="flex gap-2">
+      {Array.from({ length: 2 }).map((_, i) => <SkeletonBox key={i} className="h-9 w-24 rounded-full" />)}
+    </div>
+    <div className="bg-card rounded-xl border border-border p-4" style={{ borderRadius: 12 }}>
+      <SkeletonBox className="h-8 w-full rounded-md mb-3" />
+      <div className="grid grid-cols-7 gap-2">
+        {Array.from({ length: 35 }).map((_, i) => <SkeletonBox key={i} className="h-16 rounded-lg" />)}
+      </div>
+    </div>
+  </div>
+);
+
+export default DashboardPage;
