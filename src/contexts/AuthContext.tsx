@@ -7,10 +7,17 @@ import {
   api, MACHINES_DEFAULT, today,
 } from "@/lib/api";
 
+export interface MetaInfo {
+  updatedBy: string;
+  updatedAt: string;
+  vigenciaInicio: string;
+}
+
 interface AuthContextType {
   user: Session | null;
   machines: Machine[];
   metas: Record<number, number>;
+  metasInfo: Record<number, MetaInfo>;
   records: ProdRecord[];
   loading: boolean;
   login: (nome: string, senha: string) => Promise<void>;
@@ -18,6 +25,7 @@ interface AuthContextType {
   logout: () => void;
   refreshData: () => Promise<void>;
   refreshMachines: () => Promise<void>;
+  refreshMetas: () => Promise<void>;
   setRecords: React.Dispatch<React.SetStateAction<ProdRecord[]>>;
 }
 
@@ -33,6 +41,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     MACHINES_DEFAULT.forEach(mac => { m[mac.id] = mac.defaultMeta; });
     return m;
   });
+  const [metasInfo, setMetasInfo] = useState<Record<number, MetaInfo>>({});
   const [records, setRecords] = useState<ProdRecord[]>(loadCachedRecords);
   const [loading, setLoading] = useState(false);
 
@@ -42,11 +51,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const r = await api("getMachines", {}, user);
       const list = (r.machines || r.allMachines || MACHINES_DEFAULT) as Machine[];
       setMachines(list.filter(m => m.status !== "inativo"));
-      // Update metas from defaultMeta on each machine
-      const newMetas: Record<number, number> = {};
-      list.forEach(m => { newMetas[m.id] = m.defaultMeta; });
-      setMetas(newMetas);
-      saveCachedMetas(newMetas);
+    } catch {}
+  }, [user]);
+
+  const refreshMetas = useCallback(async () => {
+    if (!user) return;
+    try {
+      const r = await api("getMetas", {}, user);
+      if (r.metas) {
+        const newMetas = r.metas as Record<number, number>;
+        setMetas(newMetas);
+        saveCachedMetas(newMetas);
+      }
+      if (r.metasInfo) setMetasInfo(r.metasInfo as Record<number, MetaInfo>);
     } catch {}
   }, [user]);
 
@@ -66,9 +83,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (user) {
       refreshMachines();
+      refreshMetas();
       refreshData();
     }
-  }, [user, refreshMachines, refreshData]);
+  }, [user, refreshMachines, refreshMetas, refreshData]);
 
   // Polling: refresh data every 15 seconds
   useEffect(() => {
@@ -110,7 +128,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, machines, metas, records, loading, login, register, logout, refreshData, refreshMachines, setRecords }}>
+    <AuthContext.Provider value={{ user, machines, metas, metasInfo, records, loading, login, register, logout, refreshData, refreshMachines, refreshMetas, setRecords }}>
       {children}
     </AuthContext.Provider>
   );

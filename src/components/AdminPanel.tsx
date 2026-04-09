@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { X, Users, Factory, KeyRound } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { api, pctColor } from "@/lib/api";
@@ -34,8 +34,8 @@ const AdminPanel = ({ onClose }: AdminPanelProps) => {
   const [inviteCode, setInviteCode] = useState("");
   const [inviteLoading, setInviteLoading] = useState(false);
 
-  useState(() => {
-    api("listUsers", { token: user?.token }, user)
+  useEffect(() => {
+    api("listUsers", {}, user)
       .then(r => setUsers(r.users || []))
       .catch(() => {})
       .finally(() => setLoading(false));
@@ -43,7 +43,8 @@ const AdminPanel = ({ onClose }: AdminPanelProps) => {
       .then(r => setAllMachines(r.allMachines || r.machines || []))
       .catch(() => {})
       .finally(() => setMachLoading(false));
-  });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function toggleUser(nome: string) {
     try {
