@@ -20,6 +20,8 @@ interface AuthContextType {
   metasInfo: Record<number, MetaInfo>;
   records: ProdRecord[];
   loading: boolean;
+  turnosAtivos: number;
+  setTurnosAtivos: (n: number) => void;
   login: (nome: string, senha: string) => Promise<void>;
   register: (nome: string, senha: string, inviteCode: string) => Promise<void>;
   logout: () => void;
@@ -57,6 +59,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Pre-populate from cache — shown instantly while fresh data loads in background
   const [records, setRecords] = useState<ProdRecord[]>(() => normalizeRecords(loadCachedRecords()));
   const [loading, setLoading] = useState(false);
+  const [turnosAtivos, setTurnosAtivosState] = useState<number>(() => {
+    const v = localStorage.getItem("turnosAtivos");
+    return v ? Number(v) : 2;
+  });
+  const setTurnosAtivos = (n: number) => {
+    setTurnosAtivosState(n);
+    localStorage.setItem("turnosAtivos", String(n));
+  };
 
   // ── Fetch helpers ─────────────────────────────────────────────
 
@@ -165,6 +175,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   return (
     <AuthContext.Provider value={{
       user, machines, metas, metasInfo, records, loading,
+      turnosAtivos, setTurnosAtivos,
       login, register, logout,
       refreshData, refreshMachines, refreshMetas,
       setRecords,

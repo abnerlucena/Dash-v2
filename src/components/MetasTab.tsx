@@ -6,13 +6,8 @@ import { toast } from "sonner";
 
 const DIAS_UTEIS_MES = 22;
 
-interface MetasTabProps {
-  turnosAtivos: number;
-  setTurnosAtivos: (n: number) => void;
-}
-
-const MetasTab = ({ turnosAtivos, setTurnosAtivos }: MetasTabProps) => {
-  const { user, machines, metas, metasInfo, refreshMetas } = useAuth();
+const MetasTab = () => {
+  const { user, machines, metas, metasInfo, refreshMetas, turnosAtivos, setTurnosAtivos } = useAuth();
   const isMobile = useIsMobile();
   const [editing, setEditing] = useState(false);
   const [editValues, setEditValues] = useState<Record<number, string>>({});

@@ -24,7 +24,7 @@ import FeedbacksTab from "@/components/FeedbacksTab";
 type DashboardSubTab = "resumo" | "detalhado" | "turnos" | "graficos" | "analytics";
 
 const DashboardPage = () => {
-  const { user, machines, metas, records, loading } = useAuth();
+  const { user, machines, metas, records, loading, turnosAtivos, setTurnosAtivos } = useAuth();
   const isMobile = useIsMobile();
   const [activeTab, setActiveTab] = useState<TabId>("dashboard");
   const [dashSubTab, setDashSubTab] = useState<DashboardSubTab>("resumo");
@@ -32,16 +32,6 @@ const DashboardPage = () => {
   const [selectedMachine, setSelectedMachine] = useState("TODAS");
   const [fullscreenChart, setFullscreenChart] = useState<string | null>(null);
   const [showAdmin, setShowAdmin] = useState(false);
-
-  // Turnos ativos — compartilhado com MetasTab, persistido no localStorage
-  const [turnosAtivos, setTurnosAtivosState] = useState<number>(() => {
-    const v = localStorage.getItem("turnosAtivos");
-    return v ? Number(v) : 2;
-  });
-  const setTurnosAtivos = (n: number) => {
-    setTurnosAtivosState(n);
-    localStorage.setItem("turnosAtivos", String(n));
-  };
 
   // Date range — default to last 30 days
   const [dateFrom, setDateFrom] = useState(() => {
@@ -487,7 +477,7 @@ const DashboardPage = () => {
             {activeTab === "history" && (loading ? <HistorySkeleton /> : <ReportsTab />)}
 
             {/* ── METAS ── */}
-            {activeTab === "metas" && (loading ? <MetasSkeleton /> : <MetasTab turnosAtivos={turnosAtivos} setTurnosAtivos={setTurnosAtivos} />)}
+            {activeTab === "metas" && (loading ? <MetasSkeleton /> : <MetasTab />)}
 
             {/* ── FEEDBACKS ── */}
             {activeTab === "feedbacks" && (loading ? <FeedbacksSkeleton /> : <FeedbacksTab />)}
