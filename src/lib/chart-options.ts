@@ -69,6 +69,13 @@ export function getAreaChartOption(data: AreaData[], mobile: boolean): EChartsOp
         smooth: true, symbol: mobile ? 'none' : 'circle', symbolSize: 6,
         lineStyle: { color: C.blue, width: mobile ? 2 : 3 }, itemStyle: { color: C.blue },
         areaStyle: { color: { type: 'linear', x: 0, y: 0, x2: 0, y2: 1, colorStops: [{ offset: 0, color: C.blue + '44' }, { offset: 1, color: C.blue + '00' }] } },
+        markLine: {
+          silent: true,
+          symbol: 'none',
+          data: [{ yAxis: 60000 }],
+          lineStyle: { color: C.red, type: 'dashed', width: 2 },
+          label: { formatter: '60K', color: C.red, fontSize: fs, fontWeight: 'bold', position: 'end' },
+        },
       },
       {
         name: 'Meta', type: 'line', data: data.map(d => Math.round(d.meta)),
@@ -99,17 +106,29 @@ export function getPieChartOption(data: PieData[], mobile: boolean): EChartsOpti
 
 export function getHorizontalBarOption(data: HBarData[], mobile: boolean): EChartsOption {
   const fs = mobile ? 10 : 11;
-  const colors = data.map(d => d.pct >= 100 ? C.green : d.pct >= 80 ? C.yellow : C.red);
+  // data is expected pre-sorted ascending by pct (best appears at top in ECharts y-axis)
   return {
     animation: true, animationDuration: 750,
-    tooltip: { ...tooltipBase, trigger: 'axis', axisPointer: { type: 'shadow' } },
-    grid: { top: 10, right: mobile ? 45 : 60, bottom: 10, left: 10, containLabel: true },
+    tooltip: {
+      ...tooltipBase, trigger: 'axis', axisPointer: { type: 'shadow' },
+      formatter: (params: any) => {
+        const d = params[0];
+        return `<strong>${d.name}</strong><br/>${d.value}% da meta`;
+      },
+    },
+    grid: { top: 10, right: mobile ? 50 : 65, bottom: 10, left: 10, containLabel: true },
     xAxis: { type: 'value', axisLabel: { formatter: '{value}%', fontSize: fs }, max: (v: any) => Math.max(v.max * 1.1, 110) },
     yAxis: { type: 'category', data: data.map(d => d.name), axisLabel: { fontSize: fs, width: mobile ? 70 : 130, overflow: 'truncate' } },
     series: [{
       type: 'bar', barMaxWidth: mobile ? 18 : 30,
-      data: data.map((d, i) => ({ value: d.pct, itemStyle: { color: colors[i], borderRadius: [0, 4, 4, 0] } })),
-      label: { show: true, position: 'right', formatter: '{c}%', fontSize: fs, color: '#2D3E4E' },
+      data: data.map(d => ({
+        value: d.pct,
+        itemStyle: {
+          color: d.pct >= 100 ? C.green : d.pct >= 80 ? C.yellow : C.red,
+          borderRadius: [0, 4, 4, 0],
+        },
+      })),
+      label: { show: true, position: 'right', formatter: (p: any) => `${p.value}%`, fontSize: fs, color: '#2D3E4E', fontWeight: 'bold' },
     }],
   };
 }

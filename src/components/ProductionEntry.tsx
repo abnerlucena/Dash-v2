@@ -90,9 +90,10 @@ const ProductionEntry = () => {
             <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1 block">Data</label>
             <div className="relative">
               <input ref={dateInputRef} type="date" value={selectedDate} onChange={e => setSelectedDate(e.target.value)}
-                className="absolute inset-0 opacity-0 w-full h-full cursor-pointer z-10" />
+                className="sr-only" />
               <div className="w-full px-3 py-2.5 rounded-md border border-border bg-card text-sm font-semibold text-foreground flex items-center justify-between cursor-pointer"
-                style={{ borderRadius: 6 }}>
+                style={{ borderRadius: 6 }}
+                onClick={() => (dateInputRef.current as any)?.showPicker?.()}>
                 <span>{format(parseISO(selectedDate), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}</span>
                 <CalendarDays size={16} className="text-muted-foreground" />
               </div>

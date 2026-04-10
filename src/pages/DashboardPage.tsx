@@ -101,8 +101,37 @@ const DashboardPage = () => {
     return Math.round(Math.min(actual / possible, 1) * 100);
   }, [filteredRecords, machines, selectedTurno]);
 
+  // Tendência: compara produção do período atual vs período anterior de mesmo tamanho.
+  // Só calculada quando o intervalo selecionado tem mais de 30 dias.
+  const tendency = useMemo((): number | null => {
+    if (!dateFrom || !dateTo) return null;
+    const fromD = new Date(dateFrom + "T00:00:00");
+    const toD   = new Date(dateTo   + "T00:00:00");
+    const spanMs = toD.getTime() - fromD.getTime();
+    const spanDays = Math.round(spanMs / 86_400_000);
+    if (spanDays < 30) return null;
+
+    const prevToD   = new Date(fromD.getTime() - 86_400_000);          // dia anterior ao início atual
+    const prevFromD = new Date(prevToD.getTime() - spanMs);             // mesmo intervalo para trás
+    const prevFrom  = fmt(prevFromD);
+    const prevTo    = fmt(prevToD);
+
+    const prevRecords = records.filter(r => {
+      if (r.date < prevFrom || r.date > prevTo) return false;
+      if (selectedTurno   !== "TODOS"  && r.turno       !== selectedTurno)   return false;
+      if (selectedMachine !== "TODAS"  && r.machineName !== selectedMachine) return false;
+      return true;
+    });
+
+    const currTotal = filteredRecords.reduce((s, r) => s + r.producao, 0);
+    const prevTotal = prevRecords.reduce((s, r) => s + r.producao, 0);
+    if (prevTotal === 0) return null;
+    return Math.round((currTotal - prevTotal) / prevTotal * 100);
+  }, [dateFrom, dateTo, filteredRecords, records, selectedTurno, selectedMachine]);
+
   const barData = machineAgg.filter(m => m.totalMeta > 0 || m.totalProd > 0).map(m => ({ name: m.name, meta: m.totalMeta, producao: m.totalProd }));
-  const hbarData = machineAgg.filter(m => m.totalMeta > 0).map(m => ({ name: m.name, pct: m.pct }));
+  // Sort ascending so best pct appears at top of horizontal bar chart (ECharts renders y-axis bottom→top)
+  const hbarData = machineAgg.filter(m => m.totalMeta > 0).map(m => ({ name: m.name, pct: m.pct })).sort((a, b) => a.pct - b.pct);
 
   const barOption = getBarChartOption(barData, isMobile);
   const areaOption = getAreaChartOption(dayAgg, isMobile);
@@ -238,7 +267,7 @@ const DashboardPage = () => {
                 </div>
 
                 {/* KPI Cards */}
-                <KPICards totalProd={totalProd} totalMeta={totalMeta} pctGeral={pctGeral} recordCount={filteredRecords.length} machineCount={machines.length} appointmentRate={appointmentRate} tendency={null} loading={loading} />
+                <KPICards totalProd={totalProd} totalMeta={totalMeta} pctGeral={pctGeral} recordCount={filteredRecords.length} machineCount={machines.length} appointmentRate={appointmentRate} tendency={tendency} loading={loading} />
 
                 {/* Sub-tab content with animations */}
                 <AnimatePresence mode="wait">
@@ -256,25 +285,31 @@ const DashboardPage = () => {
                       <div className="bg-card rounded-xl border border-border shadow-sm p-4" style={{ borderRadius: 12 }}>
                         <h3 className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: "#22C55E" }}>Top 3 Melhores</h3>
                         <div className="space-y-2">
-                          {top3.map((m, i) => (
-                            <div key={m.id} className="flex items-center gap-3">
-                              <span className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white" style={{ backgroundColor: "#0066B3" }}>{i + 1}</span>
-                              <span className="flex-1 text-sm font-medium text-foreground">{m.name}</span>
-                              <span className="text-sm font-extrabold px-2.5 py-0.5 rounded-full" style={{ color: pctColor(m.pct), backgroundColor: `${pctColor(m.pct)}15`, borderRadius: 20 }}>{m.pct}%</span>
-                            </div>
-                          ))}
+                          {top3.map((m, i) => {
+                            const badgeColors = ["#22C55E", "#16A34A", "#15803D"];
+                            return (
+                              <div key={m.id} className="flex items-center gap-3">
+                                <span className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white" style={{ backgroundColor: badgeColors[i] }}>{i + 1}</span>
+                                <span className="flex-1 text-sm font-medium text-foreground">{m.name}</span>
+                                <span className="text-sm font-extrabold px-2.5 py-0.5 rounded-full" style={{ color: pctColor(m.pct), backgroundColor: `${pctColor(m.pct)}15`, borderRadius: 20 }}>{m.pct}%</span>
+                              </div>
+                            );
+                          })}
                         </div>
                       </div>
                       <div className="bg-card rounded-xl border border-border shadow-sm p-4" style={{ borderRadius: 12 }}>
                         <h3 className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: "#EF4444" }}>3 Que Mais Precisam de Atenção</h3>
                         <div className="space-y-2">
-                          {bottom3.map((m, i) => (
-                            <div key={m.id} className="flex items-center gap-3">
-                              <span className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white" style={{ backgroundColor: "#F59E0B" }}>{i + 1}</span>
-                              <span className="flex-1 text-sm font-medium text-foreground">{m.name}</span>
-                              <span className="text-sm font-extrabold px-2.5 py-0.5 rounded-full" style={{ color: pctColor(m.pct), backgroundColor: `${pctColor(m.pct)}15`, borderRadius: 20 }}>{m.pct}%</span>
-                            </div>
-                          ))}
+                          {bottom3.map((m, i) => {
+                            const badgeColors = ["#EF4444", "#F97316", "#F59E0B"];
+                            return (
+                              <div key={m.id} className="flex items-center gap-3">
+                                <span className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white" style={{ backgroundColor: badgeColors[i] }}>{i + 1}</span>
+                                <span className="flex-1 text-sm font-medium text-foreground">{m.name}</span>
+                                <span className="text-sm font-extrabold px-2.5 py-0.5 rounded-full" style={{ color: pctColor(m.pct), backgroundColor: `${pctColor(m.pct)}15`, borderRadius: 20 }}>{m.pct}%</span>
+                              </div>
+                            );
+                          })}
                         </div>
                       </div>
                     </div>
