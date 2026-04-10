@@ -59,7 +59,10 @@ export function getAreaChartOption(data: AreaData[], mobile: boolean): EChartsOp
   return {
     animation: true, animationDuration: 750,
     tooltip: { ...tooltipBase, trigger: 'axis' },
-    legend: { data: ['Produção Real', 'Meta'], top: 0, textStyle: { fontSize: fs } },
+    legend: {
+      data: ['Produção Real', 'Meta Global', 'Meta Diária'],
+      top: 0, textStyle: { fontSize: fs },
+    },
     grid: { top: 40, right: 20, bottom: 40, left: mobile ? 50 : 65 },
     xAxis: { type: 'category', data: data.map(d => d.date), axisLabel: { fontSize: fs } },
     yAxis: { type: 'value', axisLabel: { fontSize: fs, formatter: (v: number) => v >= 1000 ? (v / 1000).toFixed(0) + 'k' : String(v) } },
@@ -69,18 +72,18 @@ export function getAreaChartOption(data: AreaData[], mobile: boolean): EChartsOp
         smooth: true, symbol: mobile ? 'none' : 'circle', symbolSize: 6,
         lineStyle: { color: C.blue, width: mobile ? 2 : 3 }, itemStyle: { color: C.blue },
         areaStyle: { color: { type: 'linear', x: 0, y: 0, x2: 0, y2: 1, colorStops: [{ offset: 0, color: C.blue + '44' }, { offset: 1, color: C.blue + '00' }] } },
-        markLine: {
-          silent: true,
-          symbol: 'none',
-          data: [{ yAxis: 60000 }],
-          lineStyle: { color: C.red, type: 'dashed', width: 2 },
-          label: { formatter: '60K', color: C.red, fontSize: fs, fontWeight: 'bold', position: 'end' },
-        },
       },
       {
-        name: 'Meta', type: 'line', data: data.map(d => Math.round(d.meta)),
-        smooth: true, lineStyle: { color: C.navy, width: 2, type: 'dashed' },
+        // Calculated meta: sum of all machine metas × turnos ativos
+        name: 'Meta Global', type: 'line', data: data.map(d => Math.round(d.meta)),
+        smooth: false, lineStyle: { color: C.navy, width: 2, type: 'dashed' },
         itemStyle: { color: C.navy }, symbol: 'none',
+      },
+      {
+        // Fixed daily reference line
+        name: 'Meta Diária', type: 'line', data: data.map(() => 60000),
+        lineStyle: { color: C.red, width: 2, type: 'dashed' },
+        itemStyle: { color: C.red }, symbol: 'none',
       },
     ],
   };

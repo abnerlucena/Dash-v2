@@ -6,25 +6,49 @@ interface KPICardsProps {
   totalMeta: number;
   pctGeral: number;
   recordCount: number;
-  machineCount?: number;
+  activeMachineCount?: number;
+  totalMachineCount?: number;
   consecutiveDays?: number;
   appointmentRate?: number;
   tendency?: number | null;
   loading?: boolean;
 }
 
-const KPICards = ({ totalProd, totalMeta, pctGeral, recordCount, machineCount = 6, consecutiveDays = 2, appointmentRate = 50, tendency = 26, loading }: KPICardsProps) => {
+const KPICards = ({
+  totalProd, totalMeta, pctGeral, recordCount,
+  activeMachineCount = 0, totalMachineCount = 0,
+  consecutiveDays = 0, appointmentRate = 0,
+  tendency = null, loading,
+}: KPICardsProps) => {
   const isMobile = useIsMobile();
 
+  const tendencyColor = tendency === null ? "#64748B" : tendency > 0 ? "#22C55E" : tendency < 0 ? "#EF4444" : "#F59E0B";
+
   const kpis = [
-    { label: "Produção Total", value: totalProd.toLocaleString("pt-BR"), sub: "peças", color: "#0066B3" },
-    { label: "Meta Total", value: totalMeta > 0 ? totalMeta.toLocaleString("pt-BR") : "—", sub: "peças", color: "#003366" },
-    { label: "OEE Global", value: `${pctGeral}%`, sub: "eficiência ponderada", color: "#0095A8" },
-    { label: "Tendência", value: tendency !== null ? `${tendency! > 0 ? '+' : ''}${tendency}%` : "—", sub: "vs mês anterior", color: "#22C55E", showArrow: tendency !== null && tendency! > 0 },
-    { label: "Tx. Apontamento", value: `${appointmentRate}%`, sub: "disciplina operac.", color: "#F59E0B" },
-    { label: "Dias Consecutivos", value: String(consecutiveDays), sub: pctGeral >= 90 ? "acima de 90%" : "abaixo de 90%", color: "#EF4444" },
-    { label: "Registros", value: recordCount.toLocaleString("pt-BR"), sub: "lançamentos", color: "#0066B3" },
-    { label: "Máquinas Ativas", value: String(machineCount), sub: `de ${machineCount}`, color: "#22C55E" },
+    { label: "Produção Total",   value: totalProd.toLocaleString("pt-BR"), sub: "peças no período", color: "#0066B3" },
+    { label: "Meta Total",       value: totalMeta > 0 ? totalMeta.toLocaleString("pt-BR") : "—", sub: "peças esperadas", color: "#003366" },
+    { label: "OEE Global",       value: `${pctGeral}%`, sub: "% atingimento da meta", color: "#0095A8" },
+    {
+      label: "Tendência",
+      value: tendency !== null ? `${tendency > 0 ? '+' : ''}${tendency}%` : "—",
+      sub: tendency !== null ? "vs período anterior" : "mín. 30 dias p/ calcular",
+      color: tendencyColor,
+      showArrow: tendency !== null && tendency > 0,
+    },
+    { label: "Tx. Apontamento",  value: `${appointmentRate}%`, sub: "disciplina operac.", color: "#F59E0B" },
+    {
+      label: "Dias Consecutivos",
+      value: String(consecutiveDays),
+      sub: consecutiveDays > 0 ? "dias ≥ 90% da meta" : "nenhum dia ≥ 90%",
+      color: consecutiveDays >= 5 ? "#22C55E" : consecutiveDays >= 2 ? "#F59E0B" : "#EF4444",
+    },
+    { label: "Registros",        value: recordCount.toLocaleString("pt-BR"), sub: "lançamentos no filtro", color: "#0066B3" },
+    {
+      label: "Máquinas Ativas",
+      value: String(activeMachineCount),
+      sub: totalMachineCount > 0 ? `de ${totalMachineCount} configuradas` : "no período",
+      color: activeMachineCount === totalMachineCount && totalMachineCount > 0 ? "#22C55E" : "#F59E0B",
+    },
   ];
 
   if (loading) {
@@ -48,7 +72,6 @@ const KPICards = ({ totalProd, totalMeta, pctGeral, recordCount, machineCount = 
           className="bg-card rounded-xl py-3 px-4 border border-border shadow-sm hover:shadow-md transition-shadow overflow-hidden relative"
           style={{ borderRadius: 12 }}
         >
-          {/* Colored left border */}
           <div className="absolute left-0 top-2 bottom-2 w-[3px] rounded-r-full" style={{ backgroundColor: kpi.color }} />
           <span className="text-[10px] font-bold uppercase tracking-wider block mb-1" style={{ color: '#475569' }}>
             {kpi.label}

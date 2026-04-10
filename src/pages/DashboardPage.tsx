@@ -49,6 +49,9 @@ const DashboardPage = () => {
     });
   }, [records, selectedTurno, selectedMachine, dateFrom, dateTo]);
 
+  // When a single turno is selected, meta multiplier = 1 (not turnosAtivos)
+  const turnoMultiplier = selectedTurno === "TODOS" ? turnosAtivos : 1;
+
   const machineAgg = useMemo(() => {
     const agg: Record<number, { totalProd: number; days: Set<string> }> = {};
     for (const r of filteredRecords) {
@@ -60,13 +63,13 @@ const DashboardPage = () => {
       const a = agg[m.id];
       const totalProd = a?.totalProd ?? 0;
       const dayCount  = a?.days.size ?? 0;
-      // Meta = meta/turno × turnos ativos × dias com apontamento
       const metaTurno = metas[m.id] ?? m.defaultMeta;
-      const totalMeta = metaTurno * turnosAtivos * dayCount;
+      // Meta = meta/turno × turnos aplicáveis × dias com apontamento
+      const totalMeta = metaTurno * turnoMultiplier * dayCount;
       const pct = totalMeta > 0 ? Math.round(totalProd / totalMeta * 100) : 0;
       return { id: m.id, name: m.name, totalProd, totalMeta, pct, days: dayCount };
     });
-  }, [filteredRecords, machines, metas, turnosAtivos]);
+  }, [filteredRecords, machines, metas, turnoMultiplier]);
 
   const dayAgg = useMemo(() => {
     const agg: Record<string, { totalProd: number }> = {};
@@ -74,18 +77,19 @@ const DashboardPage = () => {
       if (!agg[r.date]) agg[r.date] = { totalProd: 0 };
       agg[r.date].totalProd += r.producao;
     }
-    // Meta diária = soma das metas/turno de todas as máquinas × turnos ativos
-    const dailyMeta = machines.reduce((s, m) => s + (metas[m.id] ?? m.defaultMeta) * turnosAtivos, 0);
+    // Meta diária global = soma de todas as metas × turnos aplicáveis
+    const dailyMeta = machines.reduce((s, m) => s + (metas[m.id] ?? m.defaultMeta) * turnoMultiplier, 0);
     return Object.entries(agg)
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([date, d]) => ({ date: date.slice(5), producao: d.totalProd, meta: dailyMeta }));
-  }, [filteredRecords, machines, metas, turnosAtivos]);
+  }, [filteredRecords, machines, metas, turnoMultiplier]);
 
+  // Pie respects all active filters
   const turnoAgg = useMemo(() => {
     const agg: Record<string, number> = {};
-    for (const r of records) { agg[r.turno] = (agg[r.turno] ?? 0) + r.producao; }
+    for (const r of filteredRecords) { agg[r.turno] = (agg[r.turno] ?? 0) + r.producao; }
     return TURNOS.map(t => ({ name: t, value: agg[t] ?? 0 }));
-  }, [records]);
+  }, [filteredRecords]);
 
   const totalProd = machineAgg.reduce((s, m) => s + m.totalProd, 0);
   const totalMeta = machineAgg.reduce((s, m) => s + m.totalMeta, 0);
@@ -95,11 +99,32 @@ const DashboardPage = () => {
   const appointmentRate = useMemo(() => {
     const uniqueDates = new Set(filteredRecords.map(r => r.date));
     if (uniqueDates.size === 0 || machines.length === 0) return 0;
+    const machineCountForRate = selectedMachine !== "TODAS" ? 1 : machines.length;
     const turnoCount = selectedTurno === "TODOS" ? TURNOS.length : 1;
-    const possible = machines.length * uniqueDates.size * turnoCount;
+    const possible = machineCountForRate * uniqueDates.size * turnoCount;
     const actual = new Set(filteredRecords.map(r => `${r.machineId}_${r.date}_${r.turno}`)).size;
     return Math.round(Math.min(actual / possible, 1) * 100);
-  }, [filteredRecords, machines, selectedTurno]);
+  }, [filteredRecords, machines, selectedTurno, selectedMachine]);
+
+  // Dias consecutivos: sequência de dias mais recentes onde produção diária ≥ 90 % da meta
+  const consecutiveDays = useMemo(() => {
+    const dailyMeta = machines.reduce((s, m) => s + (metas[m.id] ?? m.defaultMeta) * turnoMultiplier, 0);
+    if (dailyMeta === 0) return 0;
+    const byDate: Record<string, number> = {};
+    for (const r of filteredRecords) { byDate[r.date] = (byDate[r.date] ?? 0) + r.producao; }
+    const sorted = Object.keys(byDate).sort((a, b) => b.localeCompare(a)); // newest first
+    let streak = 0;
+    for (const date of sorted) {
+      if (byDate[date] / dailyMeta >= 0.9) streak++;
+      else break;
+    }
+    return streak;
+  }, [filteredRecords, machines, metas, turnoMultiplier]);
+
+  // Máquinas ativas no período filtrado
+  const activeMachineCount = useMemo(() =>
+    new Set(filteredRecords.map(r => r.machineId)).size,
+  [filteredRecords]);
 
   // Tendência: compara produção do período atual vs período anterior de mesmo tamanho.
   // Só calculada quando o intervalo selecionado tem mais de 30 dias.
@@ -267,7 +292,7 @@ const DashboardPage = () => {
                 </div>
 
                 {/* KPI Cards */}
-                <KPICards totalProd={totalProd} totalMeta={totalMeta} pctGeral={pctGeral} recordCount={filteredRecords.length} machineCount={machines.length} appointmentRate={appointmentRate} tendency={tendency} loading={loading} />
+                <KPICards totalProd={totalProd} totalMeta={totalMeta} pctGeral={pctGeral} recordCount={filteredRecords.length} activeMachineCount={activeMachineCount} totalMachineCount={machines.length} appointmentRate={appointmentRate} consecutiveDays={consecutiveDays} tendency={tendency} loading={loading} />
 
                 {/* Sub-tab content with animations */}
                 <AnimatePresence mode="wait">
