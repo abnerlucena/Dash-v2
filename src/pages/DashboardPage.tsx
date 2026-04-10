@@ -33,6 +33,16 @@ const DashboardPage = () => {
   const [fullscreenChart, setFullscreenChart] = useState<string | null>(null);
   const [showAdmin, setShowAdmin] = useState(false);
 
+  // Turnos ativos — compartilhado com MetasTab, persistido no localStorage
+  const [turnosAtivos, setTurnosAtivosState] = useState<number>(() => {
+    const v = localStorage.getItem("turnosAtivos");
+    return v ? Number(v) : 2;
+  });
+  const setTurnosAtivos = (n: number) => {
+    setTurnosAtivosState(n);
+    localStorage.setItem("turnosAtivos", String(n));
+  };
+
   // Date range — default to last 30 days
   const [dateFrom, setDateFrom] = useState(() => {
     const d = new Date(); d.setDate(d.getDate() - 30); return fmt(d);
@@ -50,33 +60,36 @@ const DashboardPage = () => {
   }, [records, selectedTurno, selectedMachine, dateFrom, dateTo]);
 
   const machineAgg = useMemo(() => {
-    const agg: Record<number, { totalProd: number; totalMeta: number; days: Set<string> }> = {};
+    const agg: Record<number, { totalProd: number; days: Set<string> }> = {};
     for (const r of filteredRecords) {
-      if (!agg[r.machineId]) agg[r.machineId] = { totalProd: 0, totalMeta: 0, days: new Set() };
+      if (!agg[r.machineId]) agg[r.machineId] = { totalProd: 0, days: new Set() };
       agg[r.machineId].totalProd += r.producao;
-      agg[r.machineId].totalMeta += r.meta;
       agg[r.machineId].days.add(r.date);
     }
     return machines.map(m => {
       const a = agg[m.id];
       const totalProd = a?.totalProd ?? 0;
-      const totalMeta = a?.totalMeta ?? 0;
+      const dayCount  = a?.days.size ?? 0;
+      // Meta = meta/turno × turnos ativos × dias com apontamento
+      const metaTurno = metas[m.id] ?? m.defaultMeta;
+      const totalMeta = metaTurno * turnosAtivos * dayCount;
       const pct = totalMeta > 0 ? Math.round(totalProd / totalMeta * 100) : 0;
-      return { id: m.id, name: m.name, totalProd, totalMeta, pct, days: a?.days.size ?? 0 };
+      return { id: m.id, name: m.name, totalProd, totalMeta, pct, days: dayCount };
     });
-  }, [filteredRecords, machines]);
+  }, [filteredRecords, machines, metas, turnosAtivos]);
 
   const dayAgg = useMemo(() => {
-    const agg: Record<string, { totalProd: number; totalMeta: number }> = {};
+    const agg: Record<string, { totalProd: number }> = {};
     for (const r of filteredRecords) {
-      if (!agg[r.date]) agg[r.date] = { totalProd: 0, totalMeta: 0 };
+      if (!agg[r.date]) agg[r.date] = { totalProd: 0 };
       agg[r.date].totalProd += r.producao;
-      agg[r.date].totalMeta += r.meta;
     }
+    // Meta diária = soma das metas/turno de todas as máquinas × turnos ativos
+    const dailyMeta = machines.reduce((s, m) => s + (metas[m.id] ?? m.defaultMeta) * turnosAtivos, 0);
     return Object.entries(agg)
       .sort(([a], [b]) => a.localeCompare(b))
-      .map(([date, d]) => ({ date: date.slice(5), producao: d.totalProd, meta: d.totalMeta }));
-  }, [filteredRecords]);
+      .map(([date, d]) => ({ date: date.slice(5), producao: d.totalProd, meta: dailyMeta }));
+  }, [filteredRecords, machines, metas, turnosAtivos]);
 
   const turnoAgg = useMemo(() => {
     const agg: Record<string, number> = {};
@@ -474,7 +487,7 @@ const DashboardPage = () => {
             {activeTab === "history" && (loading ? <HistorySkeleton /> : <ReportsTab />)}
 
             {/* ── METAS ── */}
-            {activeTab === "metas" && (loading ? <MetasSkeleton /> : <MetasTab />)}
+            {activeTab === "metas" && (loading ? <MetasSkeleton /> : <MetasTab turnosAtivos={turnosAtivos} setTurnosAtivos={setTurnosAtivos} />)}
 
             {/* ── FEEDBACKS ── */}
             {activeTab === "feedbacks" && (loading ? <FeedbacksSkeleton /> : <FeedbacksTab />)}
