@@ -2,6 +2,8 @@ import { useState, useMemo } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { pctColor } from "@/lib/api";
+import { DatePickerInput } from "@/components/DatePickerInput";
+import { FilterSelect } from "@/components/FilterSelect";
 
 const FeedbacksTab = () => {
   const { records, machines } = useAuth();
@@ -33,46 +35,20 @@ const FeedbacksTab = () => {
   return (
     <div className="space-y-5">
       {/* Filtros */}
-      <div className="bg-card rounded-xl border border-border p-5 flex flex-wrap items-end gap-4" style={{ borderRadius: 12 }}>
-        <div>
-          <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block mb-1">De</label>
-          <input
-            type="date"
-            value={dateFrom}
-            onChange={e => setDateFrom(e.target.value)}
-            className="text-sm font-medium bg-background border border-border px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-primary/30"
-            style={{ borderRadius: 6 }}
-          />
-        </div>
-        <div>
-          <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block mb-1">Até</label>
-          <input
-            type="date"
-            value={dateTo}
-            onChange={e => setDateTo(e.target.value)}
-            className="text-sm font-medium bg-background border border-border px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-primary/30"
-            style={{ borderRadius: 6 }}
-          />
-        </div>
-        <div>
-          <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block mb-1">Máquina</label>
-          <select
-            value={machineFilter}
-            onChange={e => setMachineFilter(e.target.value)}
-            className="text-sm font-medium bg-background border border-border px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-primary/30"
-            style={{ borderRadius: 6 }}
-          >
-            <option value="TODAS">TODAS</option>
-            {machines.map(m => (
-              <option key={m.id} value={m.name}>{m.name}</option>
-            ))}
-          </select>
-        </div>
-        <div className="ml-auto">
-          <span
-            className="text-xs font-bold px-4 py-2 rounded-md border"
-            style={{ borderColor: "#0066B3", color: "#0066B3", borderRadius: 6 }}
-          >
+      <div className="bg-card rounded-xl border border-border p-4 flex flex-wrap items-end gap-3" style={{ borderRadius: 12 }}>
+        <DatePickerInput label="De" value={dateFrom} onChange={setDateFrom} max={dateTo || undefined} />
+        <DatePickerInput label="Até" value={dateTo} onChange={setDateTo} min={dateFrom || undefined} />
+        <FilterSelect
+          label="Máquina"
+          value={machineFilter}
+          onChange={setMachineFilter}
+          options={[
+            { value: "TODAS", label: "TODAS" },
+            ...machines.map(m => ({ value: m.name, label: m.name })),
+          ]}
+        />
+        <div className="ml-auto self-end">
+          <span className="text-xs font-bold px-4 py-2 rounded-md border" style={{ borderColor: "#0066B3", color: "#0066B3", borderRadius: 6 }}>
             {observations.length} {observations.length === 1 ? "observação" : "observações"}
           </span>
         </div>

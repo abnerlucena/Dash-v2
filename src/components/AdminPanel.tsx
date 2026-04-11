@@ -3,6 +3,7 @@ import { X, Users, Factory, KeyRound } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { api, pctColor } from "@/lib/api";
 import { toast } from "sonner";
+import { FilterSelect } from "@/components/FilterSelect";
 
 interface AdminPanelProps {
   onClose: () => void;
@@ -209,11 +210,15 @@ const AdminPanel = ({ onClose }: AdminPanelProps) => {
                 <p className="text-sm font-bold text-foreground mb-3">Redefinir Senha</p>
                 <div className="grid grid-cols-2 gap-3 mb-3">
                   <div>
-                    <label className="text-[10px] font-bold text-muted-foreground uppercase mb-1 block">Usuário</label>
-                    <select value={rTarget} onChange={e => setRTarget(e.target.value)} className={inputCls}>
-                      <option value="">Selecione...</option>
-                      {users.filter(u => u.nome !== user?.nome).map(u => <option key={u.nome}>{u.nome}</option>)}
-                    </select>
+                    <FilterSelect
+                      label="Usuário"
+                      value={rTarget}
+                      onChange={setRTarget}
+                      options={[
+                        { value: "", label: "Selecione..." },
+                        ...users.filter(u => u.nome !== user?.nome).map(u => ({ value: u.nome, label: u.nome })),
+                      ]}
+                    />
                   </div>
                   <div>
                     <label className="text-[10px] font-bold text-muted-foreground uppercase mb-1 block">Nova Senha</label>

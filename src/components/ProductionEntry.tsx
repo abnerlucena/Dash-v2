@@ -1,11 +1,10 @@
-import { useState, useMemo, useRef } from "react";
-import { Save, Check, MessageSquare, X, CalendarDays } from "lucide-react";
+import { useState, useMemo } from "react";
+import { Save, Check, MessageSquare, X } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { TURNOS, today, api, num, pctColor, cellKey } from "@/lib/api";
-import { format, parseISO } from "date-fns";
-import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
+import { DatePickerInput } from "@/components/DatePickerInput";
 
 interface EntryData { machineId: number; producao: string; obs: string; }
 
@@ -14,7 +13,6 @@ const ProductionEntry = () => {
   const { user, machines, metas, refreshData } = useAuth();
   const [selectedDate, setSelectedDate] = useState(today());
   const [selectedTurno, setSelectedTurno] = useState(TURNOS[0]);
-  const dateInputRef = useRef<HTMLInputElement>(null);
   const [entries, setEntries] = useState<Record<number, EntryData>>(() => {
     const init: Record<number, EntryData> = {};
     machines.forEach(m => { init[m.id] = { machineId: m.id, producao: "", obs: "" }; });
@@ -87,17 +85,13 @@ const ProductionEntry = () => {
       <div className="sticky top-[60px] z-30 bg-background/95 backdrop-blur-sm -mx-4 px-4 py-3 border-b border-border">
         <div className="flex flex-col gap-2">
           <div className="flex-1">
-            <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1 block">Data</label>
-            <div className="relative">
-              <input ref={dateInputRef} type="date" value={selectedDate} onChange={e => setSelectedDate(e.target.value)}
-                className="sr-only" />
-              <div className="w-full px-3 py-2.5 rounded-md border border-border bg-card text-sm font-semibold text-foreground flex items-center justify-between cursor-pointer"
-                style={{ borderRadius: 6 }}
-                onClick={() => (dateInputRef.current as any)?.showPicker?.()}>
-                <span>{format(parseISO(selectedDate), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}</span>
-                <CalendarDays size={16} className="text-muted-foreground" />
-              </div>
-            </div>
+            <DatePickerInput
+              label="Data"
+              value={selectedDate}
+              onChange={setSelectedDate}
+              displayFormat="dd 'de' MMMM 'de' yyyy"
+              className="w-full"
+            />
           </div>
           <div className="flex-1">
             <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1 block">Turno</label>

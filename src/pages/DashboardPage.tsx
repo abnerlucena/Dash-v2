@@ -20,6 +20,8 @@ import MachineCardMobile from "@/components/MachineCardMobile";
 import MobileDetailCards from "@/components/MobileDetailCards";
 import MetasTab from "@/components/MetasTab";
 import FeedbacksTab from "@/components/FeedbacksTab";
+import { DatePickerInput } from "@/components/DatePickerInput";
+import { FilterSelect } from "@/components/FilterSelect";
 
 type DashboardSubTab = "resumo" | "detalhado" | "turnos" | "graficos" | "analytics";
 
@@ -231,46 +233,20 @@ const DashboardPage = () => {
               <div className="space-y-4">
                 {/* Filters row */}
                 <div className="flex flex-wrap items-end gap-3 bg-card rounded-xl p-4 border border-border shadow-sm" style={{ borderRadius: 12 }}>
-                  <div>
-                    <label className="text-[11px] font-semibold text-muted-foreground mb-1 block uppercase">De</label>
-                    <input
-                      type="date"
-                      value={dateFrom}
-                      max={dateTo || undefined}
-                      onChange={e => setDateFrom(e.target.value)}
-                      className="text-sm bg-background border border-border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/30 font-semibold"
-                      style={{ borderRadius: 6 }}
-                    />
-                  </div>
-                  <div>
-                    <label className="text-[11px] font-semibold text-muted-foreground mb-1 block uppercase">Até</label>
-                    <input
-                      type="date"
-                      value={dateTo}
-                      min={dateFrom || undefined}
-                      onChange={e => setDateTo(e.target.value)}
-                      className="text-sm bg-background border border-border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/30 font-semibold"
-                      style={{ borderRadius: 6 }}
-                    />
-                  </div>
-                  <div>
-                    <label className="text-[11px] font-semibold text-muted-foreground mb-1 block uppercase">Máquina</label>
-                    <select value={selectedMachine} onChange={e => setSelectedMachine(e.target.value)}
-                      className="text-sm bg-background border border-border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/30 font-semibold"
-                      style={{ borderRadius: 6 }}>
-                      <option value="TODAS">TODAS</option>
-                      {machines.map(m => <option key={m.id} value={m.name}>{m.name}</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="text-[11px] font-semibold text-muted-foreground mb-1 block uppercase">Turno</label>
-                    <select value={selectedTurno} onChange={e => setSelectedTurno(e.target.value)}
-                      className="text-sm bg-background border border-border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/30 font-semibold"
-                      style={{ borderRadius: 6 }}>
-                      <option value="TODOS">TODOS</option>
-                      {TURNOS.map(t => <option key={t} value={t}>{t}</option>)}
-                    </select>
-                  </div>
+                  <DatePickerInput label="De" value={dateFrom} onChange={setDateFrom} max={dateTo || undefined} />
+                  <DatePickerInput label="Até" value={dateTo} onChange={setDateTo} min={dateFrom || undefined} />
+                  <FilterSelect
+                    label="Máquina"
+                    value={selectedMachine}
+                    onChange={setSelectedMachine}
+                    options={[{ value: "TODAS", label: "TODAS" }, ...machines.map(m => ({ value: m.name, label: m.name }))]}
+                  />
+                  <FilterSelect
+                    label="Turno"
+                    value={selectedTurno}
+                    onChange={setSelectedTurno}
+                    options={[{ value: "TODOS", label: "TODOS" }, ...TURNOS.map(t => ({ value: t, label: t }))]}
+                  />
 
                   {/* Sub-tabs on the right */}
                   <div className="ml-auto flex items-center gap-1.5 flex-wrap overflow-x-auto">
