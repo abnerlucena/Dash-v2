@@ -409,7 +409,8 @@ function actionGetHolidays(token) {
 
 function actionAddHoliday(token, date, label, type) {
   const session = validateSession(token);
-  requireAdmin(session);
+  if (!session) return { ok: false, error: "Sessão inválida ou expirada." };
+  if (session.role !== "admin") return { ok: false, error: "Acesso negado" };
   if (!date || !label || !type) return { ok: false, error: "Campos obrigatórios: date, label, type" };
   if (!["feriado", "dia_anulado"].includes(type)) return { ok: false, error: "Tipo inválido" };
 
@@ -430,7 +431,8 @@ function actionAddHoliday(token, date, label, type) {
 
 function actionRemoveHoliday(token, id) {
   const session = validateSession(token);
-  requireAdmin(session);
+  if (!session) return { ok: false, error: "Sessão inválida ou expirada." };
+  if (session.role !== "admin") return { ok: false, error: "Acesso negado" };
   if (!id) return { ok: false, error: "id obrigatório" };
 
   const sheet = getHolidaysSheet();

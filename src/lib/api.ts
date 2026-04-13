@@ -1,5 +1,5 @@
 // ─── API Layer ────────────────────────────────────────────────
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyljUCZ7K5F__ZSK5O9qdUQE3Dy3ruSB4ZhJy3hvKJb8-jUr7kX9s_W4iBW3jgkVDh-lA/exec";
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxSD9J7T_ofKdJN7hLxgjk2e8sJEDxQaCYhLXMZyCtvEWfA5kcrSHawt7P-5h8CEtJdPQ/exec";
 export const SESSION_KEY = "prod_session_v3";
 const CACHE_KEY = "prod_records_cache";
 const CACHE_METAS_KEY = "prod_metas_cache";
