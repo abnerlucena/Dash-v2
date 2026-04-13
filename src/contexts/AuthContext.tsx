@@ -37,6 +37,39 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
+// Normalize holiday dates: Google Sheets converts date strings to Date objects internally.
+// When read back via getValues(), the date comes as a verbose string like
+// "Thu Apr 03 2026 00:00:00 GMT-0300" instead of "2026-04-03".
+// This function ensures dates are always in YYYY-MM-DD format.
+function normalizeHolidays(raw: any[]): Holiday[] {
+  return (raw || []).map((h: any) => {
+    let date = h.date ?? "";
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      // Google Sheets stores date strings as Date objects. When read back via getValues()
+      // and serialized to JSON, they arrive as verbose strings like:
+      // "Thu Apr 03 2026 00:00:00 GMT-0300 (Brasilia Standard Time)"
+      // We parse and re-extract the date using the offset embedded in the string
+      // to avoid browser-local-timezone conversion errors.
+      const match = date.match(/(\d{1,2})\s+(\w{3})\s+(\d{4})/);
+      if (match) {
+        const months: Record<string, string> = {
+          Jan:"01",Feb:"02",Mar:"03",Apr:"04",May:"05",Jun:"06",
+          Jul:"07",Aug:"08",Sep:"09",Oct:"10",Nov:"11",Dec:"12"
+        };
+        const [, day, mon, year] = match;
+        const m = months[mon];
+        if (m) date = `${year}-${m}-${String(day).padStart(2, "0")}`;
+      } else {
+        const d = new Date(date);
+        if (!isNaN(d.getTime())) {
+          date = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+        }
+      }
+    }
+    return { ...h, date } as Holiday;
+  });
+}
+
 // Normalize numeric fields — backend returns everything as strings
 function normalizeRecords(raw: any[]): ProdRecord[] {
   return (raw || [])
@@ -101,7 +134,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!user) return;
     try {
       const r = await api("getHolidays", {}, user);
-      if (r.holidays) setHolidays(r.holidays as Holiday[]);
+      if (r.holidays) setHolidays(normalizeHolidays(r.holidays));
     } catch {}
   }, [user]);
 
@@ -117,7 +150,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch {}
     try {
       const rh = await api("getHolidays", {}, user);
-      if (rh.holidays) setHolidays(rh.holidays as Holiday[]);
+      if (rh.holidays) setHolidays(normalizeHolidays(rh.holidays));
     } catch {}
     setLoading(false);
   }, [user]);
@@ -133,7 +166,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch {}
     try {
       const rh = await api("getHolidays", {}, user);
-      if (rh.holidays) setHolidays(rh.holidays as Holiday[]);
+      if (rh.holidays) setHolidays(normalizeHolidays(rh.holidays));
     } catch {}
   }, [user]);
 

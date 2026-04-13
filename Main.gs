@@ -396,9 +396,12 @@ function actionGetHolidays(token) {
   const sheet = getHolidaysSheet();
   const data = sheet.getDataRange().getValues();
   if (data.length <= 1) return { ok: true, holidays: [] };
+  const tz = Session.getScriptTimeZone();
   const holidays = data.slice(1).map(row => ({
     id: String(row[0]),
-    date: String(row[1]),
+    date: row[1] instanceof Date
+      ? Utilities.formatDate(row[1], tz, "yyyy-MM-dd")
+      : String(row[1]).slice(0, 10),
     label: String(row[2]),
     type: String(row[3]),
     createdBy: String(row[4]),
@@ -417,8 +420,14 @@ function actionAddHoliday(token, date, label, type) {
   const sheet = getHolidaysSheet();
   const data = sheet.getDataRange().getValues();
   // Check duplicate date
+  const tz = Session.getScriptTimeZone();
   if (data.length > 1) {
-    const exists = data.slice(1).some(row => String(row[1]) === date);
+    const exists = data.slice(1).some(row => {
+      const d = row[1] instanceof Date
+        ? Utilities.formatDate(row[1], tz, "yyyy-MM-dd")
+        : String(row[1]).slice(0, 10);
+      return d === date;
+    });
     if (exists) return { ok: false, error: "Já existe um feriado/dia anulado nessa data" };
   }
 
