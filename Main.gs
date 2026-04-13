@@ -11,6 +11,8 @@ const INVITE_CODES_SHEET = "InviteCodes";
 const METAS_SHEET = "Metas";
 const MACHINES_SHEET = "Maquinas";
 const MACHINES_HEADERS = ["id", "name", "hasMeta", "defaultMeta", "status", "createdBy", "createdAt"];
+const HOLIDAYS_SHEET = "Feriados";
+const HOLIDAYS_HEADERS = ["id", "date", "label", "type", "createdBy", "createdAt"];
 const ADMIN_USER = "Admin";
 
 // Configurações de Segurança
@@ -374,6 +376,73 @@ function getMetasSheet() {
   return sheet;
 }
 
+function getHolidaysSheet() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sheet = ss.getSheetByName(HOLIDAYS_SHEET);
+  if (!sheet) {
+    sheet = ss.insertSheet(HOLIDAYS_SHEET);
+    sheet.appendRow(HOLIDAYS_HEADERS);
+    sheet.setFrozenRows(1);
+    sheet.getRange(1, 1, 1, HOLIDAYS_HEADERS.length)
+      .setBackground("#1e3a5f")
+      .setFontColor("#ffffff")
+      .setFontWeight("bold");
+  }
+  return sheet;
+}
+
+function actionGetHolidays(token) {
+  validateSession(token);
+  const sheet = getHolidaysSheet();
+  const data = sheet.getDataRange().getValues();
+  if (data.length <= 1) return { ok: true, holidays: [] };
+  const holidays = data.slice(1).map(row => ({
+    id: String(row[0]),
+    date: String(row[1]),
+    label: String(row[2]),
+    type: String(row[3]),
+    createdBy: String(row[4]),
+    createdAt: String(row[5]),
+  }));
+  return { ok: true, holidays };
+}
+
+function actionAddHoliday(token, date, label, type) {
+  const session = validateSession(token);
+  requireAdmin(session);
+  if (!date || !label || !type) return { ok: false, error: "Campos obrigatórios: date, label, type" };
+  if (!["feriado", "dia_anulado"].includes(type)) return { ok: false, error: "Tipo inválido" };
+
+  const sheet = getHolidaysSheet();
+  const data = sheet.getDataRange().getValues();
+  // Check duplicate date
+  if (data.length > 1) {
+    const exists = data.slice(1).some(row => String(row[1]) === date);
+    if (exists) return { ok: false, error: "Já existe um feriado/dia anulado nessa data" };
+  }
+
+  const id = Utilities.getUuid();
+  const now = new Date().toISOString();
+  sheet.appendRow([id, date, label, type, session.nome, now]);
+  auditLog(session.nome, "ADD_HOLIDAY", { date, label, type });
+  return { ok: true, id };
+}
+
+function actionRemoveHoliday(token, id) {
+  const session = validateSession(token);
+  requireAdmin(session);
+  if (!id) return { ok: false, error: "id obrigatório" };
+
+  const sheet = getHolidaysSheet();
+  const data = sheet.getDataRange().getValues();
+  const rowIndex = data.slice(1).findIndex(row => String(row[0]) === id);
+  if (rowIndex === -1) return { ok: false, error: "Feriado não encontrado" };
+
+  sheet.deleteRow(rowIndex + 2);
+  auditLog(session.nome, "REMOVE_HOLIDAY", { id });
+  return { ok: true };
+}
+
 // ══════════════════════════════════════════════════════════════
 // SESSION MANAGEMENT
 // ══════════════════════════════════════════════════════════════
@@ -696,6 +765,12 @@ function doGet(e) {
         return json(actionGetMetas(payload.token));
       case "saveMetas":
         return json(actionSaveMetas(payload.token, payload.metas, payload.vigenciaInicio));
+      case "getHolidays":
+        return json(actionGetHolidays(payload.token));
+      case "addHoliday":
+        return json(actionAddHoliday(payload.token, payload.date, payload.label, payload.type));
+      case "removeHoliday":
+        return json(actionRemoveHoliday(payload.token, payload.id));
       default:
         auditLog("UNKNOWN", "INVALID_ACTION", {action: payload.action});
         return json({ ok: false, error: "Ação desconhecida" });

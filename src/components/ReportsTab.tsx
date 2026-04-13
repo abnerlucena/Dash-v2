@@ -16,7 +16,7 @@ const MONTH_NAMES = [
 ];
 
 const ReportsTab = () => {
-  const { records, machines, metas } = useAuth();
+  const { records, machines, metas, holidays } = useAuth();
   const isMobile = useIsMobile();
 
   const [subTab, setSubTab] = useState<HistSubTab>("calendario");
@@ -203,11 +203,18 @@ const ReportsTab = () => {
                   const dateStr = `${calYear}-${String(calMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
                   const data = calendarData[dateStr];
                   const isToday = isCurrentMonth && day === todayDate;
+                  const holiday = holidays.find(h => h.date === dateStr);
+
+                  const cellBg = holiday
+                    ? holiday.type === "feriado" ? "#EFF6FF" : "#FEF2F2"
+                    : isToday ? undefined : undefined;
 
                   return (
                     <div key={di}
                       onClick={() => data && setSelectedDate(dateStr)}
-                      className={`p-1.5 relative transition-colors ${data ? "cursor-pointer" : ""} ${isToday ? "bg-primary/5" : data ? "hover:bg-muted/30" : ""}`}>
+                      title={holiday ? `${holiday.type === "feriado" ? "Feriado" : "Dia Anulado"}: ${holiday.label}` : undefined}
+                      className={`p-1.5 relative transition-colors ${data ? "cursor-pointer" : ""} ${isToday && !holiday ? "bg-primary/5" : data && !holiday ? "hover:bg-muted/30" : ""}`}
+                      style={cellBg ? { background: cellBg } : {}}>
                       <div className="flex items-start justify-between mb-1">
                         <span className={`text-sm font-bold leading-none ${
                           isToday
@@ -217,15 +224,32 @@ const ReportsTab = () => {
                           style={isToday ? { background: "#0066B3" } : {}}>
                           {day}
                         </span>
-                        {data && (
-                          <span className="text-[10px] font-semibold text-muted-foreground">
-                            {formatNum(data.totalProd)}
-                          </span>
-                        )}
+                        <div className="flex items-center gap-0.5">
+                          {holiday && (
+                            <span className="text-[11px]" title={holiday.label}>
+                              {holiday.type === "feriado" ? "🎉" : "🚫"}
+                            </span>
+                          )}
+                          {data && (
+                            <span className="text-[10px] font-semibold text-muted-foreground">
+                              {formatNum(data.totalProd)}
+                            </span>
+                          )}
+                        </div>
                       </div>
+                      {holiday && !isMobile && (
+                        <div
+                          className="text-[10px] font-semibold px-1.5 py-0.5 rounded truncate mb-0.5"
+                          style={holiday.type === "feriado"
+                            ? { background: "#DBEAFE", color: "#1D4ED8" }
+                            : { background: "#FEE2E2", color: "#B91C1C" }}
+                        >
+                          {holiday.label}
+                        </div>
+                      )}
                       {data && !isMobile && (
                         <div className="space-y-0.5">
-                          {Object.entries(data.turnos).sort(([a], [b]) => a.localeCompare(b)).map(([turnoName, qty]) => {
+                          {Object.entries(data.turnos).sort(([a], [b]) => a.localeCompare(b)).map(([turnoName]) => {
                             const turnoNum = turnoName.replace("TURNO ", "");
                             const count = records.filter(r => r.date === dateStr && r.turno === turnoName).length;
                             return (

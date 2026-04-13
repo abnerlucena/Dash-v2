@@ -3,7 +3,7 @@ import { SlidersHorizontal, ChevronDown } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { type Machine, TURNOS, dispD } from "@/lib/api";
 import { DatePickerInput } from "@/components/DatePickerInput";
-import { FilterSelect } from "@/components/FilterSelect";
+import { SelectDropdown } from "@/components/SelectDropdown";
 
 interface FilterBarProps {
   dateFrom: string;
@@ -48,7 +48,7 @@ const FilterBar = ({
         <div className={`flex flex-wrap gap-3 items-end ${isMobile ? 'mt-3' : ''}`}>
           <DatePickerInput label="De" value={dateFrom} onChange={setDateFrom} max={dateTo || undefined} />
           <DatePickerInput label="Até" value={dateTo} onChange={setDateTo} min={dateFrom || undefined} />
-          <FilterSelect
+          <SelectDropdown
             label="Máquina"
             value={machine}
             onChange={setMachine}
@@ -58,7 +58,7 @@ const FilterBar = ({
             ]}
           />
           {showTurno && (
-            <FilterSelect
+            <SelectDropdown
               label="Turno"
               value={turno}
               onChange={setTurno}

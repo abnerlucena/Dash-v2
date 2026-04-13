@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from "react";
 import {
-  type Session, type Machine, type ProdRecord,
+  type Session, type Machine, type ProdRecord, type Holiday,
   loadSession, saveSession, clearSession,
   loadCachedRecords, saveCachedRecords,
   loadCachedMetas, saveCachedMetas,
@@ -13,12 +13,15 @@ export interface MetaInfo {
   vigenciaInicio: string;
 }
 
+export type { Holiday };
+
 interface AuthContextType {
   user: Session | null;
   machines: Machine[];
   metas: Record<number, number>;
   metasInfo: Record<number, MetaInfo>;
   records: ProdRecord[];
+  holidays: Holiday[];
   loading: boolean;
   turnosAtivos: number;
   setTurnosAtivos: (n: number) => void;
@@ -28,6 +31,7 @@ interface AuthContextType {
   refreshData: () => Promise<void>;
   refreshMachines: () => Promise<void>;
   refreshMetas: () => Promise<void>;
+  refreshHolidays: () => Promise<void>;
   setRecords: React.Dispatch<React.SetStateAction<ProdRecord[]>>;
 }
 
@@ -59,6 +63,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Pre-populate from cache — shown instantly while fresh data loads in background
   const [records, setRecords] = useState<ProdRecord[]>(() => normalizeRecords(loadCachedRecords()));
   const [loading, setLoading] = useState(false);
+  const [holidays, setHolidays] = useState<Holiday[]>([]);
   const [turnosAtivos, setTurnosAtivosState] = useState<number>(() => {
     const v = localStorage.getItem("turnosAtivos");
     return v ? Number(v) : 2;
@@ -92,15 +97,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch {}
   }, [user]);
 
+  const refreshHolidays = useCallback(async () => {
+    if (!user) return;
+    try {
+      const r = await api("getHolidays", {}, user);
+      if (r.holidays) setHolidays(r.holidays as Holiday[]);
+    } catch {}
+  }, [user]);
+
   // Full refresh — shows loading skeleton (use only when cache is empty)
   const refreshData = useCallback(async () => {
     if (!user) return;
     setLoading(true);
     try {
-      const r = await api("getAll", {}, user);
+      const [r, rh] = await Promise.all([
+        api("getAll", {}, user),
+        api("getHolidays", {}, user),
+      ]);
       const data = normalizeRecords(r.data);
       setRecords(data);
       saveCachedRecords(data);
+      if (rh.holidays) setHolidays(rh.holidays as Holiday[]);
     } catch {}
     setLoading(false);
   }, [user]);
@@ -109,10 +126,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const silentRefreshData = useCallback(async () => {
     if (!user) return;
     try {
-      const r = await api("getAll", {}, user);
+      const [r, rh] = await Promise.all([
+        api("getAll", {}, user),
+        api("getHolidays", {}, user),
+      ]);
       const data = normalizeRecords(r.data);
       setRecords(data);
       saveCachedRecords(data);
+      if (rh.holidays) setHolidays(rh.holidays as Holiday[]);
     } catch {}
   }, [user]);
 
@@ -139,6 +160,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const id = setInterval(silentRefreshData, 60_000);
     return () => clearInterval(id);
   }, [user, silentRefreshData]);
+
 
   // ── Auth actions ──────────────────────────────────────────────
 
@@ -174,10 +196,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <AuthContext.Provider value={{
-      user, machines, metas, metasInfo, records, loading,
+      user, machines, metas, metasInfo, records, holidays, loading,
       turnosAtivos, setTurnosAtivos,
       login, register, logout,
-      refreshData, refreshMachines, refreshMetas,
+      refreshData, refreshMachines, refreshMetas, refreshHolidays,
       setRecords,
     }}>
       {children}

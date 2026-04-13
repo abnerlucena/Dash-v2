@@ -1,17 +1,20 @@
 import { useState, useEffect } from "react";
-import { X, Users, Factory, KeyRound } from "lucide-react";
+import { X, Users, Factory, KeyRound, CalendarX } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { api, pctColor } from "@/lib/api";
 import { toast } from "sonner";
 import { FilterSelect } from "@/components/FilterSelect";
+import { SelectDropdown } from "@/components/SelectDropdown";
+import { DatePickerInput } from "@/components/DatePickerInput";
+import type { Holiday } from "@/lib/api";
 
 interface AdminPanelProps {
   onClose: () => void;
 }
 
 const AdminPanel = ({ onClose }: AdminPanelProps) => {
-  const { user, refreshMachines } = useAuth();
-  const [tab, setTab] = useState<"users" | "machines" | "invites">("users");
+  const { user, refreshMachines, refreshHolidays } = useAuth();
+  const [tab, setTab] = useState<"users" | "machines" | "invites" | "feriados">("users");
   const [users, setUsers] = useState<any[]>([]);
   const [allMachines, setAllMachines] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -35,6 +38,14 @@ const AdminPanel = ({ onClose }: AdminPanelProps) => {
   const [inviteCode, setInviteCode] = useState("");
   const [inviteLoading, setInviteLoading] = useState(false);
 
+  // Feriados
+  const [holidays, setHolidaysList] = useState<Holiday[]>([]);
+  const [holLoading, setHolLoading] = useState(true);
+  const [hDate, setHDate] = useState("");
+  const [hLabel, setHLabel] = useState("");
+  const [hType, setHType] = useState<"feriado" | "dia_anulado">("feriado");
+  const [hAdding, setHAdding] = useState(false);
+
   useEffect(() => {
     api("listUsers", {}, user)
       .then(r => setUsers(r.users || []))
@@ -44,6 +55,10 @@ const AdminPanel = ({ onClose }: AdminPanelProps) => {
       .then(r => setAllMachines(r.allMachines || r.machines || []))
       .catch(() => {})
       .finally(() => setMachLoading(false));
+    api("getHolidays", {}, user)
+      .then(r => setHolidaysList(r.holidays || []))
+      .catch(() => {})
+      .finally(() => setHolLoading(false));
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -110,6 +125,35 @@ const AdminPanel = ({ onClose }: AdminPanelProps) => {
     setInviteLoading(false);
   }
 
+  async function addHoliday() {
+    if (!hDate) { toast.error("Selecione uma data."); return; }
+    if (!hLabel.trim()) { toast.error("Informe a descrição."); return; }
+    setHAdding(true);
+    try {
+      await api("addHoliday", { token: user?.token, date: hDate, label: hLabel.trim(), type: hType }, user);
+      toast.success("Feriado adicionado!");
+      setHDate(""); setHLabel(""); setHType("feriado");
+      const r = await api("getHolidays", {}, user);
+      setHolidaysList(r.holidays || []);
+      refreshHolidays();
+    } catch (e: any) { toast.error(e.message); }
+    setHAdding(false);
+  }
+
+  async function removeHoliday(id: string) {
+    try {
+      await api("removeHoliday", { token: user?.token, id }, user);
+      toast.success("Feriado removido.");
+      setHolidaysList(prev => prev.filter(h => h.id !== id));
+      refreshHolidays();
+    } catch (e: any) { toast.error(e.message); }
+  }
+
+  const fmtDate = (d: string) => {
+    const [y, m, day] = d.split("-");
+    return `${day}/${m}/${y}`;
+  };
+
   const tabCls = (key: string) =>
     `px-4 py-2 text-sm font-bold rounded-lg transition-all cursor-pointer ${tab === key ? "bg-primary/10 text-primary border border-primary/20" : "text-muted-foreground hover:text-foreground border border-transparent"}`;
 
@@ -136,6 +180,9 @@ const AdminPanel = ({ onClose }: AdminPanelProps) => {
           </button>
           <button onClick={() => setTab("invites")} className={tabCls("invites")}>
             <KeyRound size={14} className="inline mr-1.5" />Convites
+          </button>
+          <button onClick={() => setTab("feriados")} className={tabCls("feriados")}>
+            <CalendarX size={14} className="inline mr-1.5" />Feriados
           </button>
         </div>
 
@@ -315,6 +362,91 @@ const AdminPanel = ({ onClose }: AdminPanelProps) => {
                   </div>
                 )}
               </div>
+            </div>
+          )}
+          {/* Feriados Tab */}
+          {tab === "feriados" && (
+            <div className="space-y-4">
+              {/* Add form */}
+              <div className="bg-muted/30 rounded-xl p-4 border border-border">
+                <p className="text-sm font-bold text-foreground mb-3">Adicionar Feriado / Dia Anulado</p>
+                <div className="flex flex-wrap gap-3 items-end mb-3">
+                  <DatePickerInput label="Data" value={hDate} onChange={setHDate} />
+                  <SelectDropdown
+                    label="Tipo"
+                    value={hType}
+                    onChange={v => setHType(v as "feriado" | "dia_anulado")}
+                    options={[
+                      { value: "feriado", label: "Feriado" },
+                      { value: "dia_anulado", label: "Dia Anulado" },
+                    ]}
+                    className="min-w-[150px]"
+                  />
+                  <div className="flex-1 min-w-[160px]">
+                    <label className="text-[10px] font-bold text-muted-foreground uppercase mb-1 block">Descrição</label>
+                    <input
+                      value={hLabel}
+                      onChange={e => setHLabel(e.target.value)}
+                      placeholder="Ex: Natal, Paralisação..."
+                      className={inputCls}
+                    />
+                  </div>
+                  <button
+                    onClick={addHoliday}
+                    disabled={hAdding}
+                    className="px-4 py-2.5 rounded-lg text-sm font-bold text-white disabled:opacity-60 transition-all self-end"
+                    style={{ background: 'linear-gradient(135deg,#003366,#0066B3)', borderRadius: 8 }}
+                  >
+                    {hAdding ? "Adicionando..." : "Adicionar"}
+                  </button>
+                </div>
+              </div>
+
+              {/* Table */}
+              {holLoading ? (
+                <p className="text-sm text-muted-foreground text-center py-8">Carregando...</p>
+              ) : holidays.length === 0 ? (
+                <div className="bg-card rounded-xl border border-border p-8 text-center">
+                  <p className="text-sm text-muted-foreground">Nenhum feriado cadastrado.</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="bg-muted/50">
+                        <th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground">Data</th>
+                        <th className="text-center px-3 py-2 text-xs font-semibold text-muted-foreground">Tipo</th>
+                        <th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground">Descrição</th>
+                        <th className="text-center px-3 py-2 text-xs font-semibold text-muted-foreground">Ação</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {[...holidays].sort((a, b) => b.date.localeCompare(a.date)).map((h, i) => (
+                        <tr key={h.id} className="border-b border-border/50" style={{ background: i % 2 === 0 ? '#F8FAFC' : '#fff' }}>
+                          <td className="px-3 py-2 font-semibold text-foreground text-xs">{fmtDate(h.date)}</td>
+                          <td className="px-3 py-2 text-center">
+                            <span
+                              className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${h.type === "feriado" ? "bg-blue-100 text-blue-700" : "bg-red-100 text-red-700"}`}
+                              style={{ borderRadius: 20 }}
+                            >
+                              {h.type === "feriado" ? "Feriado" : "Dia Anulado"}
+                            </span>
+                          </td>
+                          <td className="px-3 py-2 text-foreground text-xs">{h.label}</td>
+                          <td className="px-3 py-2 text-center">
+                            <button
+                              onClick={() => removeHoliday(h.id)}
+                              className="text-[10px] font-semibold px-2 py-1 rounded-md bg-red-50 text-red-600 hover:bg-red-100 transition-colors"
+                            >
+                              Remover
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
           )}
         </div>

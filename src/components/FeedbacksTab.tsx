@@ -3,7 +3,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { pctColor } from "@/lib/api";
 import { DatePickerInput } from "@/components/DatePickerInput";
-import { FilterSelect } from "@/components/FilterSelect";
+import { SelectDropdown } from "@/components/SelectDropdown";
 
 const FeedbacksTab = () => {
   const { records, machines } = useAuth();
@@ -38,7 +38,7 @@ const FeedbacksTab = () => {
       <div className="bg-card rounded-xl border border-border p-4 flex flex-wrap items-end gap-3" style={{ borderRadius: 12 }}>
         <DatePickerInput label="De" value={dateFrom} onChange={setDateFrom} max={dateTo || undefined} />
         <DatePickerInput label="Até" value={dateTo} onChange={setDateTo} min={dateFrom || undefined} />
-        <FilterSelect
+        <SelectDropdown
           label="Máquina"
           value={machineFilter}
           onChange={setMachineFilter}

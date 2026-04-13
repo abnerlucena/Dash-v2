@@ -1,5 +1,5 @@
 // ─── API Layer ────────────────────────────────────────────────
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzGLTUyqhMPU3jdGLBa9wiT2L59EMm976s_XN-FdNg9P7gjzwJTdnLmc2JgZDBuzc3aHA/exec";
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyljUCZ7K5F__ZSK5O9qdUQE3Dy3ruSB4ZhJy3hvKJb8-jUr7kX9s_W4iBW3jgkVDh-lA/exec";
 export const SESSION_KEY = "prod_session_v3";
 const CACHE_KEY = "prod_records_cache";
 const CACHE_METAS_KEY = "prod_metas_cache";
@@ -17,6 +17,15 @@ export interface Machine {
   hasMeta: boolean;
   defaultMeta: number;
   status?: string;
+}
+
+export interface Holiday {
+  id: string;
+  date: string;
+  label: string;
+  type: "feriado" | "dia_anulado";
+  createdBy?: string;
+  createdAt?: string;
 }
 
 export interface ProdRecord {

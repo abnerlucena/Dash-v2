@@ -5,7 +5,11 @@
       "Bash(npm run:*)",
       "Bash(npm install:*)",
       "Bash(npx vite:*)",
-      "Bash(gh api:*)"
+      "Bash(gh api:*)",
+      "Bash(npx tsc:*)",
+      "Bash(cmd /c \"cd /d c:\\\\Users\\\\Pichau\\\\Documents\\\\GitHub\\\\Dash-v2 && npx tsc --noEmit 2>&1 | head -80\")",
+      "Bash(cmd /c \"cd /d \\\\\"c:\\\\\\\\Users\\\\\\\\Pichau\\\\\\\\Documents\\\\\\\\GitHub\\\\\\\\Dash-v2\\\\\" && npx tsc --noEmit\")",
+      "Bash(cmd /c \"cd /d \\\\\"c:\\\\\\\\Users\\\\\\\\Pichau\\\\\\\\Documents\\\\\\\\GitHub\\\\\\\\Dash-v2\\\\\" && npm run build 2>&1\")"
     ]
   }
 }

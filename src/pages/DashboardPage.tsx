@@ -26,7 +26,7 @@ import { FilterSelect } from "@/components/FilterSelect";
 type DashboardSubTab = "resumo" | "detalhado" | "turnos" | "graficos" | "analytics";
 
 const DashboardPage = () => {
-  const { user, machines, metas, records, loading, turnosAtivos, setTurnosAtivos } = useAuth();
+  const { user, machines, metas, records, holidays, loading, turnosAtivos, setTurnosAtivos } = useAuth();
   const isMobile = useIsMobile();
   const [activeTab, setActiveTab] = useState<TabId>("dashboard");
   const [dashSubTab, setDashSubTab] = useState<DashboardSubTab>("resumo");
@@ -41,15 +41,22 @@ const DashboardPage = () => {
   });
   const [dateTo, setDateTo] = useState(() => today());
 
+  // Exclude holiday/annulled dates from all calculations
+  const validRecords = useMemo(() => {
+    if (!holidays.length) return records;
+    const holidayDates = new Set(holidays.map(h => h.date));
+    return records.filter(r => !holidayDates.has(r.date));
+  }, [records, holidays]);
+
   const filteredRecords = useMemo(() => {
-    return records.filter(r => {
+    return validRecords.filter(r => {
       if (dateFrom && r.date < dateFrom) return false;
       if (dateTo   && r.date > dateTo)   return false;
       if (selectedTurno !== "TODOS"  && r.turno       !== selectedTurno)   return false;
       if (selectedMachine !== "TODAS" && r.machineName !== selectedMachine) return false;
       return true;
     });
-  }, [records, selectedTurno, selectedMachine, dateFrom, dateTo]);
+  }, [validRecords, selectedTurno, selectedMachine, dateFrom, dateTo]);
 
   // When a single turno is selected, meta multiplier = 1 (not turnosAtivos)
   const turnoMultiplier = selectedTurno === "TODOS" ? turnosAtivos : 1;
