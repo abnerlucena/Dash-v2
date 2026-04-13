@@ -3,7 +3,6 @@ import { X, Users, Factory, KeyRound, CalendarX } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { api, pctColor } from "@/lib/api";
 import { toast } from "sonner";
-import { FilterSelect } from "@/components/FilterSelect";
 import { SelectDropdown } from "@/components/SelectDropdown";
 import { DatePickerInput } from "@/components/DatePickerInput";
 import type { Holiday } from "@/lib/api";
@@ -257,7 +256,7 @@ const AdminPanel = ({ onClose }: AdminPanelProps) => {
                 <p className="text-sm font-bold text-foreground mb-3">Redefinir Senha</p>
                 <div className="grid grid-cols-2 gap-3 mb-3">
                   <div>
-                    <FilterSelect
+                    <SelectDropdown
                       label="Usuário"
                       value={rTarget}
                       onChange={setRTarget}

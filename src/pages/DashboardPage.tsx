@@ -21,7 +21,7 @@ import MobileDetailCards from "@/components/MobileDetailCards";
 import MetasTab from "@/components/MetasTab";
 import FeedbacksTab from "@/components/FeedbacksTab";
 import { DatePickerInput } from "@/components/DatePickerInput";
-import { FilterSelect } from "@/components/FilterSelect";
+import { SelectDropdown } from "@/components/SelectDropdown";
 
 type DashboardSubTab = "resumo" | "detalhado" | "turnos" | "graficos" | "analytics";
 
@@ -242,13 +242,13 @@ const DashboardPage = () => {
                 <div className="flex flex-wrap items-end gap-3 bg-card rounded-xl p-4 border border-border shadow-sm" style={{ borderRadius: 12 }}>
                   <DatePickerInput label="De" value={dateFrom} onChange={setDateFrom} max={dateTo || undefined} />
                   <DatePickerInput label="Até" value={dateTo} onChange={setDateTo} min={dateFrom || undefined} />
-                  <FilterSelect
+                  <SelectDropdown
                     label="Máquina"
                     value={selectedMachine}
                     onChange={setSelectedMachine}
                     options={[{ value: "TODAS", label: "TODAS" }, ...machines.map(m => ({ value: m.name, label: m.name }))]}
                   />
-                  <FilterSelect
+                  <SelectDropdown
                     label="Turno"
                     value={selectedTurno}
                     onChange={setSelectedTurno}

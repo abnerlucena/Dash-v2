@@ -48,7 +48,7 @@ export function DatePickerInput({ value, onChange, min, max, label, className = 
             <span>{selected ? format(selected, displayFormat, { locale: ptBR }) : "—"}</span>
           </button>
         </PopoverTrigger>
-        <PopoverContent className="w-auto p-0" align="start">
+        <PopoverContent className="w-auto p-0 z-[200]" align="start">
           <Calendar
             mode="single"
             selected={selected}

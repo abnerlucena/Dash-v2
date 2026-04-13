@@ -53,7 +53,7 @@ export function SelectDropdown({
           </button>
         </PopoverTrigger>
         <PopoverContent
-          className="p-0 w-[var(--radix-popover-trigger-width)] min-w-[160px]"
+          className="p-0 w-[var(--radix-popover-trigger-width)] min-w-[160px] z-[200]"
           align="start"
           sideOffset={4}
         >
