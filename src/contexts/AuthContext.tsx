@@ -4,6 +4,7 @@ import {
   loadSession, saveSession, clearSession,
   loadCachedRecords, saveCachedRecords,
   loadCachedMetas, saveCachedMetas,
+  loadCachedHolidays, saveCachedHolidays,
   api, MACHINES_DEFAULT,
 } from "@/lib/api";
 
@@ -96,7 +97,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Pre-populate from cache — shown instantly while fresh data loads in background
   const [records, setRecords] = useState<ProdRecord[]>(() => normalizeRecords(loadCachedRecords()));
   const [loading, setLoading] = useState(false);
-  const [holidays, setHolidays] = useState<Holiday[]>([]);
+  const [holidays, setHolidays] = useState<Holiday[]>(() => normalizeHolidays(loadCachedHolidays()));
   const [turnosAtivos, setTurnosAtivosState] = useState<number>(() => {
     const v = localStorage.getItem("turnosAtivos");
     return v ? Number(v) : 2;
@@ -134,7 +135,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!user) return;
     try {
       const r = await api("getHolidays", {}, user);
-      if (r.holidays) setHolidays(normalizeHolidays(r.holidays));
+      if (r.holidays) {
+        const normalized = normalizeHolidays(r.holidays);
+        setHolidays(normalized);
+        saveCachedHolidays(normalized);
+      }
     } catch {}
   }, [user]);
 
@@ -150,7 +155,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch {}
     try {
       const rh = await api("getHolidays", {}, user);
-      if (rh.holidays) setHolidays(normalizeHolidays(rh.holidays));
+      if (rh.holidays) {
+        const normalized = normalizeHolidays(rh.holidays);
+        setHolidays(normalized);
+        saveCachedHolidays(normalized);
+      }
     } catch {}
     setLoading(false);
   }, [user]);
@@ -166,7 +175,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch {}
     try {
       const rh = await api("getHolidays", {}, user);
-      if (rh.holidays) setHolidays(normalizeHolidays(rh.holidays));
+      if (rh.holidays) {
+        const normalized = normalizeHolidays(rh.holidays);
+        setHolidays(normalized);
+        saveCachedHolidays(normalized);
+      }
     } catch {}
   }, [user]);
 

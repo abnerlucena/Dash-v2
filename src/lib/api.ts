@@ -3,6 +3,7 @@ const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxSD9J7T_ofKdJN7hLxg
 export const SESSION_KEY = "prod_session_v3";
 const CACHE_KEY = "prod_records_cache";
 const CACHE_METAS_KEY = "prod_metas_cache";
+const CACHE_HOLIDAYS_KEY = "prod_holidays_cache";
 
 export interface Session {
   token: string;
@@ -73,6 +74,13 @@ export const loadCachedMetas = (): Record<number, number> | null => {
 };
 export const saveCachedMetas = (m: Record<number, number>) => {
   try { localStorage.setItem(CACHE_METAS_KEY, JSON.stringify(m)); } catch {}
+};
+export const loadCachedHolidays = (): Holiday[] => {
+  try { return JSON.parse(localStorage.getItem(CACHE_HOLIDAYS_KEY) || "[]"); }
+  catch { return []; }
+};
+export const saveCachedHolidays = (h: Holiday[]) => {
+  try { localStorage.setItem(CACHE_HOLIDAYS_KEY, JSON.stringify(h)); } catch {}
 };
 
 // ─── cellKey ──────────────────────────────────────────────────

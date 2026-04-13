@@ -5,6 +5,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { TURNOS, today, api, num, pctColor, cellKey } from "@/lib/api";
 import { toast } from "sonner";
 import { DatePickerInput } from "@/components/DatePickerInput";
+import { SelectDropdown } from "@/components/SelectDropdown";
 
 interface EntryData { machineId: number; producao: string; obs: string; }
 
@@ -94,12 +95,12 @@ const ProductionEntry = () => {
             />
           </div>
           <div className="flex-1">
-            <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1 block">Turno</label>
-            <select value={selectedTurno} onChange={e => setSelectedTurno(e.target.value)}
-              className="w-full px-3 py-2.5 rounded-md border border-border bg-card text-sm font-semibold text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 appearance-none"
-              style={{ borderRadius: 6 }}>
-              {TURNOS.map(t => <option key={t} value={t}>{t}</option>)}
-            </select>
+            <SelectDropdown
+              label="Turno"
+              value={selectedTurno}
+              onChange={setSelectedTurno}
+              options={TURNOS.map(t => ({ value: t, label: t }))}
+            />
           </div>
         </div>
         {/* Progress */}
