@@ -110,13 +110,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!user) return;
     setLoading(true);
     try {
-      const [r, rh] = await Promise.all([
-        api("getAll", {}, user),
-        api("getHolidays", {}, user),
-      ]);
+      const r = await api("getAll", {}, user);
       const data = normalizeRecords(r.data);
       setRecords(data);
       saveCachedRecords(data);
+    } catch {}
+    try {
+      const rh = await api("getHolidays", {}, user);
       if (rh.holidays) setHolidays(rh.holidays as Holiday[]);
     } catch {}
     setLoading(false);
@@ -126,13 +126,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const silentRefreshData = useCallback(async () => {
     if (!user) return;
     try {
-      const [r, rh] = await Promise.all([
-        api("getAll", {}, user),
-        api("getHolidays", {}, user),
-      ]);
+      const r = await api("getAll", {}, user);
       const data = normalizeRecords(r.data);
       setRecords(data);
       saveCachedRecords(data);
+    } catch {}
+    try {
+      const rh = await api("getHolidays", {}, user);
       if (rh.holidays) setHolidays(rh.holidays as Holiday[]);
     } catch {}
   }, [user]);
