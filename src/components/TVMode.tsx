@@ -528,7 +528,7 @@ const TVMode = ({
 
   // Slides definition (stable — never recreated)
   const slides = useMemo(() => [
-    { id: "kpi",       label: "KPI Overview" },
+    { id: "kpi",       label: "Overview" },
     { id: "ranking",   label: "Ranking de Performance" },
     { id: "producao",  label: "Produção vs Meta" },
     { id: "tendencia", label: "Tendência Diária" },
