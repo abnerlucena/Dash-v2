@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChevronDown, Calendar } from "lucide-react";
+import { pctColor } from "@/lib/api";
 
 interface MachineData {
   id: number;
@@ -14,10 +15,6 @@ interface MachineData {
 interface MachineCardMobileProps {
   machine: MachineData;
   index: number;
-}
-
-function pctColor(pct: number) {
-  return pct >= 100 ? "#22C55E" : pct >= 80 ? "#F59E0B" : "#EF4444";
 }
 
 const MachineCardMobile = ({ machine, index }: MachineCardMobileProps) => {

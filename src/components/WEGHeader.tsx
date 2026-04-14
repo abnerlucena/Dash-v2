@@ -1,4 +1,5 @@
-import { LogOut, Users, Settings, Menu, Tv } from "lucide-react";
+import { useState, useEffect } from "react";
+import { LogOut, Settings, Tv } from "lucide-react";
 import WEGLogo from "./WEGLogo";
 import { useAuth } from "@/contexts/AuthContext";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -12,8 +13,16 @@ const WEGHeader = ({ onAdminClick, onMenuClick }: WEGHeaderProps) => {
   const { user, logout } = useAuth();
   const isMobile = useIsMobile();
   const isAdmin = user?.role === "admin";
-  const now = new Date();
-  const timeStr = now.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+  const [timeStr, setTimeStr] = useState(() =>
+    new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", second: "2-digit" })
+  );
+
+  useEffect(() => {
+    const id = setInterval(() => {
+      setTimeStr(new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", second: "2-digit" }));
+    }, 1000);
+    return () => clearInterval(id);
+  }, []);
 
   return (
     <header className="sticky top-0 z-50" style={{ background: 'linear-gradient(135deg, #003366, #004E8C)', height: 60 }}>

@@ -25,6 +25,25 @@ import { SelectDropdown } from "@/components/SelectDropdown";
 
 type DashboardSubTab = "resumo" | "detalhado" | "turnos" | "graficos" | "analytics";
 
+// Static — defined outside component so they're never recreated on re-render
+const MAIN_TABS: { id: TabId; label: string }[] = [
+  { id: "entry", label: "Apontamento" },
+  { id: "dashboard", label: "Dashboard" },
+  { id: "history", label: "Histórico" },
+  { id: "metas", label: "Metas" },
+  { id: "feedbacks", label: "Feedbacks" },
+];
+const SUB_TABS: { id: DashboardSubTab; label: string }[] = [
+  { id: "resumo", label: "Resumo" },
+  { id: "detalhado", label: "Detalhado" },
+  { id: "turnos", label: "Turnos" },
+  { id: "graficos", label: "Gráficos" },
+  { id: "analytics", label: "Analytics" },
+];
+
+const TOP3_BADGE_COLORS = ["#22C55E", "#16A34A", "#15803D"];
+const BOTTOM3_BADGE_COLORS = ["#EF4444", "#F97316", "#F59E0B"];
+
 const DashboardPage = () => {
   const { user, machines, metas, records, holidays, loading, turnosAtivos, setTurnosAtivos } = useAuth();
   const isMobile = useIsMobile();
@@ -86,8 +105,11 @@ const DashboardPage = () => {
       if (!agg[r.date]) agg[r.date] = { totalProd: 0 };
       agg[r.date].totalProd += r.producao;
     }
-    // Meta diária global = soma de todas as metas × turnos aplicáveis
-    const dailyMeta = machines.reduce((s, m) => s + (metas[m.id] ?? m.defaultMeta) * turnoMultiplier, 0);
+    // Meta diária: only machines that appear in filtered records (respects machine filter)
+    const filteredMachineIds = new Set(filteredRecords.map(r => r.machineId));
+    const dailyMeta = machines
+      .filter(m => filteredMachineIds.has(m.id))
+      .reduce((s, m) => s + (metas[m.id] ?? m.defaultMeta) * turnoMultiplier, 0);
     return Object.entries(agg)
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([date, d]) => ({ date: date.slice(5), producao: d.totalProd, meta: dailyMeta }));
@@ -100,9 +122,11 @@ const DashboardPage = () => {
     return TURNOS.map(t => ({ name: t, value: agg[t] ?? 0 }));
   }, [filteredRecords]);
 
-  const totalProd = machineAgg.reduce((s, m) => s + m.totalProd, 0);
-  const totalMeta = machineAgg.reduce((s, m) => s + m.totalMeta, 0);
-  const pctGeral = totalMeta > 0 ? Math.round(totalProd / totalMeta * 100) : 0;
+  const { totalProd, totalMeta, pctGeral } = useMemo(() => {
+    const totalProd = machineAgg.reduce((s, m) => s + m.totalProd, 0);
+    const totalMeta = machineAgg.reduce((s, m) => s + m.totalMeta, 0);
+    return { totalProd, totalMeta, pctGeral: totalMeta > 0 ? Math.round(totalProd / totalMeta * 100) : 0 };
+  }, [machineAgg]);
 
   // Tx. Apontamento: % de combos (máquina × data × turno) preenchidos vs possível
   const appointmentRate = useMemo(() => {
@@ -150,7 +174,8 @@ const DashboardPage = () => {
     const prevFrom  = fmt(prevFromD);
     const prevTo    = fmt(prevToD);
 
-    const prevRecords = records.filter(r => {
+    // Use validRecords (holiday-excluded) to match how current period is computed
+    const prevRecords = validRecords.filter(r => {
       if (r.date < prevFrom || r.date > prevTo) return false;
       if (selectedTurno   !== "TODOS"  && r.turno       !== selectedTurno)   return false;
       if (selectedMachine !== "TODAS"  && r.machineName !== selectedMachine) return false;
@@ -161,39 +186,51 @@ const DashboardPage = () => {
     const prevTotal = prevRecords.reduce((s, r) => s + r.producao, 0);
     if (prevTotal === 0) return null;
     return Math.round((currTotal - prevTotal) / prevTotal * 100);
-  }, [dateFrom, dateTo, filteredRecords, records, selectedTurno, selectedMachine]);
+  }, [dateFrom, dateTo, filteredRecords, validRecords, selectedTurno, selectedMachine]);
 
-  const barData = machineAgg.filter(m => m.totalMeta > 0 || m.totalProd > 0).map(m => ({ name: m.name, meta: m.totalMeta, producao: m.totalProd }));
+  const barData = useMemo(() =>
+    machineAgg.filter(m => m.totalMeta > 0 || m.totalProd > 0).map(m => ({ name: m.name, meta: m.totalMeta, producao: m.totalProd })),
+  [machineAgg]);
+
   // Sort ascending so best pct appears at top of horizontal bar chart (ECharts renders y-axis bottom→top)
-  const hbarData = machineAgg.filter(m => m.totalMeta > 0).map(m => ({ name: m.name, pct: m.pct })).sort((a, b) => a.pct - b.pct);
+  const hbarData = useMemo(() =>
+    machineAgg.filter(m => m.totalMeta > 0).map(m => ({ name: m.name, pct: m.pct })).sort((a, b) => a.pct - b.pct),
+  [machineAgg]);
 
-  const barOption = getBarChartOption(barData, isMobile);
-  const areaOption = getAreaChartOption(dayAgg, isMobile);
-  const pieOption = getPieChartOption(turnoAgg, isMobile);
-  const hbarOption = getHorizontalBarOption(hbarData, isMobile);
+  const barOption  = useMemo(() => getBarChartOption(barData, isMobile),        [barData, isMobile]);
+  const areaOption = useMemo(() => getAreaChartOption(dayAgg, isMobile),         [dayAgg, isMobile]);
+  const pieOption  = useMemo(() => getPieChartOption(turnoAgg, isMobile),        [turnoAgg, isMobile]);
+  const hbarOption = useMemo(() => getHorizontalBarOption(hbarData, isMobile),   [hbarData, isMobile]);
 
-  // Main nav tabs
-  const mainTabs: { id: TabId; label: string }[] = [
-    { id: "entry", label: "Apontamento" },
-    { id: "dashboard", label: "Dashboard" },
-    { id: "history", label: "Histórico" },
-    { id: "metas", label: "Metas" },
-    { id: "feedbacks", label: "Feedbacks" },
-  ];
-
-  // Dashboard sub-tabs
-  const subTabs: { id: DashboardSubTab; label: string }[] = [
-    { id: "resumo", label: "Resumo" },
-    { id: "detalhado", label: "Detalhado" },
-    { id: "turnos", label: "Turnos" },
-    { id: "graficos", label: "Gráficos" },
-    { id: "analytics", label: "Analytics" },
-  ];
+  // Fullscreen options — always isMobile=false, derived from already-memoized data
+  const barOptionFs  = useMemo(() => getBarChartOption(barData, false),          [barData]);
+  const hbarOptionFs = useMemo(() => getHorizontalBarOption(hbarData, false),    [hbarData]);
+  const areaOptionFs = useMemo(() => getAreaChartOption(dayAgg, false),          [dayAgg]);
+  const pieOptionFs  = useMemo(() => getPieChartOption(turnoAgg, false),         [turnoAgg]);
 
   // Top 3 best and worst
-  const sorted = [...machineAgg].filter(m => m.totalMeta > 0).sort((a, b) => b.pct - a.pct);
-  const top3 = sorted.slice(0, 3);
-  const bottom3 = [...sorted].reverse().slice(0, 3);
+  const { top3, bottom3 } = useMemo(() => {
+    const sorted = [...machineAgg].filter(m => m.totalMeta > 0).sort((a, b) => b.pct - a.pct);
+    return { top3: sorted.slice(0, 3), bottom3: [...sorted].reverse().slice(0, 3) };
+  }, [machineAgg]);
+
+  // Per-machine turno breakdown — precomputed so "Turnos" tab renders in O(1) per row
+  const turnoBreakdown = useMemo(() => {
+    const map: Record<number, { t1: number; t2: number; t3: number; total: number; best: string }> = {};
+    for (const r of filteredRecords) {
+      if (!map[r.machineId]) map[r.machineId] = { t1: 0, t2: 0, t3: 0, total: 0, best: "TURNO 1" };
+      const entry = map[r.machineId];
+      if (r.turno === "TURNO 1") entry.t1 += r.producao;
+      else if (r.turno === "TURNO 2") entry.t2 += r.producao;
+      else if (r.turno === "TURNO 3") entry.t3 += r.producao;
+      entry.total += r.producao;
+    }
+    for (const entry of Object.values(map)) {
+      entry.best = entry.t1 >= entry.t2 && entry.t1 >= entry.t3 ? "TURNO 1"
+                 : entry.t2 >= entry.t1 && entry.t2 >= entry.t3 ? "TURNO 2" : "TURNO 3";
+    }
+    return map;
+  }, [filteredRecords]);
 
   return (
     <div className="min-h-screen bg-background">
@@ -204,7 +241,7 @@ const DashboardPage = () => {
         <div className="bg-card border-b border-border">
           <div className="max-w-[1400px] mx-auto px-4 py-2.5">
             <nav className="flex items-center gap-2 overflow-x-auto">
-              {mainTabs.map(t => (
+              {MAIN_TABS.map(t => (
                 <button key={t.id} onClick={() => setActiveTab(t.id)}
                   className={`px-5 py-2 text-sm font-semibold transition-all border ${
                     activeTab === t.id
@@ -257,7 +294,7 @@ const DashboardPage = () => {
 
                   {/* Sub-tabs on the right */}
                   <div className="ml-auto flex items-center gap-1.5 flex-wrap overflow-x-auto">
-                    {subTabs.map(st => (
+                    {SUB_TABS.map(st => (
                       <button key={st.id} onClick={() => setDashSubTab(st.id)}
                         className={`px-4 py-2 text-xs font-semibold border transition-all ${
                           dashSubTab === st.id
@@ -294,7 +331,7 @@ const DashboardPage = () => {
                         <h3 className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: "#22C55E" }}>Top 3 Melhores</h3>
                         <div className="space-y-2">
                           {top3.map((m, i) => {
-                            const badgeColors = ["#22C55E", "#16A34A", "#15803D"];
+                            const badgeColors = TOP3_BADGE_COLORS;
                             return (
                               <div key={m.id} className="flex items-center gap-3">
                                 <span className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white" style={{ backgroundColor: badgeColors[i] }}>{i + 1}</span>
@@ -309,7 +346,7 @@ const DashboardPage = () => {
                         <h3 className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: "#EF4444" }}>3 Que Mais Precisam de Atenção</h3>
                         <div className="space-y-2">
                           {bottom3.map((m, i) => {
-                            const badgeColors = ["#EF4444", "#F97316", "#F59E0B"];
+                            const badgeColors = BOTTOM3_BADGE_COLORS;
                             return (
                               <div key={m.id} className="flex items-center gap-3">
                                 <span className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white" style={{ backgroundColor: badgeColors[i] }}>{i + 1}</span>
@@ -438,16 +475,12 @@ const DashboardPage = () => {
                         </thead>
                         <tbody>
                           {machineAgg.map((m) => {
-                            const mRecords = records.filter(r => r.machineId === m.id);
-                            const t1 = mRecords.filter(r => r.turno === "TURNO 1").reduce((s, r) => s + r.producao, 0);
-                            const t2 = mRecords.filter(r => r.turno === "TURNO 2").reduce((s, r) => s + r.producao, 0);
-                            const t3 = mRecords.filter(r => r.turno === "TURNO 3").reduce((s, r) => s + r.producao, 0);
-                            const total = t1 + t2 + t3;
-                            const best = t1 >= t2 && t1 >= t3 ? "TURNO 1" : t2 >= t1 && t2 >= t3 ? "TURNO 2" : "TURNO 3";
-                            const t1Pct = total > 0 ? Math.round(t1 / total * 100) : 0;
-                            const t2Pct = total > 0 ? Math.round(t2 / total * 100) : 0;
-                            const t3Pct = total > 0 ? Math.round(t3 / total * 100) : 0;
-                            if (total === 0) return null;
+                            const tb = turnoBreakdown[m.id];
+                            if (!tb || tb.total === 0) return null;
+                            const { t1, t2, t3, total, best } = tb;
+                            const t1Pct = Math.round(t1 / total * 100);
+                            const t2Pct = Math.round(t2 / total * 100);
+                            const t3Pct = Math.round(t3 / total * 100);
                             return (
                               <tr key={m.id} className="border-b border-border/40 hover:bg-muted/30 transition-colors">
                                 <td className="px-4 py-3 font-semibold text-foreground text-xs">{m.name}</td>
@@ -509,10 +542,10 @@ const DashboardPage = () => {
                 </AnimatePresence>
 
                 {/* Fullscreen charts */}
-                <ChartFullscreen open={fullscreenChart === "bar"} onClose={() => setFullscreenChart(null)} title="Produção vs Meta" option={getBarChartOption(barData, false)} />
-                <ChartFullscreen open={fullscreenChart === "hbar"} onClose={() => setFullscreenChart(null)} title="% Atingimento" option={getHorizontalBarOption(hbarData, false)} />
-                <ChartFullscreen open={fullscreenChart === "area"} onClose={() => setFullscreenChart(null)} title="Tendência Diária" option={getAreaChartOption(dayAgg, false)} />
-                <ChartFullscreen open={fullscreenChart === "pie"} onClose={() => setFullscreenChart(null)} title="Distribuição por Turno" option={getPieChartOption(turnoAgg, false)} />
+                <ChartFullscreen open={fullscreenChart === "bar"}  onClose={() => setFullscreenChart(null)} title="Produção vs Meta"       option={barOptionFs} />
+                <ChartFullscreen open={fullscreenChart === "hbar"} onClose={() => setFullscreenChart(null)} title="% Atingimento"            option={hbarOptionFs} />
+                <ChartFullscreen open={fullscreenChart === "area"} onClose={() => setFullscreenChart(null)} title="Tendência Diária"         option={areaOptionFs} />
+                <ChartFullscreen open={fullscreenChart === "pie"}  onClose={() => setFullscreenChart(null)} title="Distribuição por Turno"   option={pieOptionFs} />
               </div>
             )}
 

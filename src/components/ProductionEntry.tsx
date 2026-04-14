@@ -2,7 +2,7 @@ import { useState, useMemo } from "react";
 import { Save, Check, MessageSquare, X } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { TURNOS, today, api, num, pctColor, cellKey } from "@/lib/api";
+import { TURNOS, today, api, num, pctColor } from "@/lib/api";
 import { toast } from "sonner";
 import { DatePickerInput } from "@/components/DatePickerInput";
 import { SelectDropdown } from "@/components/SelectDropdown";
@@ -11,7 +11,7 @@ interface EntryData { machineId: number; producao: string; obs: string; }
 
 const ProductionEntry = () => {
   const isMobile = useIsMobile();
-  const { user, machines, metas, refreshData } = useAuth();
+  const { user, machines, metas, silentRefresh } = useAuth();
   const [selectedDate, setSelectedDate] = useState(today());
   const [selectedTurno, setSelectedTurno] = useState(TURNOS[0]);
   const [entries, setEntries] = useState<Record<number, EntryData>>(() => {
@@ -36,7 +36,7 @@ const ProductionEntry = () => {
   }
 
   function getPct(machineId: number): number | null {
-    const prod = parseInt(entries[machineId]?.producao || "0");
+    const prod = num(entries[machineId]?.producao);
     const metaVal = metas[machineId] || 0;
     if (!prod || !metaVal) return null;
     return Math.round((prod / metaVal) * 100);
@@ -66,7 +66,7 @@ const ProductionEntry = () => {
       await api("upsert", { records }, user);
       setSaved(true);
       toast.success("Apontamento salvo com sucesso!");
-      await refreshData();
+      await silentRefresh();
     } catch (e: any) {
       toast.error(e.message || "Erro ao salvar");
     }
@@ -89,7 +89,7 @@ const ProductionEntry = () => {
             <DatePickerInput
               label="Data"
               value={selectedDate}
-              onChange={setSelectedDate}
+              onChange={v => { setSelectedDate(v); setSaved(false); }}
               displayFormat="dd 'de' MMMM 'de' yyyy"
               className="w-full"
             />
@@ -98,7 +98,7 @@ const ProductionEntry = () => {
             <SelectDropdown
               label="Turno"
               value={selectedTurno}
-              onChange={setSelectedTurno}
+              onChange={v => { setSelectedTurno(v); setSaved(false); }}
               options={TURNOS.map(t => ({ value: t, label: t }))}
             />
           </div>

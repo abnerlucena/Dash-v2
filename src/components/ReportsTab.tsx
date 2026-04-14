@@ -4,12 +4,16 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "@/contexts/AuthContext";
 import { useIsMobile } from "@/hooks/use-mobile";
 import FilterBar from "@/components/FilterBar";
-import { TURNOS, today, dispD, pctColor, num } from "@/lib/api";
+import { today, fmt, dispD, pctColor } from "@/lib/api";
 import { toast } from "sonner";
 
 type HistSubTab = "calendario" | "tabela";
 
 const WEEKDAYS = ["DOM", "SEG", "TER", "QUA", "QUI", "SEX", "SÁB"];
+const SUB_TABS: { id: HistSubTab; label: string }[] = [
+  { id: "calendario", label: "Calendário" },
+  { id: "tabela", label: "Tabela" },
+];
 const MONTH_NAMES = [
   "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
   "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro",
@@ -28,12 +32,12 @@ const ReportsTab = () => {
   const [calYear, setCalYear] = useState(now.getFullYear());
 
   // Filters for table view
-  const d = new Date();
-  d.setDate(d.getDate() - 30);
-  const thirtyDaysAgo = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-
-  const [dateFrom, setDateFrom] = useState(thirtyDaysAgo);
-  const [dateTo, setDateTo] = useState(today());
+  const [dateFrom, setDateFrom] = useState(() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 30);
+    return fmt(d);
+  });
+  const [dateTo, setDateTo] = useState(today);
   const [machine, setMachine] = useState("TODAS");
   const [turno, setTurno] = useState("TODOS");
 
@@ -47,15 +51,16 @@ const ReportsTab = () => {
     }).sort((a, b) => b.date.localeCompare(a.date) || a.turno.localeCompare(b.turno));
   }, [records, dateFrom, dateTo, machine, turno]);
 
-  // Calendar data aggregation
+  // Calendar data aggregation — includes record count per turno to avoid O(n) filters in render
   const calendarData = useMemo(() => {
-    const agg: Record<string, { totalProd: number; turnos: Record<string, number> }> = {};
+    const agg: Record<string, { totalProd: number; turnos: Record<string, number>; counts: Record<string, number> }> = {};
     for (const r of records) {
       const dateObj = new Date(r.date + "T12:00:00");
       if (dateObj.getMonth() !== calMonth || dateObj.getFullYear() !== calYear) continue;
-      if (!agg[r.date]) agg[r.date] = { totalProd: 0, turnos: {} };
+      if (!agg[r.date]) agg[r.date] = { totalProd: 0, turnos: {}, counts: {} };
       agg[r.date].totalProd += r.producao;
       agg[r.date].turnos[r.turno] = (agg[r.date].turnos[r.turno] ?? 0) + r.producao;
+      agg[r.date].counts[r.turno] = (agg[r.date].counts[r.turno] ?? 0) + 1;
     }
     return agg;
   }, [records, calMonth, calYear]);
@@ -130,16 +135,11 @@ const ReportsTab = () => {
     toast.success("CSV exportado com sucesso!");
   }
 
-  const subTabs: { id: HistSubTab; label: string }[] = [
-    { id: "calendario", label: "Calendário" },
-    { id: "tabela", label: "Tabela" },
-  ];
-
   return (
     <div className="space-y-4">
       {/* Sub-tabs */}
       <div className="flex items-center gap-2">
-        {subTabs.map(st => (
+        {SUB_TABS.map(st => (
           <button key={st.id} onClick={() => setSubTab(st.id)}
             className={`px-5 py-2 text-sm font-semibold border transition-all ${
               subTab === st.id
@@ -251,7 +251,7 @@ const ReportsTab = () => {
                         <div className="space-y-0.5">
                           {Object.entries(data.turnos).sort(([a], [b]) => a.localeCompare(b)).map(([turnoName]) => {
                             const turnoNum = turnoName.replace("TURNO ", "");
-                            const count = records.filter(r => r.date === dateStr && r.turno === turnoName).length;
+                            const count = data.counts[turnoName] ?? 0;
                             return (
                               <div key={turnoName}
                                 className="text-[10px] font-medium px-1.5 py-0.5 rounded truncate"

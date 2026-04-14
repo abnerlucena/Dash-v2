@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { X, Users, Factory, KeyRound, CalendarX } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
-import { api, pctColor } from "@/lib/api";
+import { api, dispD } from "@/lib/api";
 import { toast } from "sonner";
 import { SelectDropdown } from "@/components/SelectDropdown";
 import { DatePickerInput } from "@/components/DatePickerInput";
@@ -11,11 +11,24 @@ interface AdminPanelProps {
   onClose: () => void;
 }
 
+interface AdminUser {
+  nome: string;
+  status: string;
+}
+
+interface AdminMachine {
+  id: number;
+  name: string;
+  status: string;
+  hasMeta: boolean;
+  defaultMeta: number;
+}
+
 const AdminPanel = ({ onClose }: AdminPanelProps) => {
   const { user, refreshMachines, refreshHolidays } = useAuth();
   const [tab, setTab] = useState<"users" | "machines" | "invites" | "feriados">("users");
-  const [users, setUsers] = useState<any[]>([]);
-  const [allMachines, setAllMachines] = useState<any[]>([]);
+  const [users, setUsers] = useState<AdminUser[]>([]);
+  const [allMachines, setAllMachines] = useState<AdminMachine[]>([]);
   const [loading, setLoading] = useState(true);
   const [machLoading, setMachLoading] = useState(true);
 
@@ -63,7 +76,7 @@ const AdminPanel = ({ onClose }: AdminPanelProps) => {
 
   async function toggleUser(nome: string) {
     try {
-      const r = await api("toggleUser", { token: user?.token, targetNome: nome }, user);
+      const r = await api("toggleUser", { targetNome: nome }, user);
       setUsers(u => u.map(x => x.nome === nome ? { ...x, status: r.newStatus } : x));
       toast.success(`${nome} ${r.newStatus === "ativo" ? "ativado" : "bloqueado"}.`);
     } catch (e: any) { toast.error(e.message); }
@@ -73,10 +86,10 @@ const AdminPanel = ({ onClose }: AdminPanelProps) => {
     if (!cNome || !cSenha) { toast.error("Preencha nome e senha."); return; }
     setCreating(true);
     try {
-      await api("adminCreateUser", { token: user?.token, nome: cNome, senha: cSenha }, user);
+      await api("adminCreateUser", { nome: cNome, senha: cSenha }, user);
       toast.success(`Usuário "${cNome}" criado!`);
       setCNome(""); setCSenha("");
-      const r = await api("listUsers", { token: user?.token }, user);
+      const r = await api("listUsers", {}, user);
       setUsers(r.users || []);
     } catch (e: any) { toast.error(e.message); }
     setCreating(false);
@@ -85,7 +98,7 @@ const AdminPanel = ({ onClose }: AdminPanelProps) => {
   async function resetPw() {
     if (!rTarget || !newPw) { toast.error("Selecione usuário e nova senha."); return; }
     try {
-      await api("resetPassword", { token: user?.token, targetNome: rTarget, novaSenha: newPw }, user);
+      await api("resetPassword", { targetNome: rTarget, novaSenha: newPw }, user);
       toast.success(`Senha de "${rTarget}" redefinida.`);
       setRTarget(""); setNewPw("");
     } catch (e: any) { toast.error(e.message); }
@@ -95,7 +108,7 @@ const AdminPanel = ({ onClose }: AdminPanelProps) => {
     if (!mName.trim()) { toast.error("Informe o nome da máquina."); return; }
     setMAdding(true);
     try {
-      await api("addMachine", { token: user?.token, name: mName.trim(), hasMeta: true, defaultMeta: Number(mMeta) || 0 }, user);
+      await api("addMachine", { name: mName.trim(), hasMeta: true, defaultMeta: Number(mMeta) || 0 }, user);
       toast.success(`Máquina "${mName}" adicionada!`);
       setMName(""); setMMeta("");
       const r = await api("getMachines", {}, user);
@@ -107,7 +120,7 @@ const AdminPanel = ({ onClose }: AdminPanelProps) => {
 
   async function toggleMachine(mId: number) {
     try {
-      const r = await api("toggleMachine", { token: user?.token, machineId: mId }, user);
+      const r = await api("toggleMachine", { machineId: mId }, user);
       setAllMachines(prev => prev.map(m => m.id === mId ? { ...m, status: r.newStatus } : m));
       toast.success(`Máquina ${r.newStatus === "ativo" ? "ativada" : "desativada"}.`);
       refreshMachines();
@@ -117,7 +130,7 @@ const AdminPanel = ({ onClose }: AdminPanelProps) => {
   async function generateInvite() {
     setInviteLoading(true);
     try {
-      const r = await api("generateInviteCode", { token: user?.token }, user);
+      const r = await api("generateInviteCode", {}, user);
       setInviteCode(r.code);
       toast.success("Código de convite gerado!");
     } catch (e: any) { toast.error(e.message); }
@@ -129,7 +142,7 @@ const AdminPanel = ({ onClose }: AdminPanelProps) => {
     if (!hLabel.trim()) { toast.error("Informe a descrição."); return; }
     setHAdding(true);
     try {
-      await api("addHoliday", { token: user?.token, date: hDate, label: hLabel.trim(), type: hType }, user);
+      await api("addHoliday", { date: hDate, label: hLabel.trim(), type: hType }, user);
       toast.success("Feriado adicionado!");
       setHDate(""); setHLabel(""); setHType("feriado");
       const r = await api("getHolidays", {}, user);
@@ -141,17 +154,12 @@ const AdminPanel = ({ onClose }: AdminPanelProps) => {
 
   async function removeHoliday(id: string) {
     try {
-      await api("removeHoliday", { token: user?.token, id }, user);
+      await api("removeHoliday", { id }, user);
       toast.success("Feriado removido.");
       setHolidaysList(prev => prev.filter(h => h.id !== id));
       refreshHolidays();
     } catch (e: any) { toast.error(e.message); }
   }
-
-  const fmtDate = (d: string) => {
-    const [y, m, day] = d.split("-");
-    return `${day}/${m}/${y}`;
-  };
 
   const tabCls = (key: string) =>
     `px-4 py-2 text-sm font-bold rounded-lg transition-all cursor-pointer ${tab === key ? "bg-primary/10 text-primary border border-primary/20" : "text-muted-foreground hover:text-foreground border border-transparent"}`;
@@ -422,7 +430,7 @@ const AdminPanel = ({ onClose }: AdminPanelProps) => {
                     <tbody>
                       {[...holidays].sort((a, b) => b.date.localeCompare(a.date)).map((h, i) => (
                         <tr key={h.id} className="border-b border-border/50" style={{ background: i % 2 === 0 ? '#F8FAFC' : '#fff' }}>
-                          <td className="px-3 py-2 font-semibold text-foreground text-xs">{fmtDate(h.date)}</td>
+                          <td className="px-3 py-2 font-semibold text-foreground text-xs">{dispD(h.date)}</td>
                           <td className="px-3 py-2 text-center">
                             <span
                               className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${h.type === "feriado" ? "bg-blue-100 text-blue-700" : "bg-red-100 text-red-700"}`}

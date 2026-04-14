@@ -30,6 +30,7 @@ interface AuthContextType {
   register: (nome: string, senha: string, inviteCode: string) => Promise<void>;
   logout: () => void;
   refreshData: () => Promise<void>;
+  silentRefresh: () => Promise<void>;
   refreshMachines: () => Promise<void>;
   refreshMetas: () => Promise<void>;
   refreshHolidays: () => Promise<void>;
@@ -245,7 +246,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       user, machines, metas, metasInfo, records, holidays, loading,
       turnosAtivos, setTurnosAtivos,
       login, register, logout,
-      refreshData, refreshMachines, refreshMetas, refreshHolidays,
+      refreshData, silentRefresh: silentRefreshData, refreshMachines, refreshMetas, refreshHolidays,
       setRecords,
     }}>
       {children}

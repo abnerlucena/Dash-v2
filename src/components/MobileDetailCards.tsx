@@ -1,4 +1,5 @@
 import { motion } from "framer-motion";
+import { pctColor } from "@/lib/api";
 
 interface MachineData {
   id: number;
@@ -14,10 +15,6 @@ interface MobileDetailCardsProps {
   totalProd: number;
   totalMeta: number;
   pctGeral: number;
-}
-
-function pctColor(pct: number) {
-  return pct >= 100 ? "#22C55E" : pct >= 80 ? "#F59E0B" : "#EF4444";
 }
 
 const MobileDetailCards = ({ machines, totalProd, totalMeta, pctGeral }: MobileDetailCardsProps) => {

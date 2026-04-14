@@ -3,6 +3,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { api, today, dispD } from "@/lib/api";
 import { toast } from "sonner";
+import { DatePickerInput } from "@/components/DatePickerInput";
 
 const DIAS_UTEIS_MES = 22;
 
@@ -123,12 +124,9 @@ const MetasTab = () => {
               <label className="text-xs font-bold text-amber-800 uppercase tracking-wider">
                 Vigente a partir de:
               </label>
-              <input
-                type="date"
+              <DatePickerInput
                 value={vigenciaInicio}
-                onChange={e => setVigenciaInicio(e.target.value)}
-                className="text-xs bg-white border border-amber-300 rounded-md px-2.5 py-1.5 font-semibold focus:outline-none focus:ring-2 focus:ring-amber-400/30"
-                style={{ borderRadius: 6 }}
+                onChange={setVigenciaInicio}
               />
               <p className="text-xs text-amber-700">As metas entrarão em vigor nesta data para todos os usuários.</p>
             </div>

@@ -9,7 +9,10 @@
       "Bash(npx tsc:*)",
       "Bash(cmd /c \"cd /d c:\\\\Users\\\\Pichau\\\\Documents\\\\GitHub\\\\Dash-v2 && npx tsc --noEmit 2>&1 | head -80\")",
       "Bash(cmd /c \"cd /d \\\\\"c:\\\\\\\\Users\\\\\\\\Pichau\\\\\\\\Documents\\\\\\\\GitHub\\\\\\\\Dash-v2\\\\\" && npx tsc --noEmit\")",
-      "Bash(cmd /c \"cd /d \\\\\"c:\\\\\\\\Users\\\\\\\\Pichau\\\\\\\\Documents\\\\\\\\GitHub\\\\\\\\Dash-v2\\\\\" && npm run build 2>&1\")"
+      "Bash(cmd /c \"cd /d \\\\\"c:\\\\\\\\Users\\\\\\\\Pichau\\\\\\\\Documents\\\\\\\\GitHub\\\\\\\\Dash-v2\\\\\" && npm run build 2>&1\")",
+      "Bash(xargs -I {} sh -c 'echo \"=== {} ===\" && head -15 {}')",
+      "Bash(ls /c/Users/Pichau/Documents/GitHub/Dash-v2/src/components/*.tsx)",
+      "Bash(node_modules/.bin/tsc --noEmit)"
     ]
   }
 }

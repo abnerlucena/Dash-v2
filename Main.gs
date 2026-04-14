@@ -392,7 +392,8 @@ function getHolidaysSheet() {
 }
 
 function actionGetHolidays(token) {
-  validateSession(token);
+  const session = validateSession(token);
+  if (!session) return { ok: false, error: "Sessão inválida ou expirada." };
   const sheet = getHolidaysSheet();
   const data = sheet.getDataRange().getValues();
   if (data.length <= 1) return { ok: true, holidays: [] };
@@ -846,12 +847,11 @@ function actionLogin(nome, senha) {
     if (u.senhaHash !== passwordHash) {
       // Incrementar tentativas
       const newAttempts = (u.loginAttempts || 0) + 1;
-      userSheet.getRange(u._row, 6).setValue(newAttempts);
-      
+
       // Bloquear se exceder limite
       if (newAttempts >= MAX_LOGIN_ATTEMPTS) {
         const lockUntil = new Date(Date.now() + LOCKOUT_DURATION).toISOString();
-        userSheet.getRange(u._row, 7).setValue(lockUntil);
+        userSheet.getRange(u._row, 6, 1, 2).setValues([[newAttempts, lockUntil]]);
         auditLog(nome, "ACCOUNT_LOCKED", {attempts: newAttempts});
         return { 
           ok: false, 
@@ -859,10 +859,11 @@ function actionLogin(nome, senha) {
         };
       }
       
+      userSheet.getRange(u._row, 6).setValue(newAttempts);
       auditLog(nome, "LOGIN_FAILED", {reason: "wrong_password", attempts: newAttempts});
-      return { 
-        ok: false, 
-        error: `Senha incorreta. ${MAX_LOGIN_ATTEMPTS - newAttempts} tentativas restantes.` 
+      return {
+        ok: false,
+        error: `Senha incorreta. ${MAX_LOGIN_ATTEMPTS - newAttempts} tentativas restantes.`
       };
     }
 
@@ -873,8 +874,7 @@ function actionLogin(nome, senha) {
     }
 
     // Login bem-sucedido - resetar tentativas
-    userSheet.getRange(u._row, 6).setValue(0);
-    userSheet.getRange(u._row, 7).setValue("");
+    userSheet.getRange(u._row, 6, 1, 2).setValues([[0, ""]]);
 
     // Criar sessão
     const session = createSession(u.nome, u.role);
@@ -902,7 +902,14 @@ function actionLogout(token) {
 }
 
 function actionRegister(nome, senha, inviteCode) {
-  var ACCESS_CODE = "Tomadas11145";
+  // Access code stored in Script Properties — set via:
+  //   Project Settings → Script properties → ACCESS_CODE = <your code>
+  // Never hardcode secrets in source.
+  const ACCESS_CODE = PropertiesService.getScriptProperties().getProperty("ACCESS_CODE");
+  if (!ACCESS_CODE) {
+    logError("actionRegister", new Error("ACCESS_CODE not configured in Script Properties"));
+    return { ok: false, error: "Registros desativados temporariamente. Contate o administrador." };
+  }
   try {
     if (!nome || !senha || !inviteCode) {
       return { ok: false, error: "Preencha todos os campos" };
@@ -1173,9 +1180,7 @@ function actionUpdateMachine(token, machineId, name, hasMeta, defaultMeta) {
   if (dup) return { ok: false, error: "Já existe outra máquina com esse nome." };
 
   const sheetRow = rowIdx + 2;
-  sheet.getRange(sheetRow, 2).setValue(name.trim());
-  sheet.getRange(sheetRow, 3).setValue(hasMeta ? "TRUE" : "FALSE");
-  sheet.getRange(sheetRow, 4).setValue(Number(defaultMeta) || 0);
+  sheet.getRange(sheetRow, 2, 1, 3).setValues([[name.trim(), hasMeta ? "TRUE" : "FALSE", Number(defaultMeta) || 0]]);
 
   auditLog(session.nome, "UPDATE_MACHINE", { id: Number(machineId), name: name.trim() });
   return { ok: true };
