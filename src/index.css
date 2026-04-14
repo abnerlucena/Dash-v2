@@ -82,3 +82,9 @@
     display: none;
   }
 }
+
+/* TV Mode — progress bar animation (duration controlled via inline style on element) */
+@keyframes tvSlideProgress {
+  from { width: 0%; }
+  to   { width: 100%; }
+}

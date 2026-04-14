@@ -20,6 +20,7 @@ import MachineCardMobile from "@/components/MachineCardMobile";
 import MobileDetailCards from "@/components/MobileDetailCards";
 import MetasTab from "@/components/MetasTab";
 import FeedbacksTab from "@/components/FeedbacksTab";
+import TVMode from "@/components/TVMode";
 import { DatePickerInput } from "@/components/DatePickerInput";
 import { SelectDropdown } from "@/components/SelectDropdown";
 
@@ -53,6 +54,7 @@ const DashboardPage = () => {
   const [selectedMachine, setSelectedMachine] = useState("TODAS");
   const [fullscreenChart, setFullscreenChart] = useState<string | null>(null);
   const [showAdmin, setShowAdmin] = useState(false);
+  const [showTV,    setShowTV]    = useState(false);
 
   // Date range — default to last 30 days
   const [dateFrom, setDateFrom] = useState(() => {
@@ -234,7 +236,7 @@ const DashboardPage = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <WEGHeader onAdminClick={() => setShowAdmin(true)} />
+      <WEGHeader onAdminClick={() => setShowAdmin(true)} onTVClick={() => setShowTV(true)} />
 
       {/* Desktop main tab nav */}
       {!isMobile && (
@@ -563,6 +565,22 @@ const DashboardPage = () => {
 
       {isMobile && <BottomNav activeTab={activeTab} onTabChange={setActiveTab} />}
       {showAdmin && <AdminPanel onClose={() => setShowAdmin(false)} />}
+
+      {/* TV Mode — fullscreen presentation overlay. Receives only pre-computed data, zero backend calls. */}
+      {showTV && (
+        <TVMode
+          machAgg={machineAgg}
+          dayAgg={dayAgg}
+          turnoAgg={turnoAgg}
+          barData={barData}
+          hbarData={hbarData}
+          totalProd={totalProd}
+          totalMeta={totalMeta}
+          pctGeral={pctGeral}
+          tendency={tendency}
+          onClose={() => setShowTV(false)}
+        />
+      )}
     </div>
   );
 };

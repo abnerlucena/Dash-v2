@@ -7,9 +7,10 @@ import { useIsMobile } from "@/hooks/use-mobile";
 interface WEGHeaderProps {
   onAdminClick?: () => void;
   onMenuClick?: () => void;
+  onTVClick?: () => void;
 }
 
-const WEGHeader = ({ onAdminClick, onMenuClick }: WEGHeaderProps) => {
+const WEGHeader = ({ onAdminClick, onMenuClick, onTVClick }: WEGHeaderProps) => {
   const { user, logout } = useAuth();
   const isMobile = useIsMobile();
   const isAdmin = user?.role === "admin";
@@ -48,7 +49,11 @@ const WEGHeader = ({ onAdminClick, onMenuClick }: WEGHeaderProps) => {
             </button>
           )}
 
-          <button className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-white/60 hover:text-white hover:bg-white/10 text-sm font-medium transition-all border border-white/20">
+          <button
+            onClick={onTVClick}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-white/60 hover:text-white hover:bg-white/10 text-sm font-medium transition-all border border-white/20"
+            title="Abrir Modo Apresentação (TV)"
+          >
             <Tv size={14} />
             {!isMobile && <span>TV</span>}
           </button>
