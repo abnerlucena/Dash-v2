@@ -29,6 +29,12 @@ export interface Holiday {
   createdAt?: string;
 }
 
+export interface OrdemProducao {
+  ordemId: string;
+  quantidade: number;
+  obs?: string;
+}
+
 export interface ProdRecord {
   id?: string;
   date: string;
@@ -42,6 +48,7 @@ export interface ProdRecord {
   editUser?: string;
   editTime?: string;
   obs?: string;
+  ordensProducao?: OrdemProducao[];
 }
 
 // ─── Session helpers ──────────────────────────────────────────

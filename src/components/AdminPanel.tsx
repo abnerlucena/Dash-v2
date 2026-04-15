@@ -1,10 +1,11 @@
 import { useState, useEffect } from "react";
-import { X, Users, Factory, KeyRound, CalendarX } from "lucide-react";
+import { X, Users, Factory, KeyRound, CalendarX, Bell } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { api, dispD } from "@/lib/api";
 import { toast } from "sonner";
 import { SelectDropdown } from "@/components/SelectDropdown";
 import { DatePickerInput } from "@/components/DatePickerInput";
+import AlertConfigPanel from "@/components/AlertConfigPanel";
 import type { Holiday } from "@/lib/api";
 
 interface AdminPanelProps {
@@ -26,7 +27,7 @@ interface AdminMachine {
 
 const AdminPanel = ({ onClose }: AdminPanelProps) => {
   const { user, refreshMachines, refreshHolidays } = useAuth();
-  const [tab, setTab] = useState<"users" | "machines" | "invites" | "feriados">("users");
+  const [tab, setTab] = useState<"users" | "machines" | "invites" | "feriados" | "alertas">("users");
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [allMachines, setAllMachines] = useState<AdminMachine[]>([]);
   const [loading, setLoading] = useState(true);
@@ -190,6 +191,9 @@ const AdminPanel = ({ onClose }: AdminPanelProps) => {
           </button>
           <button onClick={() => setTab("feriados")} className={tabCls("feriados")}>
             <CalendarX size={14} className="inline mr-1.5" />Feriados
+          </button>
+          <button onClick={() => setTab("alertas")} className={tabCls("alertas")}>
+            <Bell size={14} className="inline mr-1.5" />Alertas
           </button>
         </div>
 
@@ -456,6 +460,9 @@ const AdminPanel = ({ onClose }: AdminPanelProps) => {
               )}
             </div>
           )}
+
+          {/* Alertas Tab */}
+          {tab === "alertas" && <AlertConfigPanel />}
         </div>
       </div>
     </div>

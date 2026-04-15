@@ -1,11 +1,13 @@
-import { useState, useMemo } from "react";
-import { Download, FileText, ChevronLeft, ChevronRight, X } from "lucide-react";
+import { useState, useMemo, Fragment } from "react";
+import { Download, FileText, ChevronLeft, ChevronRight, X, ChevronDown, ChevronUp } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "@/contexts/AuthContext";
 import { useIsMobile } from "@/hooks/use-mobile";
 import FilterBar from "@/components/FilterBar";
 import { today, fmt, dispD, pctColor } from "@/lib/api";
 import { toast } from "sonner";
+import { exportToCSV } from "@/utils/exportCSV";
+import { exportToPDF } from "@/utils/exportPDF";
 
 type HistSubTab = "calendario" | "tabela";
 
@@ -25,6 +27,8 @@ const ReportsTab = () => {
 
   const [subTab, setSubTab] = useState<HistSubTab>("calendario");
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [expandedRow, setExpandedRow] = useState<string | null>(null);
+  const [pdfExporting, setPdfExporting] = useState(false);
 
   // Calendar state
   const now = new Date();
@@ -110,29 +114,20 @@ const ReportsTab = () => {
     return n.toString();
   }
 
-  function exportCSV() {
-    const bom = '\uFEFF';
-    const lines = [
-      '"Relatório de Produção WEG"',
-      `"Período:";"${dispD(dateFrom)} a ${dispD(dateTo)}"`,
-      '',
-      '"Data";"Turno";"Máquina";"Meta";"Produção";"% Meta";"Apontado por";"Observação"',
-    ];
-    for (const r of filtered) {
-      const meta = r.meta || 0;
-      const prod = r.producao || 0;
-      const pct = meta > 0 ? Math.round(prod / meta * 100) + '%' : '';
-      lines.push([dispD(r.date), r.turno, r.machineName, meta, prod, pct, r.savedBy || '', r.obs || '']
-        .map(v => `"${String(v).replace(/"/g, '""')}"`).join(';'));
-    }
-    const csv = bom + lines.join('\n');
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = `producao_${dateFrom}_a_${dateTo}.csv`;
-    a.click();
-    setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+  function handleExportCSV() {
+    exportToCSV(filtered, { dateFrom, dateTo, machine, turno });
     toast.success("CSV exportado com sucesso!");
+  }
+
+  async function handleExportPDF() {
+    setPdfExporting(true);
+    try {
+      await exportToPDF(filtered, { dateFrom, dateTo, machine, turno });
+      toast.success("PDF exportado com sucesso!");
+    } catch {
+      toast.error("Erro ao gerar PDF. Tente novamente.");
+    }
+    setPdfExporting(false);
   }
 
   return (
@@ -289,12 +284,20 @@ const ReportsTab = () => {
             turno={turno} setTurno={setTurno}
             machines={machines}
             extra={
-              <button onClick={exportCSV}
-                className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold text-white transition-all self-end"
-                style={{ background: 'linear-gradient(135deg,#003366,#0066B3)', borderRadius: 8 }}>
-                <Download size={14} />
-                Exportar CSV
-              </button>
+              <div className="flex items-center gap-2 self-end">
+                <button onClick={handleExportCSV}
+                  className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold text-white transition-all hover:opacity-90"
+                  style={{ background: 'linear-gradient(135deg,#003366,#0066B3)', borderRadius: 8 }}>
+                  <Download size={14} />
+                  CSV
+                </button>
+                <button onClick={handleExportPDF} disabled={pdfExporting}
+                  className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold text-white transition-all hover:opacity-90 disabled:opacity-60"
+                  style={{ background: 'linear-gradient(135deg,#7c3aed,#a855f7)', borderRadius: 8 }}>
+                  <FileText size={14} />
+                  {pdfExporting ? "Gerando..." : "PDF"}
+                </button>
+              </div>
             }
           />
 
@@ -316,6 +319,7 @@ const ReportsTab = () => {
                 <table className="w-full text-sm min-w-[700px]">
                   <thead>
                     <tr style={{ background: '#003366', color: '#fff' }}>
+                      <th className="w-8 px-2 py-3" />
                       <th className="text-left px-4 py-3 text-xs font-semibold uppercase">Data</th>
                       <th className="text-left px-3 py-3 text-xs font-semibold uppercase">Turno</th>
                       <th className="text-left px-3 py-3 text-xs font-semibold uppercase">Máquina</th>
@@ -331,26 +335,61 @@ const ReportsTab = () => {
                       const meta = r.meta || 0;
                       const prod = r.producao || 0;
                       const pct = meta > 0 ? Math.round(prod / meta * 100) : null;
+                      const rowKey = `${r.date}-${r.turno}-${r.machineId}-${i}`;
+                      const hasOrdens = (r.ordensProducao?.length ?? 0) > 0;
+                      const isExpanded = expandedRow === rowKey;
+                      const rowBg = i % 2 === 0 ? '#F8FAFC' : '#fff';
                       return (
-                        <tr key={`${r.date}-${r.turno}-${r.machineId}-${i}`}
-                          className="border-b border-border/50 hover:bg-muted/40 transition-colors"
-                          style={{ background: i % 2 === 0 ? '#F8FAFC' : '#fff' }}>
-                          <td className="px-4 py-2.5 text-xs">{dispD(r.date)}</td>
-                          <td className="px-3 py-2.5 text-xs">{r.turno}</td>
-                          <td className="px-3 py-2.5 text-xs font-semibold">{r.machineName}</td>
-                          <td className="px-3 py-2.5 text-right text-xs text-muted-foreground">{meta > 0 ? meta.toLocaleString("pt-BR") : "—"}</td>
-                          <td className="px-3 py-2.5 text-right text-xs font-bold">{prod.toLocaleString("pt-BR")}</td>
-                          <td className="px-3 py-2.5 text-center">
-                            {pct !== null ? (
-                              <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full"
-                                style={{ color: pctColor(pct), backgroundColor: `${pctColor(pct)}15`, borderRadius: 20 }}>
-                                {pct}%
-                              </span>
-                            ) : "—"}
-                          </td>
-                          <td className="px-3 py-2.5 text-xs text-muted-foreground">{r.savedBy || ""}</td>
-                          <td className="px-3 py-2.5 text-xs text-muted-foreground truncate max-w-[150px]">{r.obs || ""}</td>
-                        </tr>
+                        <Fragment key={rowKey}>
+                          <tr
+                            className="border-b border-border/50 hover:bg-muted/40 transition-colors"
+                            style={{ background: rowBg }}>
+                            <td className="px-2 py-2.5 text-center">
+                              {hasOrdens && (
+                                <button
+                                  onClick={() => setExpandedRow(isExpanded ? null : rowKey)}
+                                  className="w-6 h-6 flex items-center justify-center rounded text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
+                                  title={isExpanded ? "Recolher ordens" : "Ver ordens de produção"}>
+                                  {isExpanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+                                </button>
+                              )}
+                            </td>
+                            <td className="px-4 py-2.5 text-xs">{dispD(r.date)}</td>
+                            <td className="px-3 py-2.5 text-xs">{r.turno}</td>
+                            <td className="px-3 py-2.5 text-xs font-semibold">{r.machineName}</td>
+                            <td className="px-3 py-2.5 text-right text-xs text-muted-foreground">{meta > 0 ? meta.toLocaleString("pt-BR") : "—"}</td>
+                            <td className="px-3 py-2.5 text-right text-xs font-bold">{prod.toLocaleString("pt-BR")}</td>
+                            <td className="px-3 py-2.5 text-center">
+                              {pct !== null ? (
+                                <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full"
+                                  style={{ color: pctColor(pct), backgroundColor: `${pctColor(pct)}15`, borderRadius: 20 }}>
+                                  {pct}%
+                                </span>
+                              ) : "—"}
+                            </td>
+                            <td className="px-3 py-2.5 text-xs text-muted-foreground">{r.savedBy || ""}</td>
+                            <td className="px-3 py-2.5 text-xs text-muted-foreground truncate max-w-[150px]">{r.obs || ""}</td>
+                          </tr>
+                          {isExpanded && hasOrdens && (
+                            <tr key={`${rowKey}-ordens`} style={{ background: rowBg }}>
+                              <td />
+                              <td colSpan={8} className="px-4 pb-3 pt-0">
+                                <div className="flex flex-wrap gap-1.5 border-l-2 border-primary/30 pl-3">
+                                  {r.ordensProducao!.map((o, oi) => (
+                                    <span key={oi}
+                                      className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full border border-primary/20"
+                                      style={{ background: "#0066B310", color: "#0066B3" }}>
+                                      <span className="text-muted-foreground font-medium">#{o.ordemId}</span>
+                                      <span className="mx-0.5 text-primary/40">→</span>
+                                      <span>{o.quantidade.toLocaleString("pt-BR")} pç</span>
+                                      {o.obs && <span className="text-muted-foreground ml-1">· {o.obs}</span>}
+                                    </span>
+                                  ))}
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                        </Fragment>
                       );
                     })}
                   </tbody>

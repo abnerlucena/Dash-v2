@@ -12,7 +12,27 @@
       "Bash(cmd /c \"cd /d \\\\\"c:\\\\\\\\Users\\\\\\\\Pichau\\\\\\\\Documents\\\\\\\\GitHub\\\\\\\\Dash-v2\\\\\" && npm run build 2>&1\")",
       "Bash(xargs -I {} sh -c 'echo \"=== {} ===\" && head -15 {}')",
       "Bash(ls /c/Users/Pichau/Documents/GitHub/Dash-v2/src/components/*.tsx)",
-      "Bash(node_modules/.bin/tsc --noEmit)"
+      "Bash(node_modules/.bin/tsc --noEmit)",
+      "Bash(grep -l \"jsPDF\\\\|jspdf\" \"c:/Users/Pichau/Documents/GitHub/Dashboard-WEG/\"*)",
+      "Bash(bun add:*)",
+      "Bash(bun run:*)",
+      "Bash(cmd /c \"cd /d C:\\\\Users\\\\Pichau\\\\Documents\\\\GitHub\\\\Dash-v2 && npx tsc --noEmit 2>&1\")",
+      "Bash(cmd /c \"cd /d C:\\\\Users\\\\Pichau\\\\Documents\\\\GitHub\\\\Dash-v2 && npx vite build 2>&1\")",
+      "Bash(cmd /c \"cd /d C:\\\\Users\\\\Pichau\\\\Documents\\\\GitHub\\\\Dash-v2 && npm run build 2>&1\")",
+      "Bash(cmd /c \"cd /d C:\\\\Users\\\\Pichau\\\\Documents\\\\GitHub\\\\Dash-v2 && type package.json\")",
+      "Bash(findstr /i \"jspdf\\\\|html2canvas\\\\|autotable\")",
+      "Bash(cmd /c \"cd /d C:\\\\Users\\\\Pichau\\\\Documents\\\\GitHub\\\\Dash-v2 && npm install jspdf jspdf-autotable 2>&1\")",
+      "Bash(cmd /c \"where bun 2>&1\")",
+      "Bash(cmd /c \"C:\\\\Users\\\\Pichau\\\\.bun\\\\bin\\\\bun.exe add jspdf jspdf-autotable 2>&1\")",
+      "Bash(cmd /c \"cd /d C:\\\\Users\\\\Pichau\\\\Documents\\\\GitHub\\\\Dash-v2 && C:\\\\Users\\\\Pichau\\\\.bun\\\\bin\\\\bun.exe add jspdf jspdf-autotable 2>&1\")",
+      "Bash(cmd /c \"cd /d C:\\\\Users\\\\Pichau\\\\Documents\\\\GitHub\\\\Dash-v2 && dir node_modules\\\\jspdf /b 2>&1\")",
+      "Bash(cmd /c \"cd /d \\\\\"C:\\\\Users\\\\Pichau\\\\Documents\\\\GitHub\\\\Dash-v2\\\\\" && \\\\\"C:\\\\Users\\\\Pichau\\\\.bun\\\\bin\\\\bun.exe\\\\\" add jspdf jspdf-autotable && echo SUCCESS\")",
+      "Bash(powershell -Command \"Set-Location 'C:\\\\Users\\\\Pichau\\\\Documents\\\\GitHub\\\\Dash-v2'; & 'C:\\\\Users\\\\Pichau\\\\.bun\\\\bin\\\\bun.exe' add jspdf jspdf-autotable\")",
+      "Bash(powershell -Command \"Get-Command bun -ErrorAction SilentlyContinue; Get-ChildItem C:\\\\Users\\\\Pichau -Name -Filter '*bun*' -ErrorAction SilentlyContinue\")",
+      "Bash(powershell -Command \"npm install --prefix 'C:\\\\Users\\\\Pichau\\\\Documents\\\\GitHub\\\\Dash-v2' jspdf jspdf-autotable 2>&1\")",
+      "Bash(powershell -Command \"Set-Location 'C:\\\\Users\\\\Pichau\\\\Documents\\\\GitHub\\\\Dash-v2'; npx tsc --noEmit 2>&1\")",
+      "Bash(powershell -NoProfile -Command \"Set-Location 'C:\\\\Users\\\\Pichau\\\\Documents\\\\GitHub\\\\Dash-v2'; npx tsc --noEmit 2>&1 | Out-File -FilePath C:\\\\temp_tsc_out.txt; Get-Content C:\\\\temp_tsc_out.txt\")",
+      "Bash(powershell -NoProfile -Command \"Set-Location 'C:\\\\Users\\\\Pichau\\\\Documents\\\\GitHub\\\\Dash-v2'; npx tsc --noEmit 2>&1 | Out-File -FilePath 'C:\\\\Users\\\\Pichau\\\\tsc_out.txt'; Get-Content 'C:\\\\Users\\\\Pichau\\\\tsc_out.txt'\")"
     ]
   }
 }

@@ -1,13 +1,14 @@
 import { useState, useMemo } from "react";
 import { Save, Check, MessageSquare, X } from "lucide-react";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth, type OrdemProducao } from "@/contexts/AuthContext";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { TURNOS, today, api, num, pctColor } from "@/lib/api";
+import { TURNOS, today, api, pctColor } from "@/lib/api";
 import { toast } from "sonner";
 import { DatePickerInput } from "@/components/DatePickerInput";
 import { SelectDropdown } from "@/components/SelectDropdown";
+import OrdemProducaoInput from "@/components/OrdemProducaoInput";
 
-interface EntryData { machineId: number; producao: string; obs: string; }
+interface EntryData { machineId: number; ordens: OrdemProducao[]; obs: string; }
 
 const ProductionEntry = () => {
   const isMobile = useIsMobile();
@@ -16,7 +17,7 @@ const ProductionEntry = () => {
   const [selectedTurno, setSelectedTurno] = useState(TURNOS[0]);
   const [entries, setEntries] = useState<Record<number, EntryData>>(() => {
     const init: Record<number, EntryData> = {};
-    machines.forEach(m => { init[m.id] = { machineId: m.id, producao: "", obs: "" }; });
+    machines.forEach(m => { init[m.id] = { machineId: m.id, ordens: [], obs: "" }; });
     return init;
   });
   const [saving, setSaving] = useState(false);
@@ -24,19 +25,28 @@ const ProductionEntry = () => {
   const [obsOpen, setObsOpen] = useState<number | null>(null);
 
   const filledCount = useMemo(() =>
-    Object.values(entries).filter(e => e.producao.trim() !== "").length,
+    Object.values(entries).filter(e => e.ordens.length > 0).length,
     [entries]
   );
 
   const hasChanges = filledCount > 0;
 
-  function updateEntry(machineId: number, field: "producao" | "obs", value: string) {
-    setEntries(prev => ({ ...prev, [machineId]: { ...prev[machineId], [field]: value } }));
+  function updateObs(machineId: number, value: string) {
+    setEntries(prev => ({ ...prev, [machineId]: { ...prev[machineId], obs: value } }));
     setSaved(false);
   }
 
+  function updateOrdens(machineId: number, ordens: OrdemProducao[]) {
+    setEntries(prev => ({ ...prev, [machineId]: { ...prev[machineId], ordens } }));
+    setSaved(false);
+  }
+
+  function getOrdemTotal(machineId: number): number {
+    return (entries[machineId]?.ordens || []).reduce((s, o) => s + (o.quantidade || 0), 0);
+  }
+
   function getPct(machineId: number): number | null {
-    const prod = num(entries[machineId]?.producao);
+    const prod = getOrdemTotal(machineId);
     const metaVal = metas[machineId] || 0;
     if (!prod || !metaVal) return null;
     return Math.round((prod / metaVal) * 100);
@@ -47,16 +57,18 @@ const ProductionEntry = () => {
     try {
       const nowBR = new Date().toLocaleString("pt-BR");
       const records = Object.values(entries)
-        .filter(e => e.producao.trim() !== "")
+        .filter(e => e.ordens.length > 0)
         .map(e => {
           const machine = machines.find(m => m.id === e.machineId);
+          const producao = e.ordens.reduce((s, o) => s + (o.quantidade || 0), 0);
           return {
             date: selectedDate,
             turno: selectedTurno,
             machineId: e.machineId,
             machineName: machine?.name || "",
             meta: metas[e.machineId] ?? machine?.defaultMeta ?? 0,
-            producao: num(e.producao),
+            producao,
+            ordensProducao: e.ordens,
             savedBy: user?.nome || "",
             savedAt: nowBR,
             obs: e.obs || "",
@@ -75,7 +87,7 @@ const ProductionEntry = () => {
 
   function handleClear() {
     const init: Record<number, EntryData> = {};
-    machines.forEach(m => { init[m.id] = { machineId: m.id, producao: "", obs: "" }; });
+    machines.forEach(m => { init[m.id] = { machineId: m.id, ordens: [], obs: "" }; });
     setEntries(init);
     setSaved(false);
   }
@@ -123,7 +135,7 @@ const ProductionEntry = () => {
 
           return (
             <div key={machine.id}
-              className={`bg-card rounded-xl border shadow-sm overflow-hidden transition-colors ${entry.producao.trim() ? "border-primary/20" : "border-border"}`}
+              className={`bg-card rounded-xl border shadow-sm overflow-hidden transition-colors ${entry.ordens.length > 0 ? "border-primary/20" : "border-border"}`}
               style={{ borderRadius: 12 }}>
               <div className="p-3.5">
                 <div className="flex items-start justify-between mb-2.5">
@@ -133,33 +145,30 @@ const ProductionEntry = () => {
                       Meta: <strong>{metaVal > 0 ? metaVal.toLocaleString("pt-BR") : "—"}</strong>
                     </p>
                   </div>
-                  {pct !== null && (
-                    <span className="text-xs font-extrabold px-2.5 py-1 rounded-full shrink-0 ml-2"
-                      style={{ color: pctColor(pct), backgroundColor: `${pctColor(pct)}15`, borderRadius: 20 }}>
-                      {pct}%
-                    </span>
-                  )}
+                  <div className="flex items-center gap-2 ml-2 shrink-0">
+                    {pct !== null && (
+                      <span className="text-xs font-extrabold px-2.5 py-1 rounded-full"
+                        style={{ color: pctColor(pct), backgroundColor: `${pctColor(pct)}15`, borderRadius: 20 }}>
+                        {pct}%
+                      </span>
+                    )}
+                    <button onClick={() => setObsOpen(obsOpen === machine.id ? null : machine.id)}
+                      className={`${isMobile ? "w-9 h-9" : "w-8 h-8"} rounded-md flex items-center justify-center transition-colors ${hasObs ? "bg-primary/10 text-primary border border-primary/20" : "bg-muted text-muted-foreground border border-border"}`}
+                      style={{ borderRadius: 6 }} title="Observação">
+                      <MessageSquare size={14} />
+                    </button>
+                  </div>
                 </div>
 
-                <div className="flex gap-2">
-                  <div className="flex-1">
-                    <input type="number" inputMode="numeric" placeholder="Produção" value={entry.producao}
-                      onChange={e => updateEntry(machine.id, "producao", e.target.value)}
-                      className={`w-full px-3.5 ${isMobile ? "py-3.5 text-base" : "py-2.5 text-sm"} rounded-md border bg-background font-semibold focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all placeholder:text-muted-foreground/40 ${entry.producao.trim() ? "border-primary/30" : "border-border"}`}
-                      style={{ borderRadius: 6 }}
-                    />
-                  </div>
-                  <button onClick={() => setObsOpen(obsOpen === machine.id ? null : machine.id)}
-                    className={`shrink-0 ${isMobile ? "w-12 h-12" : "w-10 h-10"} rounded-md flex items-center justify-center transition-colors ${hasObs ? "bg-primary/10 text-primary border border-primary/20" : "bg-muted text-muted-foreground border border-border"}`}
-                    style={{ borderRadius: 6 }}>
-                    <MessageSquare size={isMobile ? 18 : 16} />
-                  </button>
-                </div>
+                <OrdemProducaoInput
+                  ordens={entry.ordens}
+                  onChange={ordens => updateOrdens(machine.id, ordens)}
+                />
 
                 {obsOpen === machine.id && (
                   <div className="mt-2.5 relative">
-                    <textarea value={entry.obs} onChange={e => updateEntry(machine.id, "obs", e.target.value)}
-                      placeholder="Observação (ex: parada para manutenção)" rows={2}
+                    <textarea value={entry.obs} onChange={e => updateObs(machine.id, e.target.value)}
+                      placeholder="Observação geral (ex: parada para manutenção)" rows={2}
                       className="w-full px-3.5 py-3 rounded-md border border-border bg-background text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all placeholder:text-muted-foreground/40 resize-none"
                       style={{ borderRadius: 6 }} />
                     <button onClick={() => setObsOpen(null)} className="absolute top-2 right-2 p-1 rounded-md text-muted-foreground hover:text-foreground">

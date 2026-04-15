@@ -21,6 +21,7 @@ import MobileDetailCards from "@/components/MobileDetailCards";
 import MetasTab from "@/components/MetasTab";
 import FeedbacksTab from "@/components/FeedbacksTab";
 import TVMode from "@/components/TVMode";
+import OnboardingPresentation from "@/components/OnboardingPresentation";
 import { DatePickerInput } from "@/components/DatePickerInput";
 import { SelectDropdown } from "@/components/SelectDropdown";
 
@@ -46,7 +47,7 @@ const TOP3_BADGE_COLORS = ["#22C55E", "#16A34A", "#15803D"];
 const BOTTOM3_BADGE_COLORS = ["#EF4444", "#F97316", "#F59E0B"];
 
 const DashboardPage = () => {
-  const { user, machines, metas, records, holidays, loading, turnosAtivos, setTurnosAtivos } = useAuth();
+  const { user, machines, metas, records, holidays, loading, turnosAtivos, setTurnosAtivos, needsOnboarding, completeOnboarding } = useAuth();
   const isMobile = useIsMobile();
   const [activeTab, setActiveTab] = useState<TabId>("dashboard");
   const [dashSubTab, setDashSubTab] = useState<DashboardSubTab>("resumo");
@@ -55,6 +56,7 @@ const DashboardPage = () => {
   const [fullscreenChart, setFullscreenChart] = useState<string | null>(null);
   const [showAdmin, setShowAdmin] = useState(false);
   const [showTV,    setShowTV]    = useState(false);
+  const [showTour,  setShowTour]  = useState(false);
 
   // Date range — default to last 30 days
   const [dateFrom, setDateFrom] = useState(() => {
@@ -236,7 +238,7 @@ const DashboardPage = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <WEGHeader onAdminClick={() => setShowAdmin(true)} onTVClick={() => setShowTV(true)} />
+      <WEGHeader onAdminClick={() => setShowAdmin(true)} onTVClick={() => setShowTV(true)} onTourClick={() => setShowTour(true)} />
 
       {/* Desktop main tab nav */}
       {!isMobile && (
@@ -565,6 +567,12 @@ const DashboardPage = () => {
 
       {isMobile && <BottomNav activeTab={activeTab} onTabChange={setActiveTab} />}
       {showAdmin && <AdminPanel onClose={() => setShowAdmin(false)} />}
+      {(needsOnboarding || showTour) && (
+        <OnboardingPresentation onComplete={() => {
+          if (needsOnboarding) completeOnboarding();
+          setShowTour(false);
+        }} />
+      )}}
 
       {/* TV Mode — fullscreen presentation overlay. Receives only pre-computed data, zero backend calls. */}
       {showTV && (

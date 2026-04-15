@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { LogOut, Settings, Tv } from "lucide-react";
+import { LogOut, Settings, Tv, BookOpen } from "lucide-react";
 import WEGLogo from "./WEGLogo";
 import { useAuth } from "@/contexts/AuthContext";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -8,9 +8,10 @@ interface WEGHeaderProps {
   onAdminClick?: () => void;
   onMenuClick?: () => void;
   onTVClick?: () => void;
+  onTourClick?: () => void;
 }
 
-const WEGHeader = ({ onAdminClick, onMenuClick, onTVClick }: WEGHeaderProps) => {
+const WEGHeader = ({ onAdminClick, onMenuClick, onTVClick, onTourClick }: WEGHeaderProps) => {
   const { user, logout } = useAuth();
   const isMobile = useIsMobile();
   const isAdmin = user?.role === "admin";
@@ -46,6 +47,17 @@ const WEGHeader = ({ onAdminClick, onMenuClick, onTVClick }: WEGHeaderProps) => 
             >
               <Settings size={14} />
               {!isMobile && <span>Admin</span>}
+            </button>
+          )}
+
+          {onTourClick && (
+            <button
+              onClick={onTourClick}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-white/60 hover:text-white hover:bg-white/10 text-sm font-medium transition-all"
+              title="Ver tour do produto"
+            >
+              <BookOpen size={14} />
+              {!isMobile && <span>Tour</span>}
             </button>
           )}
 

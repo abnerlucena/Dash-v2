@@ -1,12 +1,14 @@
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from "react";
 import {
-  type Session, type Machine, type ProdRecord, type Holiday,
+  type Session, type Machine, type ProdRecord, type Holiday, type OrdemProducao,
   loadSession, saveSession, clearSession,
   loadCachedRecords, saveCachedRecords,
   loadCachedMetas, saveCachedMetas,
   loadCachedHolidays, saveCachedHolidays,
   api, MACHINES_DEFAULT,
 } from "@/lib/api";
+
+export type { OrdemProducao };
 
 export interface MetaInfo {
   updatedBy: string;
@@ -26,6 +28,8 @@ interface AuthContextType {
   loading: boolean;
   turnosAtivos: number;
   setTurnosAtivos: (n: number) => void;
+  needsOnboarding: boolean;
+  completeOnboarding: () => Promise<void>;
   login: (nome: string, senha: string) => Promise<void>;
   register: (nome: string, senha: string, inviteCode: string) => Promise<void>;
   logout: () => void;
@@ -75,12 +79,25 @@ function normalizeHolidays(raw: any[]): Holiday[] {
 // Normalize numeric fields — backend returns everything as strings
 function normalizeRecords(raw: any[]): ProdRecord[] {
   return (raw || [])
-    .map((rec: any) => ({
-      ...rec,
-      machineId: Number(rec.machineId) || 0,
-      meta:      Number(rec.meta)      || 0,
-      producao:  Number(rec.producao)  || 0,
-    }))
+    .map((rec: any) => {
+      // Parse ordensProducao — backend stores as JSON string
+      let ordensProducao: OrdemProducao[] = [];
+      if (rec.ordensProducao) {
+        try {
+          const parsed = typeof rec.ordensProducao === "string"
+            ? JSON.parse(rec.ordensProducao)
+            : rec.ordensProducao;
+          if (Array.isArray(parsed)) ordensProducao = parsed;
+        } catch {}
+      }
+      return {
+        ...rec,
+        machineId: Number(rec.machineId) || 0,
+        meta:      Number(rec.meta)      || 0,
+        producao:  Number(rec.producao)  || 0,
+        ordensProducao,
+      };
+    })
     .filter((rec: ProdRecord) => rec.machineId > 0 && rec.date);
 }
 
@@ -107,6 +124,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setTurnosAtivosState(n);
     localStorage.setItem("turnosAtivos", String(n));
   };
+  const [needsOnboarding, setNeedsOnboarding] = useState(false);
 
   // ── Fetch helpers ─────────────────────────────────────────────
 
@@ -221,6 +239,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
     saveSession(session);
     setUser(session);
+    // Verificar se onboarding já foi concluído
+    if (r.session.onboardingDone === false || r.session.onboardingDone === "false") {
+      setNeedsOnboarding(true);
+    }
+  };
+
+  const completeOnboarding = async () => {
+    if (!user) return;
+    try {
+      await api("completeOnboarding", {}, user);
+    } catch {}
+    setNeedsOnboarding(false);
   };
 
   const register = async (nome: string, senha: string, inviteCode: string) => {
@@ -245,6 +275,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     <AuthContext.Provider value={{
       user, machines, metas, metasInfo, records, holidays, loading,
       turnosAtivos, setTurnosAtivos,
+      needsOnboarding, completeOnboarding,
       login, register, logout,
       refreshData, silentRefresh: silentRefreshData, refreshMachines, refreshMetas, refreshHolidays,
       setRecords,
