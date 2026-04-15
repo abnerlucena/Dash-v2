@@ -572,7 +572,7 @@ const DashboardPage = () => {
           if (needsOnboarding) completeOnboarding();
           setShowTour(false);
         }} />
-      )}}
+      )}
 
       {/* TV Mode — fullscreen presentation overlay. Receives only pre-computed data, zero backend calls. */}
       {showTV && (
