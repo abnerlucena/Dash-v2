@@ -128,6 +128,13 @@ const OnboardingPresentation = ({ onComplete }: OnboardingPresentationProps) => 
   const containerRef = useRef<HTMLDivElement>(null);
   const [scrollPct, setScrollPct] = useState(0);
 
+  // Lock body scroll while onboarding is open
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = prev; };
+  }, []);
+
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;

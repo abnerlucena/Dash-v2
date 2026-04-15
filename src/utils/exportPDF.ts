@@ -1,4 +1,4 @@
-import type { ProdRecord } from "@/lib/api";
+import type { ProdRecord, Holiday } from "@/lib/api";
 import { dispD, pctColor } from "@/lib/api";
 
 export interface PDFFilters {
@@ -19,11 +19,15 @@ function hexToRgb(hex: string): [number, number, number] {
 export async function exportToPDF(
   records: ProdRecord[],
   filters: PDFFilters,
-  filename?: string
+  filename?: string,
+  holidays?: Holiday[]
 ): Promise<void> {
   // Dynamic import — keeps bundle clean if user never exports PDF
   const { default: jsPDF } = await import("jspdf");
   const { default: autoTable } = await import("jspdf-autotable");
+
+  const holidayMap = new Map<string, Holiday>();
+  for (const h of holidays ?? []) holidayMap.set(h.date, h);
 
   const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
   const pageW = doc.internal.pageSize.getWidth();
@@ -85,15 +89,25 @@ export async function exportToPDF(
   });
 
   // ── Data table ───────────────────────────────────────────────
-  const head = [["Data", "Turno", "Máquina", "Meta", "Produção", "%", "Apontado por", "Obs", "Ordens"]];
+  // Column widths (total ≈ 271mm, fits A4 landscape 277mm usable):
+  // Data(20) Turno(14) Máquina(38) Meta(16) Prod(18) %(13) Por(20)
+  // Edit.por(20) Edit.em(18) Obs(26) Feriado(20) Ordens(48)
+  const head = [["Data", "Turno", "Máquina", "Meta", "Produção", "%", "Apontado por", "Edit. por", "Edit. em", "Obs", "Feriado", "Ordens"]];
 
   const body = records.map((r) => {
     const meta = r.meta || 0;
     const prod = r.producao || 0;
     const pct = meta > 0 ? Math.round((prod / meta) * 100) : null;
+
+    const holiday = holidayMap.get(r.date);
+    const feriadoStr = holiday
+      ? `${holiday.label}\n(${holiday.type === "feriado" ? "Feriado" : "Dia Anulado"})`
+      : "";
+
     const ordensStr = (r.ordensProducao || [])
       .map((o) => `#${o.ordemId} → ${o.quantidade} pç`)
       .join("\n");
+
     return [
       dispD(r.date),
       r.turno.replace("TURNO ", "T"),
@@ -102,7 +116,10 @@ export async function exportToPDF(
       prod.toLocaleString("pt-BR"),
       pct !== null ? pct + "%" : "—",
       r.savedBy || "",
+      r.editUser || "",
+      r.editTime || "",
       r.obs || "",
+      feriadoStr,
       ordensStr,
     ];
   });
@@ -124,15 +141,18 @@ export async function exportToPDF(
     },
     alternateRowStyles: { fillColor: [248, 250, 252] },
     columnStyles: {
-      0: { cellWidth: 20 },
-      1: { cellWidth: 14 },
-      2: { cellWidth: 40 },
-      3: { cellWidth: 18, halign: "right" },
-      4: { cellWidth: 20, halign: "right", fontStyle: "bold" },
-      5: { cellWidth: 14, halign: "center" },
-      6: { cellWidth: 22 },
-      7: { cellWidth: 28 },
-      8: { cellWidth: 40 },
+      0:  { cellWidth: 20 },
+      1:  { cellWidth: 14 },
+      2:  { cellWidth: 38 },
+      3:  { cellWidth: 16, halign: "right" },
+      4:  { cellWidth: 18, halign: "right", fontStyle: "bold" },
+      5:  { cellWidth: 13, halign: "center" },
+      6:  { cellWidth: 20 },
+      7:  { cellWidth: 20 },
+      8:  { cellWidth: 18 },
+      9:  { cellWidth: 26 },
+      10: { cellWidth: 20 },
+      11: { cellWidth: 48 },
     },
     didParseCell(data) {
       // Color the % column based on value
@@ -142,6 +162,17 @@ export async function exportToPDF(
         if (!isNaN(n)) {
           const rgb = hexToRgb(pctColor(n));
           data.cell.styles.textColor = rgb;
+          data.cell.styles.fontStyle = "bold";
+        }
+      }
+      // Tint feriado cells light blue / light red
+      if (data.column.index === 10 && data.section === "body") {
+        const val = String(data.cell.raw);
+        if (val.includes("Feriado")) {
+          data.cell.styles.textColor = [29, 78, 216];
+          data.cell.styles.fontStyle = "bold";
+        } else if (val.includes("Dia Anulado")) {
+          data.cell.styles.textColor = [185, 28, 28];
           data.cell.styles.fontStyle = "bold";
         }
       }

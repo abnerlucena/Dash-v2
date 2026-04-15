@@ -547,16 +547,22 @@ const TVMode = ({
     machAgg.filter(m => m.totalMeta > 0 && m.pct < 80).sort((a, b) => a.pct - b.pct),
   [machAgg]);
 
-  // ── Fullscreen on mount ────────────────────────────────────────────────────
+  // ── Fullscreen + body scroll lock on mount ────────────────────────────────
   useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
     const el = containerRef.current;
-    if (!el) return;
-    try {
-      if      (el.requestFullscreen)              el.requestFullscreen();
-      else if ((el as any).webkitRequestFullscreen) (el as any).webkitRequestFullscreen();
-      else if ((el as any).mozRequestFullScreen)    (el as any).mozRequestFullScreen();
-      else if ((el as any).msRequestFullscreen)     (el as any).msRequestFullscreen();
-    } catch { /* browser may deny — silently ignore */ }
+    if (el) {
+      try {
+        if      (el.requestFullscreen)              el.requestFullscreen();
+        else if ((el as any).webkitRequestFullscreen) (el as any).webkitRequestFullscreen();
+        else if ((el as any).mozRequestFullScreen)    (el as any).mozRequestFullScreen();
+        else if ((el as any).msRequestFullscreen)     (el as any).msRequestFullscreen();
+      } catch { /* browser may deny — silently ignore */ }
+    }
+
+    return () => { document.body.style.overflow = prev; };
   }, []);
 
   // ── Live clock — 1s tick ────────────────────────────────────────────────────
@@ -613,6 +619,7 @@ const TVMode = ({
       ref={containerRef}
       style={{
         position: "fixed", inset: 0, zIndex: 9999,
+        overflow: "hidden",
         background: "linear-gradient(145deg, #001D3D 0%, #003366 60%, #004080 100%)",
         display: "flex", flexDirection: "column",
         fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif",

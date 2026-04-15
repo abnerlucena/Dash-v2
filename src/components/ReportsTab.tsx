@@ -1,10 +1,11 @@
 import { useState, useMemo, Fragment } from "react";
-import { Download, FileText, ChevronLeft, ChevronRight, X, ChevronDown, ChevronUp } from "lucide-react";
+import { Download, FileText, ChevronLeft, ChevronRight, X, ChevronDown, ChevronUp, Trash2, CalendarDays, Pencil, CheckSquare } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "@/contexts/AuthContext";
 import { useIsMobile } from "@/hooks/use-mobile";
 import FilterBar from "@/components/FilterBar";
-import { today, fmt, dispD, pctColor } from "@/lib/api";
+import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
+import { today, fmt, dispD, pctColor, saveCachedRecords, TURNOS, api } from "@/lib/api";
 import { toast } from "sonner";
 import { exportToCSV } from "@/utils/exportCSV";
 import { exportToPDF } from "@/utils/exportPDF";
@@ -22,13 +23,21 @@ const MONTH_NAMES = [
 ];
 
 const ReportsTab = () => {
-  const { records, machines, metas, holidays } = useAuth();
+  const { records, machines, metas, holidays, user, setRecords, silentRefresh } = useAuth();
   const isMobile = useIsMobile();
 
   const [subTab, setSubTab] = useState<HistSubTab>("calendario");
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
   const [pdfExporting, setPdfExporting] = useState(false);
+  const [holidayPopover, setHolidayPopover] = useState<string | null>(null);
+
+  // ── Bulk selection ──────────────────────────────────────────
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkAction, setBulkAction] = useState<"delete" | "move" | "turno" | null>(null);
+  const [bulkMoveDate, setBulkMoveDate] = useState("");
+  const [bulkTurno, setBulkTurno] = useState("TURNO 1");
+  const [bulkLoading, setBulkLoading] = useState(false);
 
   // Calendar state
   const now = new Date();
@@ -115,19 +124,84 @@ const ReportsTab = () => {
   }
 
   function handleExportCSV() {
-    exportToCSV(filtered, { dateFrom, dateTo, machine, turno });
+    exportToCSV(filtered, { dateFrom, dateTo, machine, turno }, undefined, holidays);
     toast.success("CSV exportado com sucesso!");
   }
 
   async function handleExportPDF() {
     setPdfExporting(true);
     try {
-      await exportToPDF(filtered, { dateFrom, dateTo, machine, turno });
+      await exportToPDF(filtered, { dateFrom, dateTo, machine, turno }, undefined, holidays);
       toast.success("PDF exportado com sucesso!");
     } catch {
       toast.error("Erro ao gerar PDF. Tente novamente.");
     }
     setPdfExporting(false);
+  }
+
+  // ── Bulk helpers ────────────────────────────────────────────
+  const selectableIds = useMemo(() => filtered.slice(0, 200).filter(r => r.id).map(r => r.id!), [filtered]);
+  const allSelected = selectableIds.length > 0 && selectableIds.every(id => selectedIds.has(id));
+
+  function toggleSelect(id: string) {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleAll() {
+    if (allSelected) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(selectableIds));
+    }
+  }
+
+  async function executeBulkDelete() {
+    setBulkLoading(true);
+    try {
+      await api("bulkDelete", { ids: [...selectedIds] }, user);
+      const next = records.filter(r => !r.id || !selectedIds.has(r.id));
+      setRecords(next);
+      saveCachedRecords(next);
+      toast.success(`${selectedIds.size} registro(s) excluído(s)`);
+      setSelectedIds(new Set());
+      setBulkAction(null);
+    } catch (e: any) {
+      toast.error(e.message || "Erro ao excluir registros");
+    }
+    setBulkLoading(false);
+  }
+
+  async function executeBulkMove() {
+    if (!bulkMoveDate) { toast.error("Selecione a data destino"); return; }
+    setBulkLoading(true);
+    try {
+      await api("bulkMove", { ids: [...selectedIds], newDate: bulkMoveDate }, user);
+      await silentRefresh();
+      toast.success(`${selectedIds.size} registro(s) movido(s) para ${dispD(bulkMoveDate)}`);
+      setSelectedIds(new Set());
+      setBulkAction(null);
+    } catch (e: any) {
+      toast.error(e.message || "Erro ao mover registros");
+    }
+    setBulkLoading(false);
+  }
+
+  async function executeBulkTurno() {
+    setBulkLoading(true);
+    try {
+      await api("bulkEditTurno", { ids: [...selectedIds], newTurno: bulkTurno }, user);
+      await silentRefresh();
+      toast.success(`${selectedIds.size} registro(s) atualizados para ${bulkTurno}`);
+      setSelectedIds(new Set());
+      setBulkAction(null);
+    } catch (e: any) {
+      toast.error(e.message || "Erro ao editar turno");
+    }
+    setBulkLoading(false);
   }
 
   return (
@@ -204,10 +278,18 @@ const ReportsTab = () => {
                     ? holiday.type === "feriado" ? "#EFF6FF" : "#FEF2F2"
                     : isToday ? undefined : undefined;
 
+                  const holidayStyle = holiday
+                    ? holiday.type === "feriado"
+                      ? { bg: "#DBEAFE", color: "#1D4ED8" }
+                      : { bg: "#FEE2E2", color: "#B91C1C" }
+                    : null;
+
                   return (
                     <div key={di}
-                      onClick={() => data && setSelectedDate(dateStr)}
-                      title={holiday ? `${holiday.type === "feriado" ? "Feriado" : "Dia Anulado"}: ${holiday.label}` : undefined}
+                      onClick={() => {
+                        if (holidayPopover === dateStr) { setHolidayPopover(null); return; }
+                        if (data) setSelectedDate(dateStr);
+                      }}
                       className={`p-1.5 relative transition-colors ${data ? "cursor-pointer" : ""} ${isToday && !holiday ? "bg-primary/5" : data && !holiday ? "hover:bg-muted/30" : ""}`}
                       style={cellBg ? { background: cellBg } : {}}>
                       <div className="flex items-start justify-between mb-1">
@@ -221,9 +303,45 @@ const ReportsTab = () => {
                         </span>
                         <div className="flex items-center gap-0.5">
                           {holiday && (
-                            <span className="text-[11px]" title={holiday.label}>
-                              {holiday.type === "feriado" ? "🎉" : "🚫"}
-                            </span>
+                            <Popover
+                              open={holidayPopover === dateStr}
+                              onOpenChange={(open) => setHolidayPopover(open ? dateStr : null)}
+                            >
+                              <PopoverTrigger asChild>
+                                <button
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="text-[11px] leading-none cursor-pointer hover:scale-125 transition-transform"
+                                  aria-label={`Ver detalhes: ${holiday.label}`}
+                                >
+                                  {holiday.type === "feriado" ? "🎉" : "🚫"}
+                                </button>
+                              </PopoverTrigger>
+                              <PopoverContent className="w-56 p-3" side="bottom" align="end">
+                                <div className="space-y-2">
+                                  <div className="flex items-start gap-2">
+                                    <span className="text-xl mt-0.5">{holiday.type === "feriado" ? "🎉" : "🚫"}</span>
+                                    <div>
+                                      <p className="text-sm font-bold text-foreground leading-tight">{holiday.label}</p>
+                                      <p className="text-[11px] text-muted-foreground mt-0.5">{dispD(dateStr)}</p>
+                                    </div>
+                                  </div>
+                                  <span
+                                    className="inline-flex text-[11px] font-bold px-2.5 py-0.5 rounded-full"
+                                    style={holidayStyle ? { background: holidayStyle.bg, color: holidayStyle.color } : {}}
+                                  >
+                                    {holiday.type === "feriado" ? "Feriado Nacional/Local" : "Dia Anulado"}
+                                  </span>
+                                  {!data && (
+                                    <p className="text-[10px] text-muted-foreground">Nenhum apontamento neste dia.</p>
+                                  )}
+                                  {data && (
+                                    <p className="text-[10px] text-muted-foreground">
+                                      {Object.values(data.counts).reduce((s, v) => s + v, 0)} apontamento(s) registrado(s).
+                                    </p>
+                                  )}
+                                </div>
+                              </PopoverContent>
+                            </Popover>
                           )}
                           {data && (
                             <span className="text-[10px] font-semibold text-muted-foreground">
@@ -232,15 +350,14 @@ const ReportsTab = () => {
                           )}
                         </div>
                       </div>
-                      {holiday && !isMobile && (
-                        <div
-                          className="text-[10px] font-semibold px-1.5 py-0.5 rounded truncate mb-0.5"
-                          style={holiday.type === "feriado"
-                            ? { background: "#DBEAFE", color: "#1D4ED8" }
-                            : { background: "#FEE2E2", color: "#B91C1C" }}
+                      {holiday && !isMobile && holidayStyle && (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); setHolidayPopover(prev => prev === dateStr ? null : dateStr); }}
+                          className="text-left w-full text-[10px] font-semibold px-1.5 py-0.5 rounded truncate mb-0.5 cursor-pointer"
+                          style={{ background: holidayStyle.bg, color: holidayStyle.color }}
                         >
                           {holiday.label}
-                        </div>
+                        </button>
                       )}
                       {data && !isMobile && (
                         <div className="space-y-0.5">
@@ -307,6 +424,12 @@ const ReportsTab = () => {
                 <FileText size={16} className="text-primary" />
                 Dados Detalhados ({filtered.length} registros)
               </h3>
+              {selectedIds.size > 0 && (
+                <span className="text-xs font-semibold text-primary flex items-center gap-1">
+                  <CheckSquare size={13} />
+                  {selectedIds.size} selecionado(s)
+                </span>
+              )}
             </div>
 
             {filtered.length === 0 ? (
@@ -316,9 +439,18 @@ const ReportsTab = () => {
               </div>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full text-sm min-w-[700px]">
+                <table className="w-full text-sm min-w-[740px]">
                   <thead>
                     <tr style={{ background: '#003366', color: '#fff' }}>
+                      <th className="w-8 px-2 py-3 text-center">
+                        <input
+                          type="checkbox"
+                          checked={allSelected}
+                          onChange={toggleAll}
+                          className="w-3.5 h-3.5 rounded cursor-pointer accent-white"
+                          title="Selecionar todos"
+                        />
+                      </th>
                       <th className="w-8 px-2 py-3" />
                       <th className="text-left px-4 py-3 text-xs font-semibold uppercase">Data</th>
                       <th className="text-left px-3 py-3 text-xs font-semibold uppercase">Turno</th>
@@ -338,12 +470,24 @@ const ReportsTab = () => {
                       const rowKey = `${r.date}-${r.turno}-${r.machineId}-${i}`;
                       const hasOrdens = (r.ordensProducao?.length ?? 0) > 0;
                       const isExpanded = expandedRow === rowKey;
-                      const rowBg = i % 2 === 0 ? '#F8FAFC' : '#fff';
+                      const isChecked = r.id ? selectedIds.has(r.id) : false;
+                      const rowBg = isChecked ? '#EFF6FF' : i % 2 === 0 ? '#F8FAFC' : '#fff';
                       return (
                         <Fragment key={rowKey}>
                           <tr
                             className="border-b border-border/50 hover:bg-muted/40 transition-colors"
                             style={{ background: rowBg }}>
+                            <td className="px-2 py-2.5 text-center">
+                              {r.id && (
+                                <input
+                                  type="checkbox"
+                                  checked={isChecked}
+                                  onChange={() => toggleSelect(r.id!)}
+                                  className="w-3.5 h-3.5 rounded cursor-pointer"
+                                  style={{ accentColor: '#0066B3' }}
+                                />
+                              )}
+                            </td>
                             <td className="px-2 py-2.5 text-center">
                               {hasOrdens && (
                                 <button
@@ -372,7 +516,7 @@ const ReportsTab = () => {
                           </tr>
                           {isExpanded && hasOrdens && (
                             <tr key={`${rowKey}-ordens`} style={{ background: rowBg }}>
-                              <td />
+                              <td /><td />
                               <td colSpan={8} className="px-4 pb-3 pt-0">
                                 <div className="flex flex-wrap gap-1.5 border-l-2 border-primary/30 pl-3">
                                   {r.ordensProducao!.map((o, oi) => (
@@ -399,6 +543,164 @@ const ReportsTab = () => {
           </div>
         </motion.div>
       )}
+
+      {/* BULK ACTION BAR */}
+      <AnimatePresence>
+        {selectedIds.size > 0 && (
+          <motion.div
+            key="bulk-bar"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 20 }}
+            transition={{ duration: 0.2 }}
+            className="fixed bottom-6 left-1/2 z-40 flex items-center gap-3 px-5 py-3 rounded-2xl shadow-2xl border border-white/10"
+            style={{ transform: "translateX(-50%)", background: "#001D3D", minWidth: 320 }}
+          >
+            <span className="text-white text-xs font-bold mr-1">{selectedIds.size} selecionado(s)</span>
+            <button
+              onClick={() => setBulkAction("turno")}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-white hover:bg-white/10 transition-colors"
+              title="Alterar turno em massa"
+            >
+              <Pencil size={13} />
+              Turno
+            </button>
+            <button
+              onClick={() => { setBulkMoveDate(""); setBulkAction("move"); }}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-white hover:bg-white/10 transition-colors"
+              title="Mover para outra data"
+            >
+              <CalendarDays size={13} />
+              Mover
+            </button>
+            <button
+              onClick={() => setBulkAction("delete")}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold rounded-lg transition-colors"
+              style={{ background: "#EF4444", color: "#fff" }}
+              title="Excluir selecionados"
+            >
+              <Trash2 size={13} />
+              Excluir
+            </button>
+            <button
+              onClick={() => setSelectedIds(new Set())}
+              className="ml-1 w-7 h-7 flex items-center justify-center rounded-full hover:bg-white/10 text-white/50 hover:text-white transition-colors"
+              title="Cancelar seleção"
+            >
+              <X size={14} />
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* BULK ACTION DIALOGS */}
+      <AnimatePresence>
+        {bulkAction && (
+          <motion.div
+            key="bulk-dialog"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.15 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4"
+            style={{ background: "rgba(0,0,0,0.5)" }}
+            onClick={() => !bulkLoading && setBulkAction(null)}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 16 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 16 }}
+              transition={{ duration: 0.18 }}
+              className="bg-card w-full max-w-sm rounded-xl border border-border shadow-xl overflow-hidden"
+              onClick={e => e.stopPropagation()}
+            >
+              {bulkAction === "delete" && (
+                <>
+                  <div className="px-5 py-4 border-b border-border flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-full flex items-center justify-center" style={{ background: "#FEE2E2" }}>
+                      <Trash2 size={16} style={{ color: "#EF4444" }} />
+                    </div>
+                    <div>
+                      <p className="text-sm font-bold text-foreground">Excluir registros</p>
+                      <p className="text-xs text-muted-foreground">{selectedIds.size} registro(s) serão excluídos permanentemente</p>
+                    </div>
+                  </div>
+                  <div className="px-5 py-4 flex gap-3 justify-end">
+                    <button onClick={() => setBulkAction(null)} disabled={bulkLoading}
+                      className="px-4 py-2 text-sm font-semibold rounded-lg border border-border hover:bg-muted transition-colors">
+                      Cancelar
+                    </button>
+                    <button onClick={executeBulkDelete} disabled={bulkLoading}
+                      className="px-4 py-2 text-sm font-bold rounded-lg text-white transition-all disabled:opacity-60"
+                      style={{ background: "#EF4444" }}>
+                      {bulkLoading ? "Excluindo..." : "Excluir"}
+                    </button>
+                  </div>
+                </>
+              )}
+
+              {bulkAction === "move" && (
+                <>
+                  <div className="px-5 py-4 border-b border-border">
+                    <p className="text-sm font-bold text-foreground">Mover para outra data</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">{selectedIds.size} registro(s) serão movidos</p>
+                  </div>
+                  <div className="px-5 py-4 space-y-3">
+                    <label className="text-xs font-semibold text-muted-foreground uppercase">Data destino</label>
+                    <input
+                      type="date"
+                      value={bulkMoveDate}
+                      onChange={e => setBulkMoveDate(e.target.value)}
+                      className="w-full px-3 py-2 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary/30"
+                    />
+                  </div>
+                  <div className="px-5 pb-4 flex gap-3 justify-end">
+                    <button onClick={() => setBulkAction(null)} disabled={bulkLoading}
+                      className="px-4 py-2 text-sm font-semibold rounded-lg border border-border hover:bg-muted transition-colors">
+                      Cancelar
+                    </button>
+                    <button onClick={executeBulkMove} disabled={bulkLoading || !bulkMoveDate}
+                      className="px-4 py-2 text-sm font-bold rounded-lg text-white transition-all disabled:opacity-60"
+                      style={{ background: "#0066B3" }}>
+                      {bulkLoading ? "Movendo..." : "Mover"}
+                    </button>
+                  </div>
+                </>
+              )}
+
+              {bulkAction === "turno" && (
+                <>
+                  <div className="px-5 py-4 border-b border-border">
+                    <p className="text-sm font-bold text-foreground">Alterar turno</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">{selectedIds.size} registro(s) serão atualizados</p>
+                  </div>
+                  <div className="px-5 py-4 space-y-3">
+                    <label className="text-xs font-semibold text-muted-foreground uppercase">Novo turno</label>
+                    <select
+                      value={bulkTurno}
+                      onChange={e => setBulkTurno(e.target.value)}
+                      className="w-full px-3 py-2 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary/30"
+                    >
+                      {TURNOS.map(t => <option key={t} value={t}>{t}</option>)}
+                    </select>
+                  </div>
+                  <div className="px-5 pb-4 flex gap-3 justify-end">
+                    <button onClick={() => setBulkAction(null)} disabled={bulkLoading}
+                      className="px-4 py-2 text-sm font-semibold rounded-lg border border-border hover:bg-muted transition-colors">
+                      Cancelar
+                    </button>
+                    <button onClick={executeBulkTurno} disabled={bulkLoading}
+                      className="px-4 py-2 text-sm font-bold rounded-lg text-white transition-all disabled:opacity-60"
+                      style={{ background: "#0066B3" }}>
+                      {bulkLoading ? "Salvando..." : "Salvar"}
+                    </button>
+                  </div>
+                </>
+              )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* DAY DETAIL MODAL */}
       <AnimatePresence>

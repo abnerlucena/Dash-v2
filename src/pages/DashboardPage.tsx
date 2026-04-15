@@ -1,6 +1,6 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, Fragment } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { BarChart3, TrendingUp, Factory, Activity, ClipboardEdit, FileText } from "lucide-react";
+import { BarChart3, TrendingUp, Factory, Activity, ClipboardEdit, FileText, ChevronDown, ChevronUp } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { TURNOS, pctColor, fmt, today } from "@/lib/api";
@@ -57,6 +57,7 @@ const DashboardPage = () => {
   const [showAdmin, setShowAdmin] = useState(false);
   const [showTV,    setShowTV]    = useState(false);
   const [showTour,  setShowTour]  = useState(false);
+  const [expandedDetalhado, setExpandedDetalhado] = useState<string | null>(null);
 
   // Date range — default to last 30 days
   const [dateFrom, setDateFrom] = useState(() => {
@@ -386,22 +387,29 @@ const DashboardPage = () => {
                     ) : (
                       <div className="space-y-4">
                         {machineAgg.map((m) => {
+                          const metaTurno = metas[m.id] ?? 0;
+                          const metaDia = metaTurno * turnosAtivos;
                           const machineRecords = filteredRecords.filter(r => r.machineId === m.id);
-                          const dateMap: Record<string, Record<string, number>> = {};
+
+                          // Build date map preserving per-record detail for OPs
+                          const dateMap: Record<string, {
+                            t1: number; t2: number; t3: number; total: number;
+                            records: typeof machineRecords;
+                          }> = {};
                           for (const r of machineRecords) {
-                            if (!dateMap[r.date]) dateMap[r.date] = {};
-                            dateMap[r.date][r.turno] = (dateMap[r.date][r.turno] ?? 0) + r.producao;
+                            if (!dateMap[r.date]) dateMap[r.date] = { t1: 0, t2: 0, t3: 0, total: 0, records: [] };
+                            dateMap[r.date].records.push(r);
+                            dateMap[r.date].t1 += r.turno === "TURNO 1" ? r.producao : 0;
+                            dateMap[r.date].t2 += r.turno === "TURNO 2" ? r.producao : 0;
+                            dateMap[r.date].t3 += r.turno === "TURNO 3" ? r.producao : 0;
+                            dateMap[r.date].total += r.producao;
                           }
                           const dates = Object.entries(dateMap)
                             .sort(([a], [b]) => b.localeCompare(a))
-                            .map(([date, turnos]) => ({
-                              date,
-                              t1: turnos["TURNO 1"] ?? 0,
-                              t2: turnos["TURNO 2"] ?? 0,
-                              t3: turnos["TURNO 3"] ?? 0,
-                              total: Object.values(turnos).reduce((s, v) => s + v, 0),
-                            }));
+                            .map(([date, d]) => ({ date, ...d }));
+
                           if (dates.length === 0) return null;
+
                           return (
                             <motion.div key={m.id}
                               initial={{ opacity: 0, y: 12 }}
@@ -411,42 +419,114 @@ const DashboardPage = () => {
                               {/* Machine header */}
                               <div className="flex items-center justify-between px-4 py-2.5" style={{ background: '#003366' }}>
                                 <span className="text-xs font-bold text-white uppercase tracking-wider">{m.name}</span>
-                                <span className="text-[11px] text-white/80">
-                                  Total: {m.totalProd.toLocaleString("pt-BR")} pç — {m.pct}% meta
-                                </span>
+                                <div className="flex items-center gap-3">
+                                  <span className="text-[11px] text-white/80">
+                                    Total: {m.totalProd.toLocaleString("pt-BR")} pç
+                                  </span>
+                                  <span className="text-[11px] font-bold px-2 py-0.5 rounded-full"
+                                    style={{ color: pctColor(m.pct), background: `${pctColor(m.pct)}25` }}>
+                                    {m.pct}%
+                                  </span>
+                                </div>
                               </div>
                               {/* Records table */}
                               <table className="w-full text-sm">
                                 <thead>
                                   <tr className="border-b border-border" style={{ background: '#F8FAFC' }}>
+                                    <th className="w-8 px-2 py-2" />
                                     <th className="text-left px-4 py-2 text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Data</th>
-                                    <th className="text-center px-3 py-2 text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Turno 1</th>
-                                    <th className="text-center px-3 py-2 text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Turno 2</th>
-                                    <th className="text-center px-3 py-2 text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Turno 3</th>
-                                    <th className="text-right px-4 py-2 text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Total Dia</th>
+                                    <th className="text-center px-3 py-2 text-[10px] font-bold text-muted-foreground uppercase tracking-wider">T1</th>
+                                    <th className="text-center px-3 py-2 text-[10px] font-bold text-muted-foreground uppercase tracking-wider">T2</th>
+                                    <th className="text-center px-3 py-2 text-[10px] font-bold text-muted-foreground uppercase tracking-wider">T3</th>
+                                    <th className="text-right px-3 py-2 text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Total</th>
+                                    <th className="text-center px-4 py-2 text-[10px] font-bold text-muted-foreground uppercase tracking-wider">% Meta</th>
                                   </tr>
                                 </thead>
                                 <tbody>
-                                  {dates.map((d, i) => (
-                                    <tr key={d.date} className="border-b border-border/40 hover:bg-muted/30 transition-colors"
-                                      style={{ background: i % 2 === 0 ? '#fff' : '#F8FAFC' }}>
-                                      <td className="px-4 py-2.5 font-semibold text-foreground text-xs">
-                                        {d.date.split("-").reverse().join("/")}
-                                      </td>
-                                      <td className="px-3 py-2.5 text-center text-sm text-muted-foreground">
-                                        {d.t1 > 0 ? d.t1.toLocaleString("pt-BR") : "—"}
-                                      </td>
-                                      <td className="px-3 py-2.5 text-center text-sm text-muted-foreground">
-                                        {d.t2 > 0 ? d.t2.toLocaleString("pt-BR") : "—"}
-                                      </td>
-                                      <td className="px-3 py-2.5 text-center text-sm text-muted-foreground">
-                                        {d.t3 > 0 ? d.t3.toLocaleString("pt-BR") : "—"}
-                                      </td>
-                                      <td className="px-4 py-2.5 text-right font-bold text-foreground">
-                                        {d.total.toLocaleString("pt-BR")}
-                                      </td>
-                                    </tr>
-                                  ))}
+                                  {dates.map((d, i) => {
+                                    const rowKey = `${m.id}-${d.date}`;
+                                    const isExpanded = expandedDetalhado === rowKey;
+                                    const hasOrdens = d.records.some(r => (r.ordensProducao?.length ?? 0) > 0);
+                                    const pctDia = metaDia > 0 ? Math.round(d.total / metaDia * 100) : null;
+                                    const rowBg = i % 2 === 0 ? '#fff' : '#F8FAFC';
+                                    return (
+                                      <Fragment key={d.date}>
+                                        <tr
+                                          className="border-b border-border/40 hover:bg-muted/30 transition-colors"
+                                          style={{ background: rowBg }}
+                                        >
+                                          <td className="px-2 py-2 text-center">
+                                            {hasOrdens && (
+                                              <button
+                                                onClick={() => setExpandedDetalhado(isExpanded ? null : rowKey)}
+                                                className="w-6 h-6 flex items-center justify-center rounded text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
+                                                title={isExpanded ? "Recolher ordens" : "Ver ordens de produção"}
+                                              >
+                                                {isExpanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+                                              </button>
+                                            )}
+                                          </td>
+                                          <td className="px-4 py-2.5 font-semibold text-foreground text-xs">
+                                            {d.date.split("-").reverse().join("/")}
+                                          </td>
+                                          <td className="px-3 py-2.5 text-center text-xs text-muted-foreground">
+                                            {d.t1 > 0 ? d.t1.toLocaleString("pt-BR") : "—"}
+                                          </td>
+                                          <td className="px-3 py-2.5 text-center text-xs text-muted-foreground">
+                                            {d.t2 > 0 ? d.t2.toLocaleString("pt-BR") : "—"}
+                                          </td>
+                                          <td className="px-3 py-2.5 text-center text-xs text-muted-foreground">
+                                            {d.t3 > 0 ? d.t3.toLocaleString("pt-BR") : "—"}
+                                          </td>
+                                          <td className="px-3 py-2.5 text-right font-bold text-foreground text-xs">
+                                            {d.total.toLocaleString("pt-BR")}
+                                          </td>
+                                          <td className="px-4 py-2.5 text-center">
+                                            {pctDia !== null ? (
+                                              <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full"
+                                                style={{ color: pctColor(pctDia), background: `${pctColor(pctDia)}15` }}>
+                                                {pctDia}%
+                                              </span>
+                                            ) : "—"}
+                                          </td>
+                                        </tr>
+                                        {isExpanded && (
+                                          <tr style={{ background: rowBg }}>
+                                            <td />
+                                            <td colSpan={6} className="px-4 pb-3 pt-1">
+                                              <div className="space-y-1.5 border-l-2 border-primary/30 pl-3">
+                                                {d.records.map((r, ri) => {
+                                                  const hasOPs = (r.ordensProducao?.length ?? 0) > 0;
+                                                  return (
+                                                    <div key={ri} className="text-xs">
+                                                      <span className="font-semibold text-muted-foreground">{r.turno.replace("TURNO ", "T")} · {r.savedBy}</span>
+                                                      {hasOPs && (
+                                                        <div className="flex flex-wrap gap-1 mt-0.5">
+                                                          {r.ordensProducao!.map((o, oi) => (
+                                                            <span key={oi}
+                                                              className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full border border-primary/20"
+                                                              style={{ background: "#0066B310", color: "#0066B3" }}>
+                                                              <span className="text-muted-foreground">#{o.ordemId}</span>
+                                                              <span className="text-primary/40">→</span>
+                                                              <span>{o.quantidade.toLocaleString("pt-BR")} pç</span>
+                                                              {o.obs && <span className="text-muted-foreground">· {o.obs}</span>}
+                                                            </span>
+                                                          ))}
+                                                        </div>
+                                                      )}
+                                                      {r.obs && !hasOPs && (
+                                                        <span className="text-muted-foreground ml-2">— {r.obs}</span>
+                                                      )}
+                                                    </div>
+                                                  );
+                                                })}
+                                              </div>
+                                            </td>
+                                          </tr>
+                                        )}
+                                      </Fragment>
+                                    );
+                                  })}
                                 </tbody>
                               </table>
                             </motion.div>

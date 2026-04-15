@@ -763,6 +763,12 @@ function doGet(e) {
         return json(actionUpsert(payload.token, payload.records || []));
       case "delete":
         return json(actionDelete(payload.token, payload.date, payload.turno, payload.machineId, payload.id));
+      case "bulkDelete":
+        return json(actionBulkDelete(payload.token, payload.ids || []));
+      case "bulkMove":
+        return json(actionBulkMove(payload.token, payload.ids || [], payload.newDate));
+      case "bulkEditTurno":
+        return json(actionBulkEditTurno(payload.token, payload.ids || [], payload.newTurno));
       case "append":
         return json(actionAppend(payload.token, payload.records || []));
       case "getMachines":
@@ -1705,9 +1711,105 @@ function actionDelete(token, date, turno, machineId, id) {
     
     SpreadsheetApp.flush();
     return { ok: true };
-    
+
   } catch (err) {
     logError("actionDelete", err);
+    return { ok: false, error: err.message };
+  }
+}
+
+function actionBulkDelete(token, ids) {
+  const session = validateSession(token);
+  if (!session) return { ok: false, error: "Sessão inválida ou expirada" };
+  if (!Array.isArray(ids) || ids.length === 0) return { ok: false, error: "Nenhum ID informado" };
+  if (ids.length > 200) return { ok: false, error: "Limite de 200 registros por operação" };
+
+  try {
+    const sheet = getProdSheet();
+    const allData = sheet.getDataRange().getValues();
+    const idIdx = PROD_HEADERS.indexOf("id");
+    const idSet = new Set(ids.map(String));
+
+    // Collect row indices to delete (reverse order to preserve indices during deletion)
+    const toDelete = [];
+    for (let i = 1; i < allData.length; i++) {
+      const rowId = String(allData[i][idIdx] || "").trim();
+      if (idSet.has(rowId)) toDelete.push(i + 1); // 1-based sheet row
+    }
+
+    for (let i = toDelete.length - 1; i >= 0; i--) {
+      sheet.deleteRow(toDelete[i]);
+    }
+
+    auditLog(session.nome, "BULK_DELETE", { count: toDelete.length, ids: ids.slice(0, 20) });
+    SpreadsheetApp.flush();
+    return { ok: true, deleted: toDelete.length };
+  } catch (err) {
+    logError("actionBulkDelete", err);
+    return { ok: false, error: err.message };
+  }
+}
+
+function actionBulkMove(token, ids, newDate) {
+  const session = validateSession(token);
+  if (!session) return { ok: false, error: "Sessão inválida ou expirada" };
+  if (!Array.isArray(ids) || ids.length === 0) return { ok: false, error: "Nenhum ID informado" };
+  if (!newDate || !/^\d{4}-\d{2}-\d{2}$/.test(String(newDate))) return { ok: false, error: "Data inválida" };
+  if (ids.length > 200) return { ok: false, error: "Limite de 200 registros por operação" };
+
+  try {
+    const sheet = getProdSheet();
+    const allData = sheet.getDataRange().getValues();
+    const idIdx   = PROD_HEADERS.indexOf("id");
+    const dateIdx = PROD_HEADERS.indexOf("date");
+    const idSet = new Set(ids.map(String));
+
+    let updated = 0;
+    for (let i = 1; i < allData.length; i++) {
+      const rowId = String(allData[i][idIdx] || "").trim();
+      if (idSet.has(rowId)) {
+        sheet.getRange(i + 1, dateIdx + 1).setValue(String(newDate));
+        updated++;
+      }
+    }
+
+    auditLog(session.nome, "BULK_MOVE", { count: updated, newDate: newDate });
+    SpreadsheetApp.flush();
+    return { ok: true, updated: updated };
+  } catch (err) {
+    logError("actionBulkMove", err);
+    return { ok: false, error: err.message };
+  }
+}
+
+function actionBulkEditTurno(token, ids, newTurno) {
+  const session = validateSession(token);
+  if (!session) return { ok: false, error: "Sessão inválida ou expirada" };
+  if (!Array.isArray(ids) || ids.length === 0) return { ok: false, error: "Nenhum ID informado" };
+  if (!VALID_TURNOS.includes(String(newTurno))) return { ok: false, error: "Turno inválido" };
+  if (ids.length > 200) return { ok: false, error: "Limite de 200 registros por operação" };
+
+  try {
+    const sheet = getProdSheet();
+    const allData = sheet.getDataRange().getValues();
+    const idIdx    = PROD_HEADERS.indexOf("id");
+    const turnoIdx = PROD_HEADERS.indexOf("turno");
+    const idSet = new Set(ids.map(String));
+
+    let updated = 0;
+    for (let i = 1; i < allData.length; i++) {
+      const rowId = String(allData[i][idIdx] || "").trim();
+      if (idSet.has(rowId)) {
+        sheet.getRange(i + 1, turnoIdx + 1).setValue(String(newTurno));
+        updated++;
+      }
+    }
+
+    auditLog(session.nome, "BULK_EDIT_TURNO", { count: updated, newTurno: newTurno });
+    SpreadsheetApp.flush();
+    return { ok: true, updated: updated };
+  } catch (err) {
+    logError("actionBulkEditTurno", err);
     return { ok: false, error: err.message };
   }
 }

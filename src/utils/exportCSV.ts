@@ -1,4 +1,4 @@
-import type { ProdRecord } from "@/lib/api";
+import type { ProdRecord, Holiday } from "@/lib/api";
 import { dispD } from "@/lib/api";
 
 export interface CSVFilters {
@@ -11,14 +11,18 @@ export interface CSVFilters {
 export function exportToCSV(
   records: ProdRecord[],
   filters: CSVFilters,
-  filename?: string
+  filename?: string,
+  holidays?: Holiday[]
 ): void {
+  const holidayMap = new Map<string, Holiday>();
+  for (const h of holidays ?? []) holidayMap.set(h.date, h);
+
   const bom = "\uFEFF";
   const lines = [
     '"Relatório de Produção WEG"',
     `"Período:";"${dispD(filters.dateFrom)} a ${dispD(filters.dateTo)}"`,
     "",
-    '"Data";"Turno";"Máquina";"Meta";"Produção";"% Meta";"Apontado por";"Observação";"Ordens de Produção"',
+    '"Data";"Turno";"Máquina";"Meta";"Produção";"% Meta";"Apontado por";"Editado por";"Editado em";"Observação";"Feriado/Dia Anulado";"Ordens de Produção"',
   ];
 
   for (const r of records) {
@@ -26,7 +30,11 @@ export function exportToCSV(
     const prod = r.producao || 0;
     const pct = meta > 0 ? Math.round((prod / meta) * 100) + "%" : "";
 
-    // Serialize ordensProducao as "#OS → Qtd; ..." per record
+    const holiday = holidayMap.get(r.date);
+    const feriadoStr = holiday
+      ? `${holiday.label} (${holiday.type === "feriado" ? "Feriado" : "Dia Anulado"})`
+      : "";
+
     const ordensStr = (r.ordensProducao || [])
       .map((o) => `#${o.ordemId} → ${o.quantidade} pç${o.obs ? ` (${o.obs})` : ""}`)
       .join(" | ");
@@ -40,7 +48,10 @@ export function exportToCSV(
         prod,
         pct,
         r.savedBy || "",
+        r.editUser || "",
+        r.editTime || "",
         r.obs || "",
+        feriadoStr,
         ordensStr,
       ]
         .map((v) => `"${String(v).replace(/"/g, '""')}"`)
