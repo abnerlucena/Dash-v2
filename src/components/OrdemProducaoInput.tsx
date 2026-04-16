@@ -32,17 +32,20 @@ const OrdemProducaoInput = ({ ordens, onChange, maxOrdens = 10 }: OrdemProducaoI
         const isFirst = idx === 0;
         return (
           <div key={idx} className="flex gap-2 items-center">
-            {/* Order ID field — compact on first row */}
-            <input
-              type="text"
-              placeholder="Nº OS"
-              value={ordem.ordemId}
-              onChange={e => updateOrdem(idx, "ordemId", e.target.value.slice(0, 20))}
-              className="px-3 py-2 text-sm rounded-md border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all placeholder:text-muted-foreground/40"
-              style={{ borderRadius: 6, width: isFirst ? 100 : undefined, flex: isFirst ? "none" : 1 }}
-            />
+            {/* First row: just Quantidade + Adicionar Ordem button */}
+            {/* Additional rows: Nº OS + Quantidade + trash */}
+            {!isFirst && (
+              <input
+                type="text"
+                placeholder="Nº OS"
+                value={ordem.ordemId}
+                onChange={e => updateOrdem(idx, "ordemId", e.target.value.slice(0, 20))}
+                className="px-3 py-2 text-sm rounded-md border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all placeholder:text-muted-foreground/40"
+                style={{ borderRadius: 6, flex: 1 }}
+              />
+            )}
 
-            {/* Quantity field — prominent on first row */}
+            {/* Quantity field */}
             <input
               type="number"
               inputMode="numeric"
@@ -55,17 +58,17 @@ const OrdemProducaoInput = ({ ordens, onChange, maxOrdens = 10 }: OrdemProducaoI
               style={{ borderRadius: 6, flex: 1, fontWeight: isFirst ? 700 : 600 }}
             />
 
-            {/* Right action: + Ord on first row, trash on additional rows */}
+            {/* Right action: "Adicionar Ordem" on first row, trash on additional rows */}
             {isFirst ? (
               <button
                 onClick={addOrdem}
                 disabled={ordens.length >= maxOrdens}
-                className="shrink-0 h-9 px-2.5 flex items-center gap-1 text-xs font-semibold rounded-md border border-dashed border-primary/40 text-primary hover:bg-primary/5 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                className="shrink-0 h-9 px-3 flex items-center gap-1.5 text-xs font-semibold rounded-md border border-dashed border-primary/50 text-primary hover:bg-primary/5 transition-all disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
                 style={{ borderRadius: 6 }}
                 title="Adicionar outra ordem"
               >
                 <Plus size={12} />
-                <span className="hidden sm:inline">Ord</span>
+                Adicionar Ordem
               </button>
             ) : (
               <button
