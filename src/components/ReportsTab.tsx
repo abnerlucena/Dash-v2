@@ -7,8 +7,7 @@ import FilterBar from "@/components/FilterBar";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { today, fmt, dispD, pctColor, saveCachedRecords, TURNOS, api } from "@/lib/api";
 import { toast } from "sonner";
-import { exportToCSV } from "@/utils/exportCSV";
-import { exportToPDF } from "@/utils/exportPDF";
+import ExportModal from "@/components/ExportModal";
 
 type HistSubTab = "calendario" | "tabela";
 
@@ -29,8 +28,8 @@ const ReportsTab = () => {
   const [subTab, setSubTab] = useState<HistSubTab>("calendario");
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
-  const [pdfExporting, setPdfExporting] = useState(false);
   const [holidayPopover, setHolidayPopover] = useState<string | null>(null);
+  const [exportModal, setExportModal] = useState<{ open: boolean; format: "csv" | "pdf" }>({ open: false, format: "csv" });
 
   // ── Bulk selection ──────────────────────────────────────────
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -124,19 +123,11 @@ const ReportsTab = () => {
   }
 
   function handleExportCSV() {
-    exportToCSV(filtered, { dateFrom, dateTo, machine, turno }, undefined, holidays);
-    toast.success("CSV exportado com sucesso!");
+    setExportModal({ open: true, format: "csv" });
   }
 
-  async function handleExportPDF() {
-    setPdfExporting(true);
-    try {
-      await exportToPDF(filtered, { dateFrom, dateTo, machine, turno }, undefined, holidays);
-      toast.success("PDF exportado com sucesso!");
-    } catch {
-      toast.error("Erro ao gerar PDF. Tente novamente.");
-    }
-    setPdfExporting(false);
+  function handleExportPDF() {
+    setExportModal({ open: true, format: "pdf" });
   }
 
   // ── Bulk helpers ────────────────────────────────────────────
@@ -408,11 +399,11 @@ const ReportsTab = () => {
                   <Download size={14} />
                   CSV
                 </button>
-                <button onClick={handleExportPDF} disabled={pdfExporting}
-                  className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold text-white transition-all hover:opacity-90 disabled:opacity-60"
+                <button onClick={handleExportPDF}
+                  className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold text-white transition-all hover:opacity-90"
                   style={{ background: 'linear-gradient(135deg,#7c3aed,#a855f7)', borderRadius: 8 }}>
                   <FileText size={14} />
-                  {pdfExporting ? "Gerando..." : "PDF"}
+                  PDF
                 </button>
               </div>
             }
@@ -776,25 +767,48 @@ const ReportsTab = () => {
                     <tbody>
                       {dayRecords.map((r, i) => {
                         const pct = r.meta > 0 ? Math.round(r.producao / r.meta * 100) : null;
+                        const hasOrdens = (r.ordensProducao?.length ?? 0) > 0;
+                        const rowBg = i % 2 === 0 ? "#fff" : "#F8FAFC";
                         return (
-                          <tr key={`${r.turno}-${r.machineId}-${i}`}
-                            className="border-b border-border/40 hover:bg-muted/30 transition-colors"
-                            style={{ background: i % 2 === 0 ? "#fff" : "#F8FAFC" }}>
-                            <td className="px-4 py-2.5 text-xs font-medium">{r.turno}</td>
-                            <td className="px-3 py-2.5 text-xs font-semibold text-foreground">{r.machineName}</td>
-                            <td className="px-3 py-2.5 text-right text-xs text-muted-foreground">
-                              {r.meta > 0 ? r.meta.toLocaleString("pt-BR") : "—"}
-                            </td>
-                            <td className="px-3 py-2.5 text-right text-xs font-bold">{r.producao.toLocaleString("pt-BR")}</td>
-                            <td className="px-3 py-2.5 text-center">
-                              {pct !== null ? (
-                                <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full"
-                                  style={{ color: pctColor(pct), backgroundColor: `${pctColor(pct)}15`, borderRadius: 20 }}>
-                                  {pct}%
-                                </span>
-                              ) : "—"}
-                            </td>
-                          </tr>
+                          <Fragment key={`${r.turno}-${r.machineId}-${i}`}>
+                            <tr
+                              className="border-b border-border/40 hover:bg-muted/30 transition-colors"
+                              style={{ background: rowBg }}>
+                              <td className="px-4 py-2.5 text-xs font-medium">{r.turno}</td>
+                              <td className="px-3 py-2.5 text-xs font-semibold text-foreground">{r.machineName}</td>
+                              <td className="px-3 py-2.5 text-right text-xs text-muted-foreground">
+                                {r.meta > 0 ? r.meta.toLocaleString("pt-BR") : "—"}
+                              </td>
+                              <td className="px-3 py-2.5 text-right text-xs font-bold">{r.producao.toLocaleString("pt-BR")}</td>
+                              <td className="px-3 py-2.5 text-center">
+                                {pct !== null ? (
+                                  <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full"
+                                    style={{ color: pctColor(pct), backgroundColor: `${pctColor(pct)}15`, borderRadius: 20 }}>
+                                    {pct}%
+                                  </span>
+                                ) : "—"}
+                              </td>
+                            </tr>
+                            {hasOrdens && (
+                              <tr style={{ background: rowBg }}>
+                                <td />
+                                <td colSpan={4} className="px-3 pb-2 pt-0">
+                                  <div className="flex flex-wrap gap-1 pl-1 border-l-2 border-primary/20">
+                                    {r.ordensProducao!.map((o, oi) => (
+                                      <span
+                                        key={oi}
+                                        className="inline-flex items-center text-[10px] font-semibold px-2 py-0.5 rounded-full border border-primary/15"
+                                        style={{ background: "#0066B308", color: "#0066B3" }}
+                                        title={`${o.quantidade.toLocaleString("pt-BR")} pç${o.obs ? ` — ${o.obs}` : ""}`}
+                                      >
+                                        #{o.ordemId} → {o.quantidade.toLocaleString("pt-BR")} pç
+                                      </span>
+                                    ))}
+                                  </div>
+                                </td>
+                              </tr>
+                            )}
+                          </Fragment>
                         );
                       })}
                     </tbody>
@@ -814,6 +828,16 @@ const ReportsTab = () => {
           );
         })()}
       </AnimatePresence>
+
+      {/* EXPORT MODAL */}
+      <ExportModal
+        open={exportModal.open}
+        onClose={() => setExportModal(prev => ({ ...prev, open: false }))}
+        format={exportModal.format}
+        records={filtered}
+        filters={{ dateFrom, dateTo, machine, turno }}
+        holidays={holidays}
+      />
     </div>
   );
 };

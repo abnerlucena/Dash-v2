@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { Pencil, Trash2, Check, X, Loader } from "lucide-react";
+import { Pencil, Trash2, Check, X, Loader, ChevronDown, ChevronUp, ClipboardList } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -30,6 +30,9 @@ const FeedbacksTab = () => {
 
   // Which key is currently being saved/deleted
   const [savingKey, setSavingKey] = useState<string | null>(null);
+
+  // Expanded ordens state
+  const [ordensExpanded, setOrdernsExpanded] = useState<Set<string>>(new Set());
 
   const canEdit = (_r: ProdRecord) => !!user;
 
@@ -192,6 +195,35 @@ const FeedbacksTab = () => {
                       style={{ background: "#EFF6FF", borderRadius: 8 }}
                     >
                       {r.obs}
+                    </div>
+                  )}
+
+                  {/* Ordens de Produção — collapsible */}
+                  {(r.ordensProducao?.length ?? 0) > 0 && (
+                    <div className="mb-2">
+                      <button
+                        onClick={() => setOrdernsExpanded(prev => {
+                          const next = new Set(prev);
+                          if (next.has(key)) next.delete(key); else next.add(key);
+                          return next;
+                        })}
+                        className="flex items-center gap-1 text-[11px] font-semibold text-muted-foreground hover:text-foreground transition-colors"
+                      >
+                        <ClipboardList size={11} />
+                        Ordens de Produção ({r.ordensProducao!.length})
+                        {ordensExpanded.has(key) ? <ChevronUp size={11} /> : <ChevronDown size={11} />}
+                      </button>
+                      {ordensExpanded.has(key) && (
+                        <div className="mt-1.5 pl-2 border-l-2 border-primary/20 space-y-0.5">
+                          {r.ordensProducao!.map((o, oi) => (
+                            <p key={oi} className="text-[11px] text-muted-foreground">
+                              <span className="font-semibold text-foreground">#{o.ordemId}</span>
+                              {" — "}{o.quantidade.toLocaleString("pt-BR")} pç
+                              {o.obs && <span className="text-muted-foreground"> ({o.obs})</span>}
+                            </p>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>

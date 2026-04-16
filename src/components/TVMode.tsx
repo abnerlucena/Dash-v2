@@ -22,17 +22,23 @@ interface TurnoPoint { name: string; value: number; }
 interface BarPoint  { name: string; meta: number; producao: number; }
 interface HBarPoint { name: string; pct: number; }
 
+interface HeatmapPoint { dayIdx: number; machIdx: number; pct: number; machineName: string; }
+interface ParetoPoint  { name: string; gap: number; cumPct: number; pct: number; }
+
 export interface TVModeProps {
-  machAgg:    MachAgg[];
-  dayAgg:     DayPoint[];
-  turnoAgg:   TurnoPoint[];
-  barData:    BarPoint[];
-  hbarData:   HBarPoint[];   // pre-sorted ascending — ECharts renders y-axis bottom→top (best at top)
-  totalProd:  number;
-  totalMeta:  number;
-  pctGeral:   number;
-  tendency:   number | null;
-  onClose:    () => void;
+  machAgg:         MachAgg[];
+  dayAgg:          DayPoint[];
+  turnoAgg:        TurnoPoint[];
+  barData:         BarPoint[];
+  hbarData:        HBarPoint[];   // pre-sorted ascending — ECharts renders y-axis bottom→top (best at top)
+  totalProd:       number;
+  totalMeta:       number;
+  pctGeral:        number;
+  tendency:        number | null;
+  heatmapData:     HeatmapPoint[];
+  paretoData:      ParetoPoint[];
+  heatmapMachines: string[];
+  onClose:         () => void;
 }
 
 // ─── Dark ECharts theme helpers ─────────────────────────────────────────────────
@@ -200,6 +206,75 @@ function tvPieOption(data: TurnoPoint[]): EChartsOption {
       padAngle: 4,
       itemStyle: { borderRadius: 6, borderColor: "rgba(0,29,61,0.6)", borderWidth: 3 },
     }],
+  };
+}
+
+function tvHeatmapOption(data: HeatmapPoint[], machineNames: string[]): EChartsOption {
+  const WDAYS = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"];
+  return {
+    animation: true, animationDuration: 700,
+    backgroundColor: "transparent",
+    tooltip: {
+      ...darkTooltip, trigger: "item",
+      formatter: (params: any) => {
+        const [dIdx, mIdx, pct] = params.data as number[];
+        return `<strong>${machineNames[mIdx]}</strong><br/>${WDAYS[dIdx]}: <strong style="color:#4DB8FF">${pct}%</strong> da meta`;
+      },
+    },
+    visualMap: {
+      min: 0, max: 100, show: false, calculable: false,
+      inRange: { color: ["#EF4444", "#F59E0B", "#22C55E"] },
+    },
+    grid: { top: 10, right: 10, bottom: 48, left: 10, containLabel: true },
+    xAxis: { type: "category", data: WDAYS, axisLabel: { ...darkAxisLabel, fontSize: 14 }, axisLine: darkAxisLine, splitArea: { show: true, areaStyle: { color: ["rgba(255,255,255,0.02)", "rgba(255,255,255,0.04)"] } } },
+    yAxis: { type: "category", data: machineNames, axisLabel: { ...darkAxisLabel, fontSize: 12, width: 200, overflow: "truncate" }, axisLine: darkAxisLine, splitArea: { show: true, areaStyle: { color: ["rgba(255,255,255,0.02)", "rgba(255,255,255,0.04)"] } } },
+    series: [{
+      type: "heatmap",
+      data: data.map(d => [d.dayIdx, d.machIdx, d.pct]),
+      label: { show: true, fontSize: 12, fontWeight: "bold", formatter: (p: any) => p.value[2] > 0 ? `${p.value[2]}%` : "" },
+      emphasis: { itemStyle: { shadowBlur: 12, shadowColor: "rgba(0,0,0,0.4)" } },
+    }],
+  };
+}
+
+function tvParetoOption(data: ParetoPoint[]): EChartsOption {
+  return {
+    animation: true, animationDuration: 700,
+    backgroundColor: "transparent",
+    tooltip: {
+      ...darkTooltip, trigger: "axis", axisPointer: { type: "cross" },
+      formatter: (params: any) => {
+        const bar = params.find((p: any) => p.seriesName === "Gap");
+        const line = params.find((p: any) => p.seriesName === "% Acum");
+        if (!bar) return "";
+        return `<strong>${bar.name}</strong><br/>Gap: ${bar.value.toLocaleString("pt-BR")} pç<br/>Acumulado: ${line?.value ?? 0}%`;
+      },
+    },
+    legend: { data: ["Gap", "% Acum"], top: 4, textStyle: { color: "rgba(255,255,255,0.8)", fontSize: 13 } },
+    grid: { top: 44, right: 70, bottom: 80, left: 72 },
+    xAxis: {
+      type: "category", data: data.map(d => d.name),
+      axisLabel: { ...darkAxisLabel, rotate: 20, interval: 0 },
+      axisLine: darkAxisLine,
+    },
+    yAxis: [
+      { type: "value", name: "Gap (pç)", nameTextStyle: { color: "rgba(255,255,255,0.5)" }, axisLabel: { ...darkAxisLabel, formatter: (v: number) => v >= 1000 ? (v / 1000).toFixed(0) + "k" : String(v) }, splitLine: darkSplitLine, axisLine: darkAxisLine },
+      { type: "value", name: "% Acum", max: 100, min: 0, nameTextStyle: { color: "rgba(255,255,255,0.5)" }, axisLabel: { ...darkAxisLabel, formatter: "{value}%" }, splitLine: { show: false }, axisLine: darkAxisLine },
+    ],
+    series: [
+      {
+        name: "Gap", type: "bar", yAxisIndex: 0, barMaxWidth: 50,
+        data: data.map(d => ({ value: d.gap, itemStyle: { color: d.pct >= 100 ? "#22C55E" : d.pct >= 80 ? "#F59E0B" : "#EF4444", borderRadius: [4, 4, 0, 0] } })),
+        label: { show: false },
+      },
+      {
+        name: "% Acum", type: "line", yAxisIndex: 1,
+        data: data.map(d => d.cumPct),
+        lineStyle: { color: "#4DB8FF", width: 3 }, itemStyle: { color: "#4DB8FF" },
+        symbol: "circle", symbolSize: 8,
+        label: { show: true, position: "top", color: "#4DB8FF", fontSize: 12, fontWeight: "bold", formatter: (p: any) => `${p.value}%` },
+      },
+    ],
   };
 }
 
@@ -511,11 +586,33 @@ const SlideAlertas = ({
   );
 };
 
+const SlideHeatmap = ({ option, machineCount }: { option: EChartsOption; machineCount: number }) => {
+  const chartH = Math.min(Math.max(400, machineCount * 44 + 80), window.innerHeight - 240);
+  return (
+    <div style={{ display: "flex", flexDirection: "column", flex: 1 }}>
+      <p style={{ color: "rgba(255,255,255,0.4)", fontSize: 14, marginBottom: 12 }}>
+        % médio de atingimento de meta por máquina e dia da semana — padrões sistemáticos de performance
+      </p>
+      <ReactEChartsCore option={option} style={{ height: chartH }} notMerge lazyUpdate />
+    </div>
+  );
+};
+
+const SlidePareto = ({ option }: { option: EChartsOption }) => (
+  <div style={{ display: "flex", flexDirection: "column", flex: 1 }}>
+    <p style={{ color: "rgba(255,255,255,0.4)", fontSize: 14, marginBottom: 12 }}>
+      Onde concentrar atenção para recuperar o resultado global (lei 80/20)
+    </p>
+    <ReactEChartsCore option={option} style={{ height: CHART_H }} notMerge lazyUpdate />
+  </div>
+);
+
 // ─── Main TVMode component ──────────────────────────────────────────────────────
 
 const TVMode = ({
   machAgg, dayAgg, turnoAgg, barData, hbarData,
   totalProd, totalMeta, pctGeral, tendency,
+  heatmapData, paretoData, heatmapMachines,
   onClose,
 }: TVModeProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -534,13 +631,17 @@ const TVMode = ({
     { id: "tendencia", label: "Tendência Diária" },
     { id: "turnos",    label: "Distribuição por Turno" },
     { id: "alertas",   label: "Alertas de Atenção" },
+    { id: "heatmap",   label: "Heatmap Dia × Máquina" },
+    { id: "pareto",    label: "Pareto de Desvio" },
   ], []);
 
   // Pre-computed dark chart options — only recomputed when upstream data changes
-  const hbarOpt = useMemo(() => tvHBarOption(hbarData), [hbarData]);
-  const barOpt  = useMemo(() => tvBarOption(barData),   [barData]);
-  const areaOpt = useMemo(() => tvAreaOption(dayAgg),   [dayAgg]);
-  const pieOpt  = useMemo(() => tvPieOption(turnoAgg),  [turnoAgg]);
+  const hbarOpt    = useMemo(() => tvHBarOption(hbarData),                    [hbarData]);
+  const barOpt     = useMemo(() => tvBarOption(barData),                      [barData]);
+  const areaOpt    = useMemo(() => tvAreaOption(dayAgg),                      [dayAgg]);
+  const pieOpt     = useMemo(() => tvPieOption(turnoAgg),                     [turnoAgg]);
+  const heatmapOpt = useMemo(() => tvHeatmapOption(heatmapData, heatmapMachines), [heatmapData, heatmapMachines]);
+  const paretoOpt  = useMemo(() => tvParetoOption(paretoData),                [paretoData]);
 
   // Machines below 80% meta, sorted worst-first
   const alertMachines = useMemo(() =>
@@ -717,6 +818,18 @@ const TVMode = ({
             alertMachines={alertMachines}
             totalMachines={machAgg.filter(m => m.totalMeta > 0).length}
           />
+        )}
+        {slides[slide].id === "heatmap" && (
+          heatmapData.length > 0
+            ? <SlideHeatmap option={heatmapOpt} machineCount={heatmapMachines.length} />
+            : <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 18, margin: "auto" }}>Sem dados de meta no período filtrado</div>
+        )}
+        {slides[slide].id === "pareto" && (
+          paretoData.length > 0
+            ? <SlidePareto option={paretoOpt} />
+            : <div style={{ color: "#22C55E", fontSize: 28, fontWeight: 800, margin: "auto", textAlign: "center" }}>
+                Parabéns! Todas as máquinas atingiram a meta no período.
+              </div>
         )}
       </main>
 

@@ -1,5 +1,6 @@
 import { useState, useMemo, Fragment } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import type { EChartsOption } from "echarts";
 import { BarChart3, TrendingUp, Factory, Activity, ClipboardEdit, FileText, ChevronDown, ChevronUp } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -236,6 +237,198 @@ const DashboardPage = () => {
     }
     return map;
   }, [filteredRecords]);
+
+  // ── Analytics useMemos ──────────────────────────────────────────────────────
+
+  // Machine names for heatmap Y-axis (only machines with data in period)
+  const heatmapMachines = useMemo(() =>
+    machineAgg.filter(m => m.totalProd > 0 || m.totalMeta > 0).map(m => m.name),
+  [machineAgg]);
+
+  // Heatmap: [dayIdx (Mon=0..Sun=6), machIdx, avgPct]
+  const heatmapData = useMemo(() => {
+    const machineIdx = new Map(heatmapMachines.map((n, i) => [n, i]));
+    // getDay() returns 0=Sun…6=Sat; remap so Mon=0…Sun=6
+    const dowRemap = [6, 0, 1, 2, 3, 4, 5];
+    const agg: Record<string, { sumPct: number; count: number; machineName: string }> = {};
+    for (const r of filteredRecords) {
+      if (!r.meta || r.meta <= 0) continue;
+      const midx = machineIdx.get(r.machineName);
+      if (midx === undefined) continue;
+      const dow = new Date(r.date + "T12:00:00").getDay();
+      const didx = dowRemap[dow];
+      const key = `${midx}_${didx}`;
+      if (!agg[key]) agg[key] = { sumPct: 0, count: 0, machineName: r.machineName };
+      agg[key].sumPct += (r.producao / r.meta) * 100;
+      agg[key].count += 1;
+    }
+    return Object.entries(agg).map(([key, v]) => {
+      const [machIdxN, dayIdx] = key.split("_").map(Number);
+      return { dayIdx, machIdx: machIdxN, pct: Math.round(v.sumPct / v.count), machineName: v.machineName };
+    });
+  }, [filteredRecords, heatmapMachines]);
+
+  const heatmapOption = useMemo((): EChartsOption => {
+    const WDAYS = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"];
+    return {
+      animation: true,
+      tooltip: {
+        trigger: "item",
+        backgroundColor: "#fff", borderColor: "#D0DEE8", borderWidth: 1, borderRadius: 8,
+        textStyle: { color: "#2D3E4E", fontSize: 12 }, confine: true,
+        formatter: (params: any) => {
+          const [dIdx, mIdx, pct] = params.data as number[];
+          return `<strong>${heatmapMachines[mIdx]}</strong><br/>${WDAYS[dIdx]}: <strong>${pct}%</strong> da meta`;
+        },
+      },
+      visualMap: {
+        min: 0, max: 100, show: false, calculable: false,
+        inRange: { color: ["#EF4444", "#F59E0B", "#22C55E"] },
+      },
+      grid: { top: 10, right: 10, bottom: 60, left: 10, containLabel: true },
+      xAxis: { type: "category", data: WDAYS, axisLabel: { fontSize: 11 }, splitArea: { show: true } },
+      yAxis: { type: "category", data: heatmapMachines, axisLabel: { fontSize: 10, width: 140, overflow: "truncate" }, splitArea: { show: true } },
+      series: [{
+        type: "heatmap",
+        data: heatmapData.map(d => [d.dayIdx, d.machIdx, d.pct]),
+        label: { show: true, fontSize: 10, formatter: (p: any) => p.value[2] > 0 ? `${p.value[2]}%` : "" },
+        emphasis: { itemStyle: { shadowBlur: 10, shadowColor: "rgba(0,0,0,0.2)" } },
+      }],
+    };
+  }, [heatmapData, heatmapMachines]);
+
+  // Pareto: machines sorted by gap (meta - prod) descending + cumulative %
+  const paretoData = useMemo(() =>
+    machineAgg
+      .map(m => ({ name: m.name, gap: Math.max(0, m.totalMeta - m.totalProd), pct: m.pct }))
+      .filter(m => m.gap > 0)
+      .sort((a, b) => b.gap - a.gap)
+      .map((m, i, arr) => {
+        const totalGap = arr.reduce((s, x) => s + x.gap, 0);
+        const cumulative = arr.slice(0, i + 1).reduce((s, x) => s + x.gap, 0);
+        return { ...m, cumPct: totalGap > 0 ? Math.round((cumulative / totalGap) * 100) : 0 };
+      }),
+  [machineAgg]);
+
+  const paretoOption = useMemo((): EChartsOption => ({
+    animation: true,
+    tooltip: {
+      trigger: "axis", axisPointer: { type: "cross" },
+      backgroundColor: "#fff", borderColor: "#D0DEE8", borderWidth: 1, borderRadius: 8,
+      textStyle: { color: "#2D3E4E", fontSize: 12 }, confine: true,
+    },
+    legend: { data: ["Gap (pç)", "% Acumulado"], top: 0, textStyle: { fontSize: 11 } },
+    grid: { top: 36, right: 60, bottom: 80, left: 60 },
+    xAxis: {
+      type: "category",
+      data: paretoData.map(d => d.name),
+      axisLabel: { fontSize: 10, rotate: 25, interval: 0 },
+    },
+    yAxis: [
+      { type: "value", name: "Gap (pç)", axisLabel: { fontSize: 10, formatter: (v: number) => v >= 1000 ? (v / 1000).toFixed(0) + "k" : String(v) } },
+      { type: "value", name: "% Acum", max: 100, min: 0, axisLabel: { fontSize: 10, formatter: "{value}%" } },
+    ],
+    series: [
+      {
+        name: "Gap (pç)", type: "bar", yAxisIndex: 0, barMaxWidth: 40,
+        data: paretoData.map(d => ({ value: d.gap, itemStyle: { color: pctColor(d.pct), borderRadius: [4, 4, 0, 0] } })),
+      },
+      {
+        name: "% Acumulado", type: "line", yAxisIndex: 1,
+        data: paretoData.map(d => d.cumPct),
+        lineStyle: { color: "#003366", width: 2 }, itemStyle: { color: "#003366" },
+        symbol: "circle", symbolSize: 6,
+      },
+    ],
+  }), [paretoData]);
+
+  // Trend: daily production + 7-day moving average + daily meta
+  const trendData = useMemo(() =>
+    dayAgg.map((d, i, arr) => {
+      const win = arr.slice(Math.max(0, i - 6), i + 1);
+      return { ...d, ma7: Math.round(win.reduce((s, x) => s + x.producao, 0) / win.length) };
+    }),
+  [dayAgg]);
+
+  const trendOption = useMemo((): EChartsOption => ({
+    animation: true,
+    tooltip: {
+      trigger: "axis",
+      backgroundColor: "#fff", borderColor: "#D0DEE8", borderWidth: 1, borderRadius: 8,
+      textStyle: { color: "#2D3E4E", fontSize: 12 }, confine: true,
+    },
+    legend: { data: ["Produção Real", "Média 7d", "Meta"], top: 0, textStyle: { fontSize: 11 } },
+    grid: { top: 36, right: 20, bottom: 40, left: 65 },
+    xAxis: { type: "category", data: trendData.map(d => d.date), axisLabel: { fontSize: 10 } },
+    yAxis: { type: "value", axisLabel: { fontSize: 10, formatter: (v: number) => v >= 1000 ? (v / 1000).toFixed(0) + "k" : String(v) } },
+    series: [
+      {
+        name: "Produção Real", type: "line", symbol: "none",
+        data: trendData.map(d => d.producao),
+        lineStyle: { color: "#0066B3", width: 1.5, opacity: 0.55 },
+        itemStyle: { color: "#0066B3" },
+      },
+      {
+        name: "Média 7d", type: "line", symbol: "none",
+        data: trendData.map(d => d.ma7),
+        lineStyle: { color: "#0066B3", width: 3 },
+        itemStyle: { color: "#0066B3" },
+        areaStyle: { color: { type: "linear", x: 0, y: 0, x2: 0, y2: 1, colorStops: [{ offset: 0, color: "#0066B330" }, { offset: 1, color: "#0066B300" }] } },
+      },
+      {
+        name: "Meta", type: "line", symbol: "none",
+        data: trendData.map(d => d.meta),
+        lineStyle: { color: "#94A3B8", width: 1.5, type: "dashed" },
+        itemStyle: { color: "#94A3B8" },
+      },
+    ],
+  }), [trendData]);
+
+  // Radar: top 8 machines — % meta, consistency, relative production
+  const radarData = useMemo(() => {
+    const top8 = [...machineAgg].sort((a, b) => b.totalProd - a.totalProd).slice(0, 8);
+    const maxProd = Math.max(...top8.map(m => m.totalProd), 1);
+    return top8.map(m => {
+      const machRecords = filteredRecords.filter(r => r.machineId === m.id && r.meta > 0);
+      const uniqueDates = [...new Set(machRecords.map(r => r.date))];
+      const dayProdMap: Record<string, number> = {};
+      for (const r of machRecords) dayProdMap[r.date] = (dayProdMap[r.date] ?? 0) + r.producao;
+      const metaPerDay = (metas[m.id] ?? 0) * turnoMultiplier;
+      const daysAbove = uniqueDates.filter(d => metaPerDay > 0 && (dayProdMap[d] ?? 0) >= metaPerDay).length;
+      const consistency = uniqueDates.length > 0 ? Math.round((daysAbove / uniqueDates.length) * 100) : 0;
+      return { name: m.name, values: [Math.min(m.pct, 100), consistency, Math.round((m.totalProd / maxProd) * 100)] };
+    });
+  }, [machineAgg, filteredRecords, metas, turnoMultiplier]);
+
+  const radarOption = useMemo((): EChartsOption => {
+    const COLORS = ["#0066B3", "#22C55E", "#F59E0B", "#EF4444", "#8B5CF6", "#06B6D4", "#F97316", "#64748B"];
+    return {
+      animation: true,
+      tooltip: { trigger: "item", confine: true },
+      legend: { data: radarData.map(d => d.name), bottom: 0, type: "scroll", textStyle: { fontSize: 10 } },
+      radar: {
+        indicator: [
+          { name: "% Meta", max: 100 },
+          { name: "Consistência", max: 100 },
+          { name: "Prod. Relativa", max: 100 },
+        ],
+        radius: "60%", center: ["50%", "45%"],
+        axisName: { fontSize: 11, color: "#64748B" },
+        splitArea: { areaStyle: { color: ["rgba(0,102,179,0.03)", "rgba(0,102,179,0.07)"] } },
+      },
+      series: [{
+        type: "radar",
+        data: radarData.map((m, i) => ({
+          name: m.name,
+          value: m.values,
+          lineStyle: { color: COLORS[i % COLORS.length], width: 2 },
+          itemStyle: { color: COLORS[i % COLORS.length] },
+          areaStyle: { color: COLORS[i % COLORS.length] + "22" },
+          symbol: "circle", symbolSize: 4,
+        })),
+      }],
+    };
+  }, [radarData]);
 
   return (
     <div className="min-h-screen bg-background">
@@ -616,10 +809,81 @@ const DashboardPage = () => {
                 )}
 
                 {dashSubTab === "analytics" && (
-                  <div className="bg-card rounded-xl border border-border shadow-sm p-6 text-center" style={{ borderRadius: 12 }}>
-                    <Activity size={40} className="mx-auto text-muted-foreground mb-3" />
-                    <h3 className="text-sm font-bold text-foreground mb-1">Analytics Avançado</h3>
-                    <p className="text-xs text-muted-foreground">Módulo de analytics em desenvolvimento. Em breve disponível.</p>
+                  <div className="space-y-5">
+                    <div>
+                      <h2 className="text-base font-bold text-foreground flex items-center gap-2">
+                        <Activity size={16} className="text-primary" />
+                        Analytics Avançado
+                      </h2>
+                      <p className="text-xs text-muted-foreground mt-0.5">Análise interpretativa do período selecionado</p>
+                    </div>
+
+                    {heatmapData.length === 0 ? (
+                      <div className="bg-card rounded-xl border border-border p-8 text-center" style={{ borderRadius: 12 }}>
+                        <Activity size={32} className="mx-auto text-muted-foreground mb-2" />
+                        <p className="text-sm text-muted-foreground">Nenhum dado com meta disponível no período filtrado.</p>
+                      </div>
+                    ) : (
+                      <>
+                        {/* Heatmap — full width */}
+                        <div>
+                          <ChartCard
+                            title="Heatmap de Performance"
+                            subtitle="% médio de atingimento de meta por máquina × dia da semana"
+                            option={heatmapOption}
+                            height={Math.max(220, heatmapMachines.length * 36 + 80)}
+                          />
+                          <p className="text-[11px] text-muted-foreground mt-1.5 px-1">
+                            <strong>Como interpretar:</strong> Células verdes indicam dias da semana onde a produção supera consistentemente a meta. Células vermelhas revelam padrões sistemáticos de baixa performance — úteis para investigar causas estruturais (ex: troca de turno, manutenção recorrente).
+                          </p>
+                        </div>
+
+                        {/* Pareto + Tendência — side by side on desktop */}
+                        <div className={isMobile ? "space-y-4" : "grid grid-cols-2 gap-4"}>
+                          <div>
+                            {paretoData.length > 0 ? (
+                              <ChartCard
+                                title="Pareto de Desvio de Meta"
+                                subtitle="Onde concentrar atenção para recuperar o resultado (lei 80/20)"
+                                option={paretoOption}
+                                height={320}
+                              />
+                            ) : (
+                              <div className="bg-card rounded-xl border border-border p-6 text-center" style={{ borderRadius: 12 }}>
+                                <p className="text-xs text-muted-foreground">Todas as máquinas atingiram ou superaram a meta no período.</p>
+                              </div>
+                            )}
+                            <p className="text-[11px] text-muted-foreground mt-1.5 px-1">
+                              <strong>Como interpretar:</strong> Barras à esquerda representam maior contribuição ao gap total. A linha acumulada mostra o ponto de inflexão 80/20 — focar nas primeiras máquinas já resolve a maior parte do desvio.
+                            </p>
+                          </div>
+                          <div>
+                            <ChartCard
+                              title="Tendência com Média Móvel 7d"
+                              subtitle="Produção real vs. média suavizada para identificar tendência de longo prazo"
+                              option={trendOption}
+                              height={320}
+                            />
+                            <p className="text-[11px] text-muted-foreground mt-1.5 px-1">
+                              <strong>Como interpretar:</strong> A linha espessa (Média 7d) remove o ruído diário e revela a tendência real. Se a média 7d estiver abaixo da meta tracejada por vários dias consecutivos, há queda sistêmica e não apenas variação pontual.
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Radar — full width */}
+                        <div>
+                          <ChartCard
+                            title="Radar de Consistência por Máquina"
+                            subtitle="Visão multidimensional: % meta, consistência (dias acima da meta) e produção relativa ao pico"
+                            option={radarOption}
+                            height={Math.min(500, Math.max(320, radarData.length * 40 + 120))}
+                          />
+                          <p className="text-[11px] text-muted-foreground mt-1.5 px-1">
+                            <strong>Como interpretar:</strong> Uma máquina ideal ocupa o hexágono externo em todos os eixos. Uma máquina com % meta alta mas consistência baixa bate a meta apenas esporadicamente — isso pode mascarar instabilidade no processo.
+                          </p>
+                        </div>
+                      </>
+                    )}
                   </div>
                 )}
                   </motion.div>
@@ -666,6 +930,9 @@ const DashboardPage = () => {
           totalMeta={totalMeta}
           pctGeral={pctGeral}
           tendency={tendency}
+          heatmapData={heatmapData}
+          paretoData={paretoData}
+          heatmapMachines={heatmapMachines}
           onClose={() => setShowTV(false)}
         />
       )}

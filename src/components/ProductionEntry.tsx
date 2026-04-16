@@ -17,7 +17,7 @@ const ProductionEntry = () => {
   const [selectedTurno, setSelectedTurno] = useState(TURNOS[0]);
   const [entries, setEntries] = useState<Record<number, EntryData>>(() => {
     const init: Record<number, EntryData> = {};
-    machines.forEach(m => { init[m.id] = { machineId: m.id, ordens: [], obs: "" }; });
+    machines.forEach(m => { init[m.id] = { machineId: m.id, ordens: [{ ordemId: "", quantidade: 0 }], obs: "" }; });
     return init;
   });
   const [saving, setSaving] = useState(false);
@@ -25,7 +25,7 @@ const ProductionEntry = () => {
   const [obsOpen, setObsOpen] = useState<number | null>(null);
 
   const filledCount = useMemo(() =>
-    Object.values(entries).filter(e => e.ordens.length > 0).length,
+    Object.values(entries).filter(e => e.ordens.some(o => o.quantidade > 0)).length,
     [entries]
   );
 
@@ -57,7 +57,7 @@ const ProductionEntry = () => {
     try {
       const nowBR = new Date().toLocaleString("pt-BR");
       const records = Object.values(entries)
-        .filter(e => e.ordens.length > 0)
+        .filter(e => e.ordens.some(o => o.quantidade > 0))
         .map(e => {
           const machine = machines.find(m => m.id === e.machineId);
           const producao = e.ordens.reduce((s, o) => s + (o.quantidade || 0), 0);
@@ -68,7 +68,7 @@ const ProductionEntry = () => {
             machineName: machine?.name || "",
             meta: metas[e.machineId] ?? machine?.defaultMeta ?? 0,
             producao,
-            ordensProducao: e.ordens,
+            ordensProducao: e.ordens.filter(o => o.quantidade > 0),
             savedBy: user?.nome || "",
             savedAt: nowBR,
             obs: e.obs || "",
@@ -87,7 +87,7 @@ const ProductionEntry = () => {
 
   function handleClear() {
     const init: Record<number, EntryData> = {};
-    machines.forEach(m => { init[m.id] = { machineId: m.id, ordens: [], obs: "" }; });
+    machines.forEach(m => { init[m.id] = { machineId: m.id, ordens: [{ ordemId: "", quantidade: 0 }], obs: "" }; });
     setEntries(init);
     setSaved(false);
   }
