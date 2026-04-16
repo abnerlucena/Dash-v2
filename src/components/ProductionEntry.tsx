@@ -1,5 +1,5 @@
 import { useState, useMemo, useRef } from "react";
-import { Save, Check, MessageSquare, X, Search, ChevronDown, ChevronUp } from "lucide-react";
+import { Save, Check, MessageSquare, X, Search, ChevronDown, ChevronUp, Plus } from "lucide-react";
 import { useAuth, type OrdemProducao } from "@/contexts/AuthContext";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { TURNOS, today, api, pctColor } from "@/lib/api";
@@ -307,13 +307,16 @@ const ProductionEntry = () => {
                       />
                     );
 
-                    const addOrdemLink = (
+                    const addOrdemBtn = (
                       <button
                         onClick={() => updateOrdens(machine.id, [...entry.ordens, { ordemId: "", quantidade: 0 }])}
-                        className="text-xs text-muted-foreground hover:text-foreground transition-colors"
-                        style={{ textDecoration: "underline", textDecorationStyle: "dotted" }}
+                        disabled={entry.ordens.length >= 10}
+                        className="h-9 px-3 flex items-center gap-1.5 text-xs font-semibold rounded-md border border-dashed border-primary/50 text-primary hover:bg-primary/5 transition-all disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
+                        style={{ borderRadius: 6 }}
+                        title="Adicionar outra ordem"
                       >
-                        + Adicionar Ordem
+                        <Plus size={12} />
+                        Adicionar Ordem
                       </button>
                     );
 
@@ -359,7 +362,7 @@ const ProductionEntry = () => {
 
                               <div className="flex items-center justify-between mt-2">
                                 {obsButton(9)}
-                                {!isExpanded && addOrdemLink}
+                                {addOrdemBtn}
                               </div>
                             </>
                           ) : (
@@ -387,7 +390,7 @@ const ProductionEntry = () => {
                                 }
                                 <div className="flex items-center justify-between">
                                   {obsButton(8)}
-                                  {!isExpanded && addOrdemLink}
+                                  {addOrdemBtn}
                                 </div>
                               </div>
                             </div>
