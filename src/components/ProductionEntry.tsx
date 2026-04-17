@@ -35,7 +35,6 @@ const ProductionEntry = () => {
   const [obsOpen, setObsOpen]               = useState<number | null>(null);
   const [search, setSearch]                 = useState("");
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
-  const [warningInputs, setWarningInputs]   = useState<Set<number>>(new Set());
 
   // P3: debounce ref — prevents duplicate saves within 800 ms
   const lastSaveTimeRef = useRef<number>(0);
@@ -90,27 +89,6 @@ const ProductionEntry = () => {
   function updateOrdens(machineId: number, ordens: OrdemProducao[]) {
     setEntries(prev => ({ ...prev, [machineId]: { ...prev[machineId], ordens } }));
     setSaved(false);
-  }
-
-  // P1: sanitise quantity — integers only, warn if > 10× meta
-  function handleQuantityChange(machineId: number, rawValue: string) {
-    const sanitized = rawValue.replace(/[^0-9]/g, "");
-    const qty = parseInt(sanitized) || 0;
-    const entry = entries[machineId];
-    if (!entry) return;
-    const newOrdens = [...entry.ordens];
-    newOrdens[0] = { ...newOrdens[0], quantidade: qty };
-    updateOrdens(machineId, newOrdens);
-
-    const meta = metas[machineId] || 0;
-    if (meta > 0 && qty > meta * 10) {
-      if (!warningInputs.has(machineId)) {
-        toast.warning("Valor muito acima da meta. Confirme antes de salvar.");
-      }
-      setWarningInputs(prev => new Set([...prev, machineId]));
-    } else {
-      setWarningInputs(prev => { const n = new Set(prev); n.delete(machineId); return n; });
-    }
   }
 
   function getOrdemTotal(machineId: number): number {
@@ -177,7 +155,6 @@ const ProductionEntry = () => {
     machines.forEach(m => { init[m.id] = { machineId: m.id, ordens: [{ ordemId: "", quantidade: 0 }], obs: "" }; });
     setEntries(init);
     setSaved(false);
-    setWarningInputs(new Set());
   }
 
   function toggleGroup(groupId: string) {
@@ -286,26 +263,12 @@ const ProductionEntry = () => {
               {!isCollapsed && (
                 <div className="space-y-2">
                   {group.machines.map(machine => {
-                    const pct        = getPct(machine.id);
-                    const entry      = entries[machine.id];
+                    const pct      = getPct(machine.id);
+                    const entry    = entries[machine.id];
                     if (!entry) return null;
-                    const hasObs     = entry.obs.trim() !== "";
-                    const metaVal    = metas[machine.id] || machine.defaultMeta;
-                    const isFilled   = entry.ordens.some(o => o.quantidade > 0);
-                    const isExpanded = entry.ordens.length > 1;
-                    const hasWarn    = warningInputs.has(machine.id);
-
-                    const qtyInput = (mobile: boolean) => (
-                      <input
-                        type="text"
-                        inputMode="numeric"
-                        placeholder="Quantidade"
-                        value={entry.ordens[0]?.quantidade || ""}
-                        onChange={e => handleQuantityChange(machine.id, e.target.value)}
-                        className={`w-full px-3 ${mobile ? "py-3.5 text-base" : "py-2 text-sm"} font-bold rounded-md border bg-background focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all placeholder:text-muted-foreground/40 text-center ${hasWarn ? "border-red-400" : "border-border"}`}
-                        style={{ borderRadius: 6 }}
-                      />
-                    );
+                    const hasObs   = entry.obs.trim() !== "";
+                    const metaVal  = metas[machine.id] || machine.defaultMeta;
+                    const isFilled = entry.ordens.some(o => o.quantidade > 0);
 
                     const addOrdemBtn = (
                       <button
@@ -355,10 +318,7 @@ const ProductionEntry = () => {
                                 Meta: <strong>{metaVal > 0 ? metaVal.toLocaleString("pt-BR") : "—"}</strong>
                               </p>
 
-                              {qtyInput(true)}
-                              {isExpanded && (
-                                <OrdemProducaoInput ordens={entry.ordens} onChange={o => updateOrdens(machine.id, o)} skipFirst />
-                              )}
+                              <OrdemProducaoInput ordens={entry.ordens} onChange={o => updateOrdens(machine.id, o)} />
 
                               <div className="flex items-center justify-between mt-2">
                                 {obsButton(9)}
@@ -384,10 +344,7 @@ const ProductionEntry = () => {
 
                               {/* Right 45% */}
                               <div className="flex flex-col gap-2" style={{ flex: 1, minWidth: 0 }}>
-                                {qtyInput(false)}
-                              {isExpanded && (
-                                <OrdemProducaoInput ordens={entry.ordens} onChange={o => updateOrdens(machine.id, o)} skipFirst />
-                              )}
+                                <OrdemProducaoInput ordens={entry.ordens} onChange={o => updateOrdens(machine.id, o)} />
                                 <div className="flex items-center justify-between">
                                   {obsButton(8)}
                                   {addOrdemBtn}
