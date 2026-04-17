@@ -4,9 +4,10 @@ import type { OrdemProducao } from "@/lib/api";
 interface OrdemProducaoInputProps {
   ordens: OrdemProducao[];
   onChange: (ordens: OrdemProducao[]) => void;
+  skipFirst?: boolean;
 }
 
-const OrdemProducaoInput = ({ ordens, onChange }: OrdemProducaoInputProps) => {
+const OrdemProducaoInput = ({ ordens, onChange, skipFirst = false }: OrdemProducaoInputProps) => {
   const filledOrdens = ordens.filter(o => o.quantidade > 0);
   const total = filledOrdens.reduce((s, o) => s + o.quantidade, 0);
 
@@ -22,6 +23,7 @@ const OrdemProducaoInput = ({ ordens, onChange }: OrdemProducaoInputProps) => {
   return (
     <div className="space-y-2">
       {ordens.map((ordem, idx) => {
+        if (skipFirst && idx === 0) return null;
         const isFirst = idx === 0;
         return (
           <div key={idx} className="flex gap-2 items-center">

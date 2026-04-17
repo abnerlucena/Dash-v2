@@ -355,10 +355,10 @@ const ProductionEntry = () => {
                                 Meta: <strong>{metaVal > 0 ? metaVal.toLocaleString("pt-BR") : "—"}</strong>
                               </p>
 
-                              {isExpanded
-                                ? <OrdemProducaoInput ordens={entry.ordens} onChange={o => updateOrdens(machine.id, o)} />
-                                : qtyInput(true)
-                              }
+                              {qtyInput(true)}
+                              {isExpanded && (
+                                <OrdemProducaoInput ordens={entry.ordens} onChange={o => updateOrdens(machine.id, o)} skipFirst />
+                              )}
 
                               <div className="flex items-center justify-between mt-2">
                                 {obsButton(9)}
@@ -384,10 +384,10 @@ const ProductionEntry = () => {
 
                               {/* Right 45% */}
                               <div className="flex flex-col gap-2" style={{ flex: 1, minWidth: 0 }}>
-                                {isExpanded
-                                  ? <OrdemProducaoInput ordens={entry.ordens} onChange={o => updateOrdens(machine.id, o)} />
-                                  : qtyInput(false)
-                                }
+                                {qtyInput(false)}
+                              {isExpanded && (
+                                <OrdemProducaoInput ordens={entry.ordens} onChange={o => updateOrdens(machine.id, o)} skipFirst />
+                              )}
                                 <div className="flex items-center justify-between">
                                   {obsButton(8)}
                                   {addOrdemBtn}
