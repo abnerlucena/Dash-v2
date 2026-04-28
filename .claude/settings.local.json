@@ -32,7 +32,15 @@
       "Bash(powershell -Command \"npm install --prefix 'C:\\\\Users\\\\Pichau\\\\Documents\\\\GitHub\\\\Dash-v2' jspdf jspdf-autotable 2>&1\")",
       "Bash(powershell -Command \"Set-Location 'C:\\\\Users\\\\Pichau\\\\Documents\\\\GitHub\\\\Dash-v2'; npx tsc --noEmit 2>&1\")",
       "Bash(powershell -NoProfile -Command \"Set-Location 'C:\\\\Users\\\\Pichau\\\\Documents\\\\GitHub\\\\Dash-v2'; npx tsc --noEmit 2>&1 | Out-File -FilePath C:\\\\temp_tsc_out.txt; Get-Content C:\\\\temp_tsc_out.txt\")",
-      "Bash(powershell -NoProfile -Command \"Set-Location 'C:\\\\Users\\\\Pichau\\\\Documents\\\\GitHub\\\\Dash-v2'; npx tsc --noEmit 2>&1 | Out-File -FilePath 'C:\\\\Users\\\\Pichau\\\\tsc_out.txt'; Get-Content 'C:\\\\Users\\\\Pichau\\\\tsc_out.txt'\")"
+      "Bash(powershell -NoProfile -Command \"Set-Location 'C:\\\\Users\\\\Pichau\\\\Documents\\\\GitHub\\\\Dash-v2'; npx tsc --noEmit 2>&1 | Out-File -FilePath 'C:\\\\Users\\\\Pichau\\\\tsc_out.txt'; Get-Content 'C:\\\\Users\\\\Pichau\\\\tsc_out.txt'\")",
+      "Bash(gh repo *)",
+      "PowerShell(gh repo view --json nameWithOwner,url)",
+      "PowerShell($env:Path = [System.Environment]::GetEnvironmentVariable\\(\"Path\",\"Machine\"\\) + \";\" + [System.Environment]::GetEnvironmentVariable\\(\"Path\",\"User\"\\); gh --version)",
+      "PowerShell(npm run dev -- --port 8081)",
+      "Bash(git ls-remote *)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)"
     ]
   }
 }
