@@ -1,4 +1,4 @@
-import { Trash2, RefreshCw } from "lucide-react";
+import { Trash2 } from "lucide-react";
 import type { OrdemProducao } from "@/lib/api";
 
 interface OrdemProducaoInputProps {
@@ -60,7 +60,7 @@ const OrdemProducaoInput = ({ ordens, onChange }: OrdemProducaoInputProps) => {
             style={{ borderRadius: 6 }}
             title={isRetrabalho ? "Marcado como retrabalho — clique pra desmarcar" : "Marcar como retrabalho"}
           >
-            <RefreshCw size={14} />
+            <span className="text-sm font-extrabold leading-none">R</span>
           </button>
           <button
             type="button"
