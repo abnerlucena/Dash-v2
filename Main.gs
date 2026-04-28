@@ -23,8 +23,34 @@ const VALID_TURNOS = ["TURNO 1", "TURNO 2", "TURNO 3"];
 
 const PROD_HEADERS = [
   "id", "date", "turno", "machineId", "machineName",
-  "meta", "producao", "savedBy", "savedAt", "editUser", "editTime", "obs"
+  "meta", "producao", "savedBy", "savedAt", "editUser", "editTime", "obs",
+  "ordensProducao"
 ];
+
+// Serializa o array de ordens (com flag retrabalho) como JSON string para armazenar na célula.
+// Sanitiza cada campo defensivamente. Retorna "" se não houver ordens válidas.
+function sanitizeOrdensProducao(ordens) {
+  if (!Array.isArray(ordens) || ordens.length === 0) return "";
+  var clean = [];
+  for (var i = 0; i < ordens.length; i++) {
+    var o = ordens[i] || {};
+    var qtd = sanitizeNumber(o.quantidade, 0, 100000);
+    if (qtd <= 0) continue;
+    var item = {
+      ordemId: sanitizeString(o.ordemId || "", 20),
+      quantidade: qtd
+    };
+    if (o.obs) item.obs = sanitizeString(o.obs, 200);
+    if (o.retrabalho === true) item.retrabalho = true;
+    clean.push(item);
+  }
+  if (clean.length === 0) return "";
+  try {
+    return JSON.stringify(clean);
+  } catch (e) {
+    return "";
+  }
+}
 
 const USER_HEADERS = ["nome", "senhaHash", "role", "criadoEm", "status", "loginAttempts", "lockedUntil"];
 const SESSION_HEADERS = ["token", "nome", "role", "createdAt", "expiresAt"];
@@ -1395,7 +1421,9 @@ function actionUpsert(token, records) {
         editUser: sanitizeString(rec.editUser, 50),
         editTime: sanitizeString(rec.editTime, 50),
         // obs: undefined significa "não fornecido — preservar valor existente"
-        obs: rec.obs !== undefined ? sanitizeString(rec.obs, 500) : undefined
+        obs: rec.obs !== undefined ? sanitizeString(rec.obs, 500) : undefined,
+        // ordensProducao: idem — undefined preserva, array reescreve
+        ordensProducao: rec.ordensProducao !== undefined ? sanitizeOrdensProducao(rec.ordensProducao) : undefined
       };
       
       // Procurar registro existente (por posição fixa — igual ao actionGetAll)
@@ -1434,7 +1462,7 @@ function actionUpsert(token, records) {
         }
 
         // Preserva campos do registro original quando não fornecidos na atualização
-        if (foundRow > 0 && (header === "savedBy" || header === "savedAt" || header === "obs")) {
+        if (foundRow > 0 && (header === "savedBy" || header === "savedAt" || header === "obs" || header === "ordensProducao")) {
           const existingIdx = PROD_HEADERS.indexOf(header);
           return existingIdx >= 0 ? (allData[foundRow - 1][existingIdx] || "") : "";
         }
@@ -1632,6 +1660,7 @@ function actionAppend(token, records) {
         if (header === "editUser") return sanitizeString(rec.editUser || "", 50);
         if (header === "editTime") return sanitizeString(rec.editTime || "", 50);
         if (header === "obs") return sanitizeString(rec.obs || "", 500);
+        if (header === "ordensProducao") return sanitizeOrdensProducao(rec.ordensProducao);
         return "";
       });
 

@@ -510,16 +510,22 @@ const ReportsTab = () => {
                               <td /><td />
                               <td colSpan={8} className="px-4 pb-3 pt-0">
                                 <div className="flex flex-wrap gap-1.5 border-l-2 border-primary/30 pl-3">
-                                  {r.ordensProducao!.map((o, oi) => (
+                                  {r.ordensProducao!.map((o, oi) => {
+                                    const isR = !!o.retrabalho;
+                                    return (
                                     <span key={oi}
-                                      className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full border border-primary/20"
-                                      style={{ background: "#0066B310", color: "#0066B3" }}>
+                                      className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full border ${isR ? "border-amber-400/50" : "border-primary/20"}`}
+                                      style={isR
+                                        ? { background: "#F59E0B15", color: "#B45309" }
+                                        : { background: "#0066B310", color: "#0066B3" }}>
+                                      {isR && <span className="text-[9px] font-extrabold px-1 py-px rounded bg-amber-500/90 text-white tracking-wide">RETRABALHO</span>}
                                       <span className="text-muted-foreground font-medium">#{o.ordemId}</span>
-                                      <span className="mx-0.5 text-primary/40">→</span>
+                                      <span className={`mx-0.5 ${isR ? "text-amber-500/50" : "text-primary/40"}`}>→</span>
                                       <span>{o.quantidade.toLocaleString("pt-BR")} pç</span>
                                       {o.obs && <span className="text-muted-foreground ml-1">· {o.obs}</span>}
                                     </span>
-                                  ))}
+                                    );
+                                  })}
                                 </div>
                               </td>
                             </tr>
@@ -794,16 +800,22 @@ const ReportsTab = () => {
                                 <td />
                                 <td colSpan={4} className="px-3 pb-2 pt-0">
                                   <div className="flex flex-wrap gap-1 pl-1 border-l-2 border-primary/20">
-                                    {r.ordensProducao!.map((o, oi) => (
+                                    {r.ordensProducao!.map((o, oi) => {
+                                      const isR = !!o.retrabalho;
+                                      return (
                                       <span
                                         key={oi}
-                                        className="inline-flex items-center text-[10px] font-semibold px-2 py-0.5 rounded-full border border-primary/15"
-                                        style={{ background: "#0066B308", color: "#0066B3" }}
-                                        title={`${o.quantidade.toLocaleString("pt-BR")} pç${o.obs ? ` — ${o.obs}` : ""}`}
+                                        className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full border ${isR ? "border-amber-400/40" : "border-primary/15"}`}
+                                        style={isR
+                                          ? { background: "#F59E0B12", color: "#B45309" }
+                                          : { background: "#0066B308", color: "#0066B3" }}
+                                        title={`${isR ? "RETRABALHO · " : ""}${o.quantidade.toLocaleString("pt-BR")} pç${o.obs ? ` — ${o.obs}` : ""}`}
                                       >
+                                        {isR && <span className="text-[8px] font-extrabold px-1 rounded bg-amber-500/90 text-white">R</span>}
                                         #{o.ordemId} → {o.quantidade.toLocaleString("pt-BR")} pç
                                       </span>
-                                    ))}
+                                      );
+                                    })}
                                   </div>
                                 </td>
                               </tr>

@@ -216,10 +216,13 @@ const FeedbacksTab = () => {
                       {ordensExpanded.has(key) && (
                         <div className="mt-1.5 pl-2 border-l-2 border-primary/20 space-y-0.5">
                           {r.ordensProducao!.map((o, oi) => (
-                            <p key={oi} className="text-[11px] text-muted-foreground">
+                            <p key={oi} className="text-[11px] text-muted-foreground flex items-center gap-1.5 flex-wrap">
+                              {o.retrabalho && (
+                                <span className="text-[9px] font-extrabold px-1.5 py-px rounded bg-amber-500/90 text-white tracking-wide">RETRABALHO</span>
+                              )}
                               <span className="font-semibold text-foreground">#{o.ordemId}</span>
-                              {" — "}{o.quantidade.toLocaleString("pt-BR")} pç
-                              {o.obs && <span className="text-muted-foreground"> ({o.obs})</span>}
+                              <span>— {o.quantidade.toLocaleString("pt-BR")} pç</span>
+                              {o.obs && <span className="text-muted-foreground">({o.obs})</span>}
                             </p>
                           ))}
                         </div>

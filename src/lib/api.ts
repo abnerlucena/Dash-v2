@@ -33,6 +33,7 @@ export interface OrdemProducao {
   ordemId: string;
   quantidade: number;
   obs?: string;
+  retrabalho?: boolean;
 }
 
 export interface ProdRecord {
