@@ -86,8 +86,9 @@ const ExportModal = ({ open, onClose, format, records, filters, holidays }: Expo
       }
     } catch (e: any) {
       toast.error(e.message || "Erro ao exportar. Tente novamente.");
+    } finally {
+      setExporting(false);
     }
-    setExporting(false);
   }
 
   // Reset sections when format changes (via reopening)

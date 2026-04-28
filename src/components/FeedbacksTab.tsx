@@ -59,6 +59,7 @@ const FeedbacksTab = () => {
   async function handleSaveEdit(r: ProdRecord) {
     const key = recordKey(r);
     setSavingKey(key);
+    let ok = false;
     try {
       const nowBR = new Date().toLocaleString("pt-BR");
       await api("upsert", {
@@ -76,19 +77,23 @@ const FeedbacksTab = () => {
           editTime: nowBR,
         }],
       }, user);
+      ok = true;
       toast.success("Observação atualizada!");
       setEditingKey(null);
       setEditText("");
-      await silentRefresh();
     } catch (e: any) {
       toast.error(e.message || "Erro ao salvar");
+    } finally {
+      // Spinner some assim que o api() retorna — silentRefresh roda em background
+      setSavingKey(null);
     }
-    setSavingKey(null);
+    if (ok) silentRefresh().catch(() => {});
   }
 
   async function handleDelete(r: ProdRecord) {
     const key = recordKey(r);
     setSavingKey(key);
+    let ok = false;
     try {
       const nowBR = new Date().toLocaleString("pt-BR");
       await api("upsert", {
@@ -106,13 +111,15 @@ const FeedbacksTab = () => {
           editTime: nowBR,
         }],
       }, user);
+      ok = true;
       toast.success("Observação removida.");
       setDeletingKey(null);
-      await silentRefresh();
     } catch (e: any) {
       toast.error(e.message || "Erro ao excluir");
+    } finally {
+      setSavingKey(null);
     }
-    setSavingKey(null);
+    if (ok) silentRefresh().catch(() => {});
   }
 
   return (

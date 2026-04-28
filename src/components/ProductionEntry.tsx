@@ -118,6 +118,7 @@ const ProductionEntry = () => {
     if (dateObj < yearAgo) toast.warning("Data muito antiga. Confirme se está correto.");
 
     setSaving(true);
+    let saveOk = false;
     try {
       const nowBR = new Date().toLocaleString("pt-BR");
       const records = Object.values(entries)
@@ -140,13 +141,21 @@ const ProductionEntry = () => {
         });
 
       await api("upsert", { records }, user);
-      setSaved(true);
+      saveOk = true;
       toast.success("Apontamento salvo com sucesso!");
-      await silentRefresh();
     } catch (e: any) {
       toast.error(e.message || "Erro ao salvar");
     } finally {
+      // Encerra o spinner imediatamente após o api() retornar — antes do silentRefresh
       setSaving(false); // P5: always reset, even on session expiry
+    }
+
+    if (saveOk) {
+      // Botão vai direto pra "Salvo!" sem esperar o refresh em background
+      setSaved(true);
+      setTimeout(() => setSaved(false), 1500);
+      // Refresh em background — não bloqueia a UI
+      silentRefresh().catch(() => {});
     }
   }
 
