@@ -70,6 +70,18 @@
     @apply bg-background text-foreground;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    /* Safety net: previne scroll horizontal causado por elemento com largura fixa em mobile */
+    overflow-x: hidden;
+  }
+
+  /* Mobile: força font-size mínimo de 16px em campos editáveis para evitar
+   * o auto-zoom que iOS Safari aplica em focus quando o campo tem <16px. */
+  @media (max-width: 639px) {
+    input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+    select,
+    textarea {
+      font-size: 16px;
+    }
   }
 }
 

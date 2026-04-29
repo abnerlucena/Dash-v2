@@ -18,8 +18,14 @@ const tabs = [
 const BottomNav = ({ activeTab, onTabChange }: BottomNavProps) => {
   return (
     <nav
-      className="fixed bottom-0 left-0 right-0 z-50 bg-card/95 backdrop-blur-xl border-t border-border shadow-[0_-4px_20px_rgba(0,0,0,0.08)]"
-      style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
+      className="fixed left-0 right-0 z-50 bg-card/95 backdrop-blur-xl border-t border-border shadow-[0_-4px_20px_rgba(0,0,0,0.08)]"
+      // bottom: 0 explícito pra evitar quirk do Safari iOS que reposiciona elementos
+      // fixed durante o scroll. paddingBottom usa max() pra garantir folga mínima
+      // mesmo quando a safe-area do dispositivo retorna 0.
+      style={{
+        bottom: 0,
+        paddingBottom: "max(env(safe-area-inset-bottom), 8px)",
+      }}
     >
       <div className="flex items-stretch h-16">
         {tabs.map((t) => {

@@ -34,7 +34,7 @@ const OrdemProducaoInput = ({ ordens, onChange }: OrdemProducaoInputProps) => {
           <input
             type="number"
             inputMode="numeric"
-            placeholder="Quantidade"
+            placeholder="Qtd"
             min={0}
             max={999999}
             value={ordem.quantidade || ""}
