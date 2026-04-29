@@ -162,37 +162,45 @@ const ReportsTab = () => {
       setBulkAction(null);
     } catch (e: any) {
       toast.error(e.message || "Erro ao excluir registros");
+    } finally {
+      setBulkLoading(false);
     }
-    setBulkLoading(false);
   }
 
   async function executeBulkMove() {
     if (!bulkMoveDate) { toast.error("Selecione a data destino"); return; }
     setBulkLoading(true);
+    let ok = false;
     try {
       await api("bulkMove", { ids: [...selectedIds], newDate: bulkMoveDate }, user);
-      await silentRefresh();
+      ok = true;
       toast.success(`${selectedIds.size} registro(s) movido(s) para ${dispD(bulkMoveDate)}`);
       setSelectedIds(new Set());
       setBulkAction(null);
     } catch (e: any) {
       toast.error(e.message || "Erro ao mover registros");
+    } finally {
+      // Spinner some assim que o api() retorna — silentRefresh roda em background
+      setBulkLoading(false);
     }
-    setBulkLoading(false);
+    if (ok) silentRefresh().catch(() => {});
   }
 
   async function executeBulkTurno() {
     setBulkLoading(true);
+    let ok = false;
     try {
       await api("bulkEditTurno", { ids: [...selectedIds], newTurno: bulkTurno }, user);
-      await silentRefresh();
+      ok = true;
       toast.success(`${selectedIds.size} registro(s) atualizados para ${bulkTurno}`);
       setSelectedIds(new Set());
       setBulkAction(null);
     } catch (e: any) {
       toast.error(e.message || "Erro ao editar turno");
+    } finally {
+      setBulkLoading(false);
     }
-    setBulkLoading(false);
+    if (ok) silentRefresh().catch(() => {});
   }
 
   return (
