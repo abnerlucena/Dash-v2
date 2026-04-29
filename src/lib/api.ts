@@ -1,5 +1,5 @@
 // ─── API Layer ────────────────────────────────────────────────
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzXvyK0tSitNxSmzt44ENTKID-QdgFHatvaXuWtxLoFBBx4HQmIzZZp7yjWTdvkh2AUAg/exec";
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyeiU8btjcJdhZkv6MRo-_M1jLx7s7YD6GWMfxVB7PIkeoRC5Aiq8FwzJkKgEIbgAz8Ag/exec";
 export const SESSION_KEY = "prod_session_v3";
 const CACHE_KEY = "prod_records_cache";
 const CACHE_METAS_KEY = "prod_metas_cache";
@@ -33,6 +33,7 @@ export interface OrdemProducao {
   ordemId: string;
   quantidade: number;
   obs?: string;
+  retrabalho?: boolean;
 }
 
 export interface ProdRecord {
