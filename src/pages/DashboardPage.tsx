@@ -5,7 +5,7 @@ import { BarChart3, TrendingUp, Factory, Activity, ClipboardEdit, FileText, Chev
 import { useAuth } from "@/contexts/AuthContext";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { TURNOS, pctColor, fmt, today } from "@/lib/api";
-import { getBarChartOption, getAreaChartOption, getPieChartOption, getHorizontalBarOption } from "@/lib/chart-options";
+import { getBarChartOption, getPieChartOption, getHorizontalBarOption, getRetrabalhoOption } from "@/lib/chart-options";
 
 import WEGHeader from "@/components/WEGHeader";
 import BottomNav, { type TabId } from "@/components/BottomNav";
@@ -26,7 +26,7 @@ import OnboardingPresentation from "@/components/OnboardingPresentation";
 import { DatePickerInput } from "@/components/DatePickerInput";
 import { SelectDropdown } from "@/components/SelectDropdown";
 
-type DashboardSubTab = "resumo" | "detalhado" | "turnos" | "graficos" | "analytics";
+type DashboardSubTab = "resumo" | "detalhado" | "turnos" | "graficos";
 
 // Static — defined outside component so they're never recreated on re-render
 const MAIN_TABS: { id: TabId; label: string }[] = [
@@ -41,7 +41,6 @@ const SUB_TABS: { id: DashboardSubTab; label: string }[] = [
   { id: "detalhado", label: "Detalhado" },
   { id: "turnos", label: "Turnos" },
   { id: "graficos", label: "Gráficos" },
-  { id: "analytics", label: "Analytics" },
 ];
 
 const TOP3_BADGE_COLORS = ["#22C55E", "#16A34A", "#15803D"];
@@ -59,6 +58,8 @@ const DashboardPage = () => {
   const [showTV,    setShowTV]    = useState(false);
   const [showTour,  setShowTour]  = useState(false);
   const [expandedDetalhado, setExpandedDetalhado] = useState<string | null>(null);
+  // Modo do gráfico de tendência: produção diária (ruidosa) vs. média móvel 7d (suavizada)
+  const [trendMode, setTrendMode] = useState<"daily" | "ma7">("ma7");
 
   // Date range — default to last 30 days
   const [dateFrom, setDateFrom] = useState(() => {
@@ -204,14 +205,12 @@ const DashboardPage = () => {
   [machineAgg]);
 
   const barOption  = useMemo(() => getBarChartOption(barData, isMobile),        [barData, isMobile]);
-  const areaOption = useMemo(() => getAreaChartOption(dayAgg, isMobile),         [dayAgg, isMobile]);
   const pieOption  = useMemo(() => getPieChartOption(turnoAgg, isMobile),        [turnoAgg, isMobile]);
   const hbarOption = useMemo(() => getHorizontalBarOption(hbarData, isMobile),   [hbarData, isMobile]);
 
   // Fullscreen options — always isMobile=false, derived from already-memoized data
   const barOptionFs  = useMemo(() => getBarChartOption(barData, false),          [barData]);
   const hbarOptionFs = useMemo(() => getHorizontalBarOption(hbarData, false),    [hbarData]);
-  const areaOptionFs = useMemo(() => getAreaChartOption(dayAgg, false),          [dayAgg]);
   const pieOptionFs  = useMemo(() => getPieChartOption(turnoAgg, false),         [turnoAgg]);
 
   // Top 3 best and worst
@@ -297,18 +296,21 @@ const DashboardPage = () => {
     };
   }, [heatmapData, heatmapMachines]);
 
-  // Pareto: machines sorted by gap (meta - prod) descending + cumulative %
-  const paretoData = useMemo(() =>
-    machineAgg
+  // Pareto: máquinas ordenadas por gap (meta - prod) descendente + % acumulado.
+  // totalGap é constante — calculado uma vez fora do map. cumPct usa running sum
+  // para evitar O(n²) (era recomputado a cada item antes).
+  const paretoData = useMemo(() => {
+    const sorted = machineAgg
       .map(m => ({ name: m.name, gap: Math.max(0, m.totalMeta - m.totalProd), pct: m.pct }))
       .filter(m => m.gap > 0)
-      .sort((a, b) => b.gap - a.gap)
-      .map((m, i, arr) => {
-        const totalGap = arr.reduce((s, x) => s + x.gap, 0);
-        const cumulative = arr.slice(0, i + 1).reduce((s, x) => s + x.gap, 0);
-        return { ...m, cumPct: totalGap > 0 ? Math.round((cumulative / totalGap) * 100) : 0 };
-      }),
-  [machineAgg]);
+      .sort((a, b) => b.gap - a.gap);
+    const totalGap = sorted.reduce((s, x) => s + x.gap, 0);
+    let running = 0;
+    return sorted.map(m => {
+      running += m.gap;
+      return { ...m, cumPct: totalGap > 0 ? Math.round((running / totalGap) * 100) : 0 };
+    });
+  }, [machineAgg]);
 
   const paretoOption = useMemo((): EChartsOption => ({
     animation: true,
@@ -350,39 +352,46 @@ const DashboardPage = () => {
     }),
   [dayAgg]);
 
-  const trendOption = useMemo((): EChartsOption => ({
-    animation: true,
-    tooltip: {
-      trigger: "axis",
-      backgroundColor: "#fff", borderColor: "#D0DEE8", borderWidth: 1, borderRadius: 8,
-      textStyle: { color: "#2D3E4E", fontSize: 12 }, confine: true,
-    },
-    legend: { data: ["Produção Real", "Média 7d", "Meta"], top: 0, textStyle: { fontSize: 11 } },
-    grid: { top: 36, right: 20, bottom: 40, left: 65 },
-    xAxis: { type: "category", data: trendData.map(d => d.date), axisLabel: { fontSize: 10 } },
-    yAxis: { type: "value", axisLabel: { fontSize: 10, formatter: (v: number) => v >= 1000 ? (v / 1000).toFixed(0) + "k" : String(v) } },
-    series: [
-      {
-        name: "Produção Real", type: "line", symbol: "none",
-        data: trendData.map(d => d.producao),
-        lineStyle: { color: "#0066B3", width: 1.5, opacity: 0.55 },
-        itemStyle: { color: "#0066B3" },
+  const trendOption = useMemo((): EChartsOption => {
+    // Series base (Meta sempre visível). Produção alterna entre diária crua e MA-7d.
+    const isDaily = trendMode === "daily";
+    const prodSeries = isDaily
+      ? {
+          name: "Produção Diária", type: "line" as const, symbol: "circle" as const, symbolSize: 5,
+          data: trendData.map(d => d.producao),
+          lineStyle: { color: "#0066B3", width: 2 },
+          itemStyle: { color: "#0066B3" },
+          areaStyle: { color: { type: "linear" as const, x: 0, y: 0, x2: 0, y2: 1, colorStops: [{ offset: 0, color: "#0066B340" }, { offset: 1, color: "#0066B300" }] } },
+        }
+      : {
+          name: "Média 7d", type: "line" as const, symbol: "none" as const,
+          data: trendData.map(d => d.ma7),
+          lineStyle: { color: "#0066B3", width: 3 },
+          itemStyle: { color: "#0066B3" },
+          areaStyle: { color: { type: "linear" as const, x: 0, y: 0, x2: 0, y2: 1, colorStops: [{ offset: 0, color: "#0066B340" }, { offset: 1, color: "#0066B300" }] } },
+        };
+    return {
+      animation: true,
+      tooltip: {
+        trigger: "axis",
+        backgroundColor: "#fff", borderColor: "#D0DEE8", borderWidth: 1, borderRadius: 8,
+        textStyle: { color: "#2D3E4E", fontSize: 12 }, confine: true,
       },
-      {
-        name: "Média 7d", type: "line", symbol: "none",
-        data: trendData.map(d => d.ma7),
-        lineStyle: { color: "#0066B3", width: 3 },
-        itemStyle: { color: "#0066B3" },
-        areaStyle: { color: { type: "linear", x: 0, y: 0, x2: 0, y2: 1, colorStops: [{ offset: 0, color: "#0066B330" }, { offset: 1, color: "#0066B300" }] } },
-      },
-      {
-        name: "Meta", type: "line", symbol: "none",
-        data: trendData.map(d => d.meta),
-        lineStyle: { color: "#94A3B8", width: 1.5, type: "dashed" },
-        itemStyle: { color: "#94A3B8" },
-      },
-    ],
-  }), [trendData]);
+      legend: { data: [prodSeries.name, "Meta"], top: 0, textStyle: { fontSize: 11 } },
+      grid: { top: 36, right: 20, bottom: 40, left: 65 },
+      xAxis: { type: "category", data: trendData.map(d => d.date), axisLabel: { fontSize: 10 } },
+      yAxis: { type: "value", axisLabel: { fontSize: 10, formatter: (v: number) => v >= 1000 ? (v / 1000).toFixed(0) + "k" : String(v) } },
+      series: [
+        prodSeries,
+        {
+          name: "Meta", type: "line", symbol: "none",
+          data: trendData.map(d => d.meta),
+          lineStyle: { color: "#94A3B8", width: 1.5, type: "dashed" },
+          itemStyle: { color: "#94A3B8" },
+        },
+      ],
+    };
+  }, [trendData, trendMode]);
 
   // Radar: top 8 machines — % meta, consistency, relative production
   const radarData = useMemo(() => {
@@ -429,6 +438,40 @@ const DashboardPage = () => {
       }],
     };
   }, [radarData]);
+
+  // ── Retrabalho por máquina ──────────────────────────────────────────────────
+  // Agrega quantidade normal vs retrabalho por máquina, somando todas as ordens de
+  // produção de filteredRecords. Ignora máquinas sem produção. Ordena por % retrabalho
+  // descendente (problema fica no topo) — chart-option inverte para colocar no topo do eixo.
+  const retrabalhoData = useMemo(() => {
+    const agg: Record<string, { normal: number; retrabalho: number }> = {};
+    for (const r of filteredRecords) {
+      const ops = r.ordensProducao || [];
+      if (ops.length === 0) continue;
+      if (!agg[r.machineName]) agg[r.machineName] = { normal: 0, retrabalho: 0 };
+      for (const o of ops) {
+        const q = o.quantidade || 0;
+        if (q <= 0) continue;
+        if (o.retrabalho) agg[r.machineName].retrabalho += q;
+        else agg[r.machineName].normal += q;
+      }
+    }
+    return Object.entries(agg)
+      .map(([name, v]) => {
+        const total = v.normal + v.retrabalho;
+        return {
+          name,
+          normal: v.normal,
+          retrabalho: v.retrabalho,
+          pctRetrabalho: total > 0 ? Math.round((v.retrabalho / total) * 100) : 0,
+        };
+      })
+      .filter(d => d.normal + d.retrabalho > 0)
+      .sort((a, b) => b.pctRetrabalho - a.pctRetrabalho);
+  }, [filteredRecords]);
+
+  const retrabalhoOption = useMemo(() => getRetrabalhoOption(retrabalhoData, isMobile), [retrabalhoData, isMobile]);
+  const retrabalhoOptionFs = useMemo(() => getRetrabalhoOption(retrabalhoData, false), [retrabalhoData]);
 
   return (
     <div className="min-h-screen bg-background">
@@ -790,110 +833,141 @@ const DashboardPage = () => {
                 {dashSubTab === "graficos" && (
                   <>
                     {loading ? <ChartsSkeleton isMobile={isMobile} /> : (
-                      <div className={isMobile ? "space-y-3" : "grid grid-cols-1 lg:grid-cols-2 gap-4"}>
-                        <ChartCard title="Produção vs Meta por Máquina" subtitle="Comparativo entre produção real e meta estabelecida"
-                          option={barOption} height={isMobile ? Math.max(280, barData.length * 48) : 400}
-                          onExpand={() => setFullscreenChart("bar")} />
-                        <ChartCard title="Distribuição por Turno" subtitle="Percentual de produção em cada turno"
-                          option={pieOption} height={isMobile ? 280 : 400}
-                          onExpand={() => setFullscreenChart("pie")} />
-                        <ChartCard title="Tendência de Produção" subtitle="Evolução diária da produção no período"
-                          option={areaOption} height={isMobile ? 280 : 300}
-                          onExpand={() => setFullscreenChart("area")} />
+                      <div className="space-y-5">
+                        {/* Linha 1 — overview por máquina e turno */}
+                        <div className={isMobile ? "space-y-3" : "grid grid-cols-1 lg:grid-cols-2 gap-4"}>
+                          <ChartCard title="Produção vs Meta por Máquina" subtitle="Comparativo entre produção real e meta estabelecida"
+                            option={barOption} height={isMobile ? Math.max(280, barData.length * 48) : 400}
+                            onExpand={() => setFullscreenChart("bar")} />
+                          <ChartCard title="Distribuição por Turno" subtitle="Percentual de produção em cada turno"
+                            option={pieOption} height={isMobile ? 280 : 400}
+                            onExpand={() => setFullscreenChart("pie")} />
+                        </div>
+
+                        {/* Ranking — full width */}
                         <ChartCard title="Ranking de Performance" subtitle="Máquinas ordenadas por % da meta"
                           option={hbarOption} height={isMobile ? Math.max(260, hbarData.length * 38) : 300}
                           onExpand={() => setFullscreenChart("hbar")} />
+
+                        {/* Tendência — fundida (toggle Diária/Média 7d), full width */}
+                        <div>
+                          <ChartCard
+                            title="Tendência de Produção"
+                            subtitle={trendMode === "ma7"
+                              ? "Média móvel 7d — remove ruído diário e revela tendência real"
+                              : "Produção crua dia a dia — útil pra ver variabilidade pontual"}
+                            option={trendOption}
+                            height={isMobile ? 280 : 320}
+                            onExpand={() => setFullscreenChart("trend")}
+                            headerExtra={
+                              <div className="flex items-center bg-muted/50 rounded-lg p-0.5">
+                                {(["daily", "ma7"] as const).map(m => (
+                                  <button
+                                    key={m}
+                                    onClick={() => setTrendMode(m)}
+                                    className={`px-2.5 py-1 text-[11px] font-bold rounded-md transition-colors ${trendMode === m ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+                                  >
+                                    {m === "daily" ? "Diária" : "Média 7d"}
+                                  </button>
+                                ))}
+                              </div>
+                            }
+                          />
+                          <p className="text-[11px] text-muted-foreground mt-1.5 px-1">
+                            <strong>Como interpretar:</strong> {trendMode === "ma7"
+                              ? "A linha espessa suaviza variações diárias e revela tendência real. Se ficar abaixo da meta tracejada por vários dias seguidos, é queda sistêmica — não só ruído."
+                              : "A produção diária crua mostra os altos e baixos do dia a dia. Use pra investigar dias específicos; pra olhar tendência, troque pra 'Média 7d'."}
+                          </p>
+                        </div>
+
+                        {heatmapData.length === 0 ? (
+                          <div className="bg-card rounded-xl border border-border p-6 text-center" style={{ borderRadius: 12 }}>
+                            <Activity size={28} className="mx-auto text-muted-foreground mb-2" />
+                            <p className="text-sm text-muted-foreground">Sem dados com meta no período — análises avançadas indisponíveis.</p>
+                          </div>
+                        ) : (
+                          <>
+                            {/* Heatmap × dia da semana — full width */}
+                            <div>
+                              <ChartCard
+                                title="Heatmap de Performance"
+                                subtitle="% médio de atingimento de meta por máquina × dia da semana"
+                                option={heatmapOption}
+                                height={Math.max(220, heatmapMachines.length * 36 + 80)}
+                                onExpand={() => setFullscreenChart("heatmap")}
+                              />
+                              <p className="text-[11px] text-muted-foreground mt-1.5 px-1">
+                                <strong>Como interpretar:</strong> Células verdes indicam dias onde a produção supera a meta consistentemente. Vermelhas revelam padrões sistemáticos de baixa performance.
+                              </p>
+                            </div>
+
+                            {/* Pareto + Radar — side by side em desktop */}
+                            <div className={isMobile ? "space-y-4" : "grid grid-cols-2 gap-4"}>
+                              <div>
+                                {paretoData.length > 0 ? (
+                                  <ChartCard
+                                    title="Pareto de Desvio de Meta"
+                                    subtitle="Onde concentrar atenção (lei 80/20)"
+                                    option={paretoOption}
+                                    height={320}
+                                    onExpand={() => setFullscreenChart("pareto")}
+                                  />
+                                ) : (
+                                  <div className="bg-card rounded-xl border border-border p-6 text-center" style={{ borderRadius: 12 }}>
+                                    <p className="text-xs text-muted-foreground">Todas as máquinas atingiram ou superaram a meta no período.</p>
+                                  </div>
+                                )}
+                                <p className="text-[11px] text-muted-foreground mt-1.5 px-1">
+                                  <strong>Como interpretar:</strong> Barras à esquerda contribuem mais ao gap total. A linha acumulada mostra o ponto 80/20 — focar nas primeiras já resolve a maior parte.
+                                </p>
+                              </div>
+                              <div>
+                                <ChartCard
+                                  title="Radar de Consistência"
+                                  subtitle="% meta · consistência · produção relativa"
+                                  option={radarOption}
+                                  height={Math.min(500, Math.max(320, radarData.length * 40 + 120))}
+                                  onExpand={() => setFullscreenChart("radar")}
+                                />
+                                <p className="text-[11px] text-muted-foreground mt-1.5 px-1">
+                                  <strong>Como interpretar:</strong> Máquina ideal ocupa o hexágono externo em todos os eixos. % meta alta com consistência baixa = bate meta esporadicamente.
+                                </p>
+                              </div>
+                            </div>
+                          </>
+                        )}
+
+                        {/* Taxa de Retrabalho — full width */}
+                        {retrabalhoData.length > 0 && (
+                          <div>
+                            <ChartCard
+                              title="Taxa de Retrabalho por Máquina"
+                              subtitle="Produção normal vs. retrabalho — % indica fração de retrabalho no total"
+                              option={retrabalhoOption}
+                              height={Math.max(220, retrabalhoData.length * 32 + 60)}
+                              onExpand={() => setFullscreenChart("retrabalho")}
+                            />
+                            <p className="text-[11px] text-muted-foreground mt-1.5 px-1">
+                              <strong>Como interpretar:</strong> Barras com âmbar grande indicam máquinas com alta taxa de retrabalho — sinal de qualidade ou processo a investigar. Ordenado por % retrabalho descendente.
+                            </p>
+                          </div>
+                        )}
                       </div>
                     )}
                   </>
-                )}
-
-                {dashSubTab === "analytics" && (
-                  <div className="space-y-5">
-                    <div>
-                      <h2 className="text-base font-bold text-foreground flex items-center gap-2">
-                        <Activity size={16} className="text-primary" />
-                        Analytics Avançado
-                      </h2>
-                      <p className="text-xs text-muted-foreground mt-0.5">Análise interpretativa do período selecionado</p>
-                    </div>
-
-                    {heatmapData.length === 0 ? (
-                      <div className="bg-card rounded-xl border border-border p-8 text-center" style={{ borderRadius: 12 }}>
-                        <Activity size={32} className="mx-auto text-muted-foreground mb-2" />
-                        <p className="text-sm text-muted-foreground">Nenhum dado com meta disponível no período filtrado.</p>
-                      </div>
-                    ) : (
-                      <>
-                        {/* Heatmap — full width */}
-                        <div>
-                          <ChartCard
-                            title="Heatmap de Performance"
-                            subtitle="% médio de atingimento de meta por máquina × dia da semana"
-                            option={heatmapOption}
-                            height={Math.max(220, heatmapMachines.length * 36 + 80)}
-                          />
-                          <p className="text-[11px] text-muted-foreground mt-1.5 px-1">
-                            <strong>Como interpretar:</strong> Células verdes indicam dias da semana onde a produção supera consistentemente a meta. Células vermelhas revelam padrões sistemáticos de baixa performance — úteis para investigar causas estruturais (ex: troca de turno, manutenção recorrente).
-                          </p>
-                        </div>
-
-                        {/* Pareto + Tendência — side by side on desktop */}
-                        <div className={isMobile ? "space-y-4" : "grid grid-cols-2 gap-4"}>
-                          <div>
-                            {paretoData.length > 0 ? (
-                              <ChartCard
-                                title="Pareto de Desvio de Meta"
-                                subtitle="Onde concentrar atenção para recuperar o resultado (lei 80/20)"
-                                option={paretoOption}
-                                height={320}
-                              />
-                            ) : (
-                              <div className="bg-card rounded-xl border border-border p-6 text-center" style={{ borderRadius: 12 }}>
-                                <p className="text-xs text-muted-foreground">Todas as máquinas atingiram ou superaram a meta no período.</p>
-                              </div>
-                            )}
-                            <p className="text-[11px] text-muted-foreground mt-1.5 px-1">
-                              <strong>Como interpretar:</strong> Barras à esquerda representam maior contribuição ao gap total. A linha acumulada mostra o ponto de inflexão 80/20 — focar nas primeiras máquinas já resolve a maior parte do desvio.
-                            </p>
-                          </div>
-                          <div>
-                            <ChartCard
-                              title="Tendência com Média Móvel 7d"
-                              subtitle="Produção real vs. média suavizada para identificar tendência de longo prazo"
-                              option={trendOption}
-                              height={320}
-                            />
-                            <p className="text-[11px] text-muted-foreground mt-1.5 px-1">
-                              <strong>Como interpretar:</strong> A linha espessa (Média 7d) remove o ruído diário e revela a tendência real. Se a média 7d estiver abaixo da meta tracejada por vários dias consecutivos, há queda sistêmica e não apenas variação pontual.
-                            </p>
-                          </div>
-                        </div>
-
-                        {/* Radar — full width */}
-                        <div>
-                          <ChartCard
-                            title="Radar de Consistência por Máquina"
-                            subtitle="Visão multidimensional: % meta, consistência (dias acima da meta) e produção relativa ao pico"
-                            option={radarOption}
-                            height={Math.min(500, Math.max(320, radarData.length * 40 + 120))}
-                          />
-                          <p className="text-[11px] text-muted-foreground mt-1.5 px-1">
-                            <strong>Como interpretar:</strong> Uma máquina ideal ocupa o hexágono externo em todos os eixos. Uma máquina com % meta alta mas consistência baixa bate a meta apenas esporadicamente — isso pode mascarar instabilidade no processo.
-                          </p>
-                        </div>
-                      </>
-                    )}
-                  </div>
                 )}
                   </motion.div>
                 </AnimatePresence>
 
                 {/* Fullscreen charts */}
-                <ChartFullscreen open={fullscreenChart === "bar"}  onClose={() => setFullscreenChart(null)} title="Produção vs Meta"       option={barOptionFs} />
-                <ChartFullscreen open={fullscreenChart === "hbar"} onClose={() => setFullscreenChart(null)} title="% Atingimento"            option={hbarOptionFs} />
-                <ChartFullscreen open={fullscreenChart === "area"} onClose={() => setFullscreenChart(null)} title="Tendência Diária"         option={areaOptionFs} />
-                <ChartFullscreen open={fullscreenChart === "pie"}  onClose={() => setFullscreenChart(null)} title="Distribuição por Turno"   option={pieOptionFs} />
+                <ChartFullscreen open={fullscreenChart === "bar"}        onClose={() => setFullscreenChart(null)} title="Produção vs Meta"               option={barOptionFs} />
+                <ChartFullscreen open={fullscreenChart === "hbar"}       onClose={() => setFullscreenChart(null)} title="% Atingimento"                  option={hbarOptionFs} />
+                <ChartFullscreen open={fullscreenChart === "trend"}      onClose={() => setFullscreenChart(null)} title="Tendência de Produção"          option={trendOption} />
+                <ChartFullscreen open={fullscreenChart === "pie"}        onClose={() => setFullscreenChart(null)} title="Distribuição por Turno"         option={pieOptionFs} />
+                <ChartFullscreen open={fullscreenChart === "heatmap"}    onClose={() => setFullscreenChart(null)} title="Heatmap de Performance"         option={heatmapOption} />
+                <ChartFullscreen open={fullscreenChart === "pareto"}     onClose={() => setFullscreenChart(null)} title="Pareto de Desvio de Meta"       option={paretoOption} />
+                <ChartFullscreen open={fullscreenChart === "radar"}      onClose={() => setFullscreenChart(null)} title="Radar de Consistência"          option={radarOption} />
+                <ChartFullscreen open={fullscreenChart === "retrabalho"} onClose={() => setFullscreenChart(null)} title="Taxa de Retrabalho por Máquina" option={retrabalhoOptionFs} />
               </div>
             )}
 

@@ -20,6 +20,7 @@ interface BarData { name: string; meta: number; producao: number; }
 interface AreaData { date: string; producao: number; meta: number; }
 interface PieData { name: string; value: number; }
 interface HBarData { name: string; pct: number; }
+interface RetrabalhoData { name: string; normal: number; retrabalho: number; pctRetrabalho: number; }
 
 export function getBarChartOption(data: BarData[], mobile: boolean): EChartsOption {
   const m = mobile;
@@ -104,6 +105,56 @@ export function getPieChartOption(data: PieData[], mobile: boolean): EChartsOpti
       itemStyle: { borderRadius: 4 },
       label: { show: !mobile, formatter: '{b}: {d}%', fontSize: 12 },
     }],
+  };
+}
+
+// Stacked horizontal bar — retrabalho vs produção normal por máquina.
+// Espera-se que `data` venha pré-ordenado (% retrabalho descendente);
+// o gráfico inverte para que o maior fique no TOPO do eixo Y.
+export function getRetrabalhoOption(data: RetrabalhoData[], mobile: boolean): EChartsOption {
+  const fs = mobile ? 10 : 11;
+  // ECharts renderiza eixo Y de baixo pra cima; reverter pra colocar % maior no topo
+  const reversed = data.slice().reverse();
+  return {
+    animation: true, animationDuration: 600,
+    tooltip: {
+      ...tooltipBase, trigger: 'axis', axisPointer: { type: 'shadow' },
+      formatter: (params: Array<{ dataIndex: number }>) => {
+        const idx = params[0].dataIndex;
+        const d = reversed[idx];
+        const total = d.normal + d.retrabalho;
+        return `<strong>${d.name}</strong><br/>` +
+               `Normal: <strong>${d.normal.toLocaleString('pt-BR')}</strong> pç<br/>` +
+               `Retrabalho: <strong>${d.retrabalho.toLocaleString('pt-BR')}</strong> pç<br/>` +
+               `Total: <strong>${total.toLocaleString('pt-BR')}</strong> pç (<strong>${d.pctRetrabalho}%</strong> retrabalho)`;
+      },
+    },
+    legend: { data: ['Produção Normal', 'Retrabalho'], top: 0, textStyle: { fontSize: fs } },
+    grid: { top: 30, right: mobile ? 50 : 70, bottom: 10, left: 10, containLabel: true },
+    xAxis: { type: 'value', axisLabel: { fontSize: fs, formatter: (v: number) => v >= 1000 ? (v / 1000).toFixed(0) + 'k' : String(v) } },
+    yAxis: { type: 'category', data: reversed.map(d => d.name), axisLabel: { fontSize: fs, width: mobile ? 80 : 140, overflow: 'truncate' } },
+    series: [
+      {
+        name: 'Produção Normal', type: 'bar', stack: 'total',
+        data: reversed.map(d => d.normal),
+        itemStyle: { color: C.blue },
+        barMaxWidth: mobile ? 18 : 26,
+      },
+      {
+        name: 'Retrabalho', type: 'bar', stack: 'total',
+        data: reversed.map(d => d.retrabalho),
+        itemStyle: { color: C.yellow },
+        barMaxWidth: mobile ? 18 : 26,
+        label: {
+          show: true, position: 'right', fontSize: fs, fontWeight: 'bold',
+          color: C.yellow,
+          formatter: (p: { dataIndex: number }) => {
+            const d = reversed[p.dataIndex];
+            return d.pctRetrabalho > 0 ? `${d.pctRetrabalho}%` : '';
+          },
+        },
+      },
+    ],
   };
 }
 
