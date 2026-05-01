@@ -296,18 +296,21 @@ const DashboardPage = () => {
     };
   }, [heatmapData, heatmapMachines]);
 
-  // Pareto: machines sorted by gap (meta - prod) descending + cumulative %
-  const paretoData = useMemo(() =>
-    machineAgg
+  // Pareto: máquinas ordenadas por gap (meta - prod) descendente + % acumulado.
+  // totalGap é constante — calculado uma vez fora do map. cumPct usa running sum
+  // para evitar O(n²) (era recomputado a cada item antes).
+  const paretoData = useMemo(() => {
+    const sorted = machineAgg
       .map(m => ({ name: m.name, gap: Math.max(0, m.totalMeta - m.totalProd), pct: m.pct }))
       .filter(m => m.gap > 0)
-      .sort((a, b) => b.gap - a.gap)
-      .map((m, i, arr) => {
-        const totalGap = arr.reduce((s, x) => s + x.gap, 0);
-        const cumulative = arr.slice(0, i + 1).reduce((s, x) => s + x.gap, 0);
-        return { ...m, cumPct: totalGap > 0 ? Math.round((cumulative / totalGap) * 100) : 0 };
-      }),
-  [machineAgg]);
+      .sort((a, b) => b.gap - a.gap);
+    const totalGap = sorted.reduce((s, x) => s + x.gap, 0);
+    let running = 0;
+    return sorted.map(m => {
+      running += m.gap;
+      return { ...m, cumPct: totalGap > 0 ? Math.round((running / totalGap) * 100) : 0 };
+    });
+  }, [machineAgg]);
 
   const paretoOption = useMemo((): EChartsOption => ({
     animation: true,
