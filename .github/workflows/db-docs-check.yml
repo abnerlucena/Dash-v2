@@ -1,0 +1,35 @@
+name: Documentação do banco
+
+# Reprova o PR se uma migration do banco mudou sem entrada no CHANGELOG do schema.
+on:
+  pull_request:
+    paths:
+      - "supabase/migrations/**"
+      - "docs/database/**"
+
+permissions:
+  contents: read
+
+jobs:
+  check-db-docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verificar se o CHANGELOG acompanha as migrations
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          changed=$(git diff --name-only "$BASE_SHA" "$HEAD_SHA")
+          echo "Arquivos alterados:"
+          echo "$changed"
+          if echo "$changed" | grep -q '^supabase/migrations/'; then
+            if ! echo "$changed" | grep -q '^docs/database/CHANGELOG.md$'; then
+              echo "::error::Este PR altera supabase/migrations/ mas não atualiza docs/database/CHANGELOG.md. Veja as normas em docs/database/README.md."
+              exit 1
+            fi
+          fi
+          echo "Documentação do banco em ordem."
