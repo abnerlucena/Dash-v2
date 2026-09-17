@@ -17,6 +17,56 @@ Formato de cada entrada:
 
 ---
 
+## [0.2.2] — 16/09/2026 — Desenho: modo de trabalho (hora extra)
+
+- **Status:** Desenhado (a tabela `production_records` ainda não existe no banco)
+- **Commit/PR:** branch `claude/supabase-db-schema-setup-793635`
+- **Migration:** nenhuma (mudança de desenho, aplicada quando a tabela for criada)
+- **Decisões:** D27 (nova); D10 alterada
+
+### Alterado
+- `production_records` ganha `work_mode` (`regular`/`overtime`, default `regular`).
+- Unicidade de D10 passa de `(machine_id, production_date, shift_id)` para `(machine_id, production_date, shift_id, work_mode)`, para que trabalho normal e hora extra do mesmo turno coexistam.
+
+### Impacto no frontend
+- Tela de apontamento precisa de uma marcação "é hora extra".
+- Gráficos de atingimento de meta devem considerar apenas `work_mode = 'regular'`; a produção total continua somando tudo.
+
+---
+
+## [0.2.1] — 16/09/2026 — Carga inicial dos turnos
+
+- **Status:** Implementado no Supabase em 16/09/2026
+- **Commit/PR:** branch `claude/supabase-db-schema-setup-793635`
+- **Migration:** `supabase/migrations/20260916090000_seed_shifts.sql`
+- **Decisões:** D06 (complemento de 16/09/2026)
+
+### Adicionado
+- Linhas TURNO 1, TURNO 2 e TURNO 3, todos ativos. O TURNO 3 ainda não é turno regular: hoje recebe apenas hora extra de madrugada, marcada com `work_mode = 'overtime'` e portanto fora do cálculo de meta [D27].
+- Horários deixados vazios: são descritivos e não entram em nenhuma regra — o turno de um apontamento vem sempre do `shift_id` informado, nunca do relógio.
+- `on conflict (id) do nothing`: rodar a migration duas vezes não duplica nem falha (idempotência).
+
+### Impacto no frontend
+- Nenhum ainda.
+
+---
+
+## [0.2.0] — 15/09/2026 — Tabela de turnos
+
+- **Status:** Implementado no Supabase em 16/09/2026 (projeto WEG-ITJ-Tomadas)
+- **Commit/PR:** branch `claude/supabase-db-schema-setup-793635`
+- **Migration:** `supabase/migrations/20260915120000_create_shifts.sql`
+- **Decisões:** D06; D25 passa de "Assumida" para "Aprovada"
+
+### Adicionado
+- Tabela `shifts` com RLS habilitado (sem políticas: nenhum acesso pelo frontend até a migration de segurança).
+- Regra `CHECK` impedindo nome de turno vazio.
+
+### Impacto no frontend
+- Nenhum ainda (o frontend continua usando o Google Apps Script).
+
+---
+
 ## [0.1.0] — 14/09/2026 — Desenho inicial do schema
 
 - **Status:** Desenhado (não implementado)

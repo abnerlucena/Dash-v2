@@ -1,6 +1,6 @@
 # Visão Geral do Banco de Dados
 
-> Versão do schema: `v0.1.0` · Última atualização: 14/09/2026 · Documento em linguagem simples, para apresentação.
+> Versão do schema: `v0.2.2` · Última atualização: 16/09/2026 · Documento em linguagem simples, para apresentação.
 > Detalhes técnicos: [02-referencia-tecnica.md](02-referencia-tecnica.md)
 
 ## 1. Por que um banco novo
@@ -46,11 +46,12 @@ flowchart LR
 
 Um **apontamento** é: *"a máquina X, no dia Y, no turno Z, produziu estas ordens de produção"*.
 
-- Existe **um apontamento por máquina + dia + turno**. Se alguém apontar algo que já existe, o sistema
+- Existe **um apontamento por máquina + dia + turno + tipo de trabalho** (normal ou hora extra). Se alguém apontar algo que já existe, o sistema
   completa o apontamento existente em vez de criar outro.
 - Apontar **atrasado** é permitido.
 - Uma **ordem de produção (OP)** pode ser dividida entre turnos: o 1º turno faz uma parte, o 2º completa.
 - Qualquer pessoa pode apontar qualquer turno. O sistema sempre registra **quem** apontou.
+- **Hora extra** (esporádica, combinada com o gestor) é apontada no turno em que ocorreu, mas **marcada como tal**: entra na produção total e num indicador próprio, e fica fora do cálculo de atingimento de meta — medir poucas horas com a meta de um turno inteiro daria um percentual falso. [D27]
 
 ```mermaid
 flowchart TB

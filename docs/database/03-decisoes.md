@@ -31,8 +31,9 @@ Status possíveis: `Aprovada` · `Assumida` (sem confirmação explícita) · `S
 | D22 | Perfil copiado como modelo de permissões | Aprovada | 14/09/2026 |
 | D23 | Conta Admin compartilhada com identificação | Aprovada | 14/09/2026 |
 | D24 | Edição do próprio apontamento por 24 h | Aprovada | 14/09/2026 |
-| D25 | Notificações por destinatário | Assumida | 14/09/2026 |
+| D25 | Notificações por destinatário | Aprovada | 15/09/2026 |
 | D26 | Log de auditoria por trigger, retenção adiada | Aprovada | 14/09/2026 |
+| D27 | Modo de trabalho (hora extra) no apontamento | Aprovada | 16/09/2026 |
 
 ---
 
@@ -66,6 +67,7 @@ Status possíveis: `Aprovada` · `Assumida` (sem confirmação explícita) · `S
 ### D06 — Tabela de turnos
 - **Contexto:** turnos eram texto solto; turnos ativos ficavam no `localStorage` de cada navegador.
 - **Decisão:** tabela `shifts` com horários e `is_active`. Qualquer usuário aponta qualquer turno.
+- **Complemento (16/09/2026):** `start_time`/`end_time` são apenas descritivos. O turno de um apontamento vem sempre do `shift_id` informado, nunca deduzido do horário em que o apontamento foi feito — na prática os apontadores ficam além do horário do turno (passagem de turno, organização interna).
 - **Custo:** uma tabela e um join a mais.
 
 ### D07 — Datas
@@ -84,6 +86,7 @@ Status possíveis: `Aprovada` · `Assumida` (sem confirmação explícita) · `S
 - **Custo:** gravação em duas tabelas, feita por função transacional.
 
 ### D10 — Um apontamento por máquina + dia + turno
+- **Alterada por D27 (16/09/2026):** a chave de unicidade passa a incluir `work_mode`.
 - **Contexto:** o legado tinha `upsert` (substitui) e `append` (duplica) coexistindo.
 - **Decisão:** UQ `(machine_id, production_date, shift_id)`; lançamentos adicionais viram ordens do mesmo apontamento. A mesma OP pode aparecer em turnos diferentes; apontar atrasado é permitido.
 - **Custo:** o botão "criar novo apontamento" do legado deixa de existir.
@@ -141,8 +144,19 @@ Status possíveis: `Aprovada` · `Assumida` (sem confirmação explícita) · `S
 
 ### D25 — Notificações
 - **Decisão:** uma linha por destinatário; ao aprovar, as notificações relacionadas são marcadas como lidas para todos. Realtime para atualização imediata.
-- **Status:** assumida — aguardando confirmação explícita.
+- **Status:** aprovada em 15/09/2026 (antes assumida).
 
 ### D26 — Auditoria
 - **Decisão:** `audit_logs` gravado por triggers, com snapshot antes/depois e IP; append-only.
 - **Adiado:** política de retenção (decidir junto com o plano Supabase ou a migração para a WEG; o plano Free tem 500 MB).
+
+### D27 — Modo de trabalho (hora extra)
+- **Contexto:** a fábrica faz hora extra esporádica, combinada previamente com o gestor (inclusive de madrugada, onde o TURNO 3 ainda não opera regularmente). Hoje isso é registrado como uma linha separada na planilha, identificada por texto livre ("hora extra do dia tal"), que o sistema não consegue somar, filtrar nem excluir dos gráficos.
+- **Problema:** medir uma hora extra (poucas pessoas, poucas horas) com a meta cheia de um turno produz percentuais falsos — o TURNO 3 apareceria como péssimo sendo que sequer existe como turno. A lotação (D12) corrige "menos gente", mas não corrige "menos horas".
+- **Decisão:** coluna `work_mode` em `production_records`: `text not null default 'regular'`, CHECK `regular`/`overtime`. O apontamento fica no turno real em que a produção ocorreu.
+- **Regras de leitura:** produção total inclui hora extra; atingimento de meta por turno considera apenas `regular`; hora extra vira indicador próprio.
+- **Consequência estrutural:** a unicidade de D10 passa a ser `(machine_id, production_date, shift_id, work_mode)`, para que trabalho normal e hora extra do mesmo turno coexistam como linhas separadas — como já acontece na planilha.
+- **Alternativas rejeitadas:** lançar no turno 1/2 (dado mentiroso); ativar o TURNO 3 e aceitar o percentual ruim; criar um "turno HORA EXTRA" (hora extra não é turno — pode ocorrer em qualquer um).
+- **Formato:** texto com CHECK em vez de booleano, para acomodar futuros modos (`training`, `trial`) sem coluna nova.
+- **Custo:** uma coluna a mais e uma marcação na tela de apontamento; os gráficos do frontend precisam respeitar a regra.
+- **Quando o TURNO 3 virar regular:** nada muda na estrutura — os apontamentos novos simplesmente deixam de ser marcados como `overtime`, e o passado continua verdadeiro.

@@ -1,6 +1,6 @@
 # Referência Técnica do Schema
 
-> Versão do schema: `v0.1.0` · Última atualização: 14/09/2026 · Status: **desenhado, não implementado**
+> Versão do schema: `v0.2.0` · Última atualização: 15/09/2026 · Status: **em implementação** (tabelas criadas marcadas com ✅)
 > SGBD: PostgreSQL (Supabase) · Schema: `public` (+ `auth`, gerenciado pelo Supabase)
 > Decisões citadas como `[Dxx]` estão em [03-decisoes.md](03-decisoes.md).
 
@@ -60,13 +60,15 @@ Legenda: **PK** chave primária · **FK** chave estrangeira · **NN** not null �
 
 Exclusão física bloqueada por FK quando houver produção; desativar via `status`.
 
-### 3.2 `shifts`
+### 3.2 `shifts` ✅ implementada em 16/09/2026
 | Coluna | Tipo | Restrições | Descrição |
 |---|---|---|---|
 | `id` | `smallint` | PK | 1, 2, 3 |
-| `name` | `text` | NN, UQ | "TURNO 1" |
+| `name` | `text` | NN, UQ, CHECK não vazio | "TURNO 1" |
 | `start_time`, `end_time` | `time` | | Turno 3 atravessa a meia-noite (`end_time < start_time`) |
 | `is_active` | `boolean` | NN, default `true` | Substitui `localStorage.turnosAtivos` [D06] |
+
+> **Regra: `start_time`/`end_time` são descritivos.** O turno de um apontamento vem SEMPRE do `shift_id` escolhido por quem aponta, nunca do relógio. Apontadores costumam trabalhar além do horário do turno (passagem de turno, organização interna), então inferir o turno pelo horário produziria dado errado. `created_at` registra *quando* o apontamento foi feito; `shift_id` registra *a que turno* a produção pertence. [D06]
 
 ### 3.3 `production_records`
 | Coluna | Tipo | Restrições | Descrição |
@@ -77,11 +79,12 @@ Exclusão física bloqueada por FK quando houver produção; desativar via `stat
 | `machine_id` | `integer` | NN, FK `machines` | |
 | `target_quantity` | `integer` | NN, CHECK `>= 0` | Snapshot da meta vigente [D08] |
 | `operator_count` | `smallint` | CHECK `>= 0` | [D12] |
+| `work_mode` | `text` | NN, default `'regular'`, CHECK `regular`/`overtime` | Hora extra não entra no cálculo de meta [D27] |
 | `notes` | `text` | | |
 | `created_by`, `updated_by` | `uuid` | FK `profiles` | |
 | `created_at`, `updated_at` | `timestamptz` | NN, default `now()` | |
 
-- UQ `(machine_id, production_date, shift_id)` [D10]
+- UQ `(machine_id, production_date, shift_id, work_mode)` [D10, D27]
 - Índices: `(production_date)`, `(machine_id, production_date)`, `(shift_id)`
 - `UPDATE`/`DELETE` diretos negados por RLS; somente via funções (seção 6).
 
@@ -237,7 +240,7 @@ PK `(user_id, permission_code)`. Permissões efetivas = somente esta tabela (per
 
 | View | Retorna |
 |---|---|
-| `production_summary` | Colunas de `production_records` + `good_quantity`, `rework_quantity`, `total_quantity`, `staffing_ratio`, `adjusted_target` [D11, D12] |
+| `production_summary` | (apenas registros `work_mode = 'regular'` entram em atingimento de meta [D27]) Colunas de `production_records` + `good_quantity`, `rework_quantity`, `total_quantity`, `staffing_ratio`, `adjusted_target` [D11, D12] |
 | `current_machine_targets` | Meta vigente hoje (SP) por máquina: maior `valid_from <= current_date` |
 
 Views devem ser criadas com `security_invoker = true` para respeitar o RLS de quem consulta.
