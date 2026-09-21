@@ -177,5 +177,5 @@ flowchart LR
 - O que o usuário vai notar quando o app passar a usar o banco:
   - login por **e-mail e senha**, com cadastro que **aguarda aprovação do gestor**;
   - marcação de **hora extra** no apontamento;
-  - salvar de novo o mesmo turno **acrescenta** ordens em vez de substituir (a confirmar — D30);
-  - o operador vê **os próprios apontamentos** (D33).
+  - salvar de novo o mesmo turno **acrescenta** ordens em vez de substituir; para trocar, usa-se **Editar** (D30, confirmada);
+  - o operador vê **os próprios apontamentos** (D33, confirmada).

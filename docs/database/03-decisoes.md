@@ -34,12 +34,12 @@ Status possíveis: `Aprovada` · `Assumida` (sem confirmação explícita) · `S
 | D25 | Notificações por destinatário | Aprovada | 15/09/2026 |
 | D26 | Log de auditoria por trigger, retenção adiada | Aprovada | 14/09/2026 |
 | D27 | Modo de trabalho (hora extra) no apontamento | Aprovada | 16/09/2026 |
-| D28 | Recriar `shifts` no banco que estava vazio | Provisória — confirmar com o usuário | 20/09/2026 |
-| D29 | Criação e remoção de contas | Provisória — confirmar com o usuário | 20/09/2026 |
-| D30 | Novo lançamento no mesmo apontamento acrescenta ordens | Provisória — confirmar com o usuário | 20/09/2026 |
-| D31 | Correção da meta de hoje/futura no mesmo dia | Provisória — confirmar com o usuário | 20/09/2026 |
-| D32 | Meta de datas anteriores ao histórico | Provisória — confirmar com o usuário | 20/09/2026 |
-| D33 | Autor lê os próprios apontamentos | Provisória — confirmar com o usuário | 20/09/2026 |
+| D28 | Recriar `shifts` no banco que estava vazio | Aprovada (projeto de testes) | 21/09/2026 |
+| D29 | Criação e remoção de contas | Aprovada | 21/09/2026 |
+| D30 | Novo lançamento no mesmo apontamento acrescenta ordens | Aprovada | 21/09/2026 |
+| D31 | Correção da meta de hoje/futura no mesmo dia | Provisória — confirmar com o usuário (em discussão) | 20/09/2026 |
+| D32 | Meta de datas anteriores ao histórico | Aprovada em parte (regra geral) | 21/09/2026 |
+| D33 | Autor lê os próprios apontamentos | Aprovada (ver ressalva) | 21/09/2026 |
 
 ---
 
@@ -168,7 +168,7 @@ Status possíveis: `Aprovada` · `Assumida` (sem confirmação explícita) · `S
 - **Quando o TURNO 3 virar regular:** nada muda na estrutura — os apontamentos novos simplesmente deixam de ser marcados como `overtime`, e o passado continua verdadeiro.
 
 ### D28 — Recriar `shifts` no banco que estava vazio
-- **Status:** Provisória — confirmar com o usuário (sessão autônoma de 20/09/2026).
+- **Status:** Aprovada em 21/09/2026. O projeto Supabase usado nesta etapa é um **projeto de testes**. O projeto oficial será montado depois com `supabase/migrations/_consolidado.sql` + `supabase/seed/01_estrutural.sql` (sem o seed de demonstração).
 - **Contexto:** a documentação registrava `shifts` como criada em 16/09/2026, mas o banco apontado pelo arquivo de segredos estava com o schema `public` **vazio**, sem nenhum rastro de criação ou remoção da tabela. Detalhes em [notas/2026-09-20-verificacao-inicial.md](notas/2026-09-20-verificacao-inicial.md).
 - **Decisão:** aplicar as duas migrations versionadas de `shifts` sem nenhuma alteração, antes das demais.
 - **Alternativas rejeitadas:** trabalhar só offline (atrasaria toda a verificação real); reescrever a migration de `shifts` (mudaria o histórico versionado).
@@ -176,7 +176,7 @@ Status possíveis: `Aprovada` · `Assumida` (sem confirmação explícita) · `S
 - **A confirmar:** qual é o projeto oficial. Se for outro, basta rodar `supabase/migrations/_consolidado.sql` nele.
 
 ### D29 — Criação e remoção de contas
-- **Status:** Provisória — confirmar com o usuário (sessão autônoma de 20/09/2026).
+- **Status:** Aprovada em 21/09/2026 (as duas partes).
 - **Contexto:** a regra D21 (crachá obrigatório para conta pessoal) precisava de um comportamento concreto no gatilho `handle_new_user`, e as chaves estrangeiras para `profiles` (autoria, aprovação, auditoria) precisavam de uma regra de remoção.
 - **Decisão 1 — cadastro sem crachá:** o gatilho **recusa** o cadastro pessoal sem crachá, com a mensagem "O nº do crachá é obrigatório para contas pessoais." Contas `shared` (Admin) e `display` (TV) são criadas enviando `account_type` nos metadados do cadastro.
 - **Consequência:** criar usuário pelo botão "Add user" do painel do Supabase (que não envia metadados) falha. Usar a tela de cadastro do app ou a API com `options.data`.
@@ -186,29 +186,29 @@ Status possíveis: `Aprovada` · `Assumida` (sem confirmação explícita) · `S
 - **A confirmar:** se a LGPD exigir remoção de dados pessoais no futuro, a saída prevista é anonimizar `full_name`/`badge_number`, não apagar a linha.
 
 ### D30 — Novo lançamento no mesmo apontamento acrescenta ordens
-- **Status:** Provisória — confirmar com o usuário (sessão autônoma de 20/09/2026).
+- **Status:** Aprovada em 21/09/2026. Confirmação do usuário: um novo apontamento no mesmo "filtro" (máquina + dia + turno) só **acrescenta** à lista; para substituir, usa-se a função **Editar**, que já existe.
 - **Contexto:** o `upsert` do legado **substitui** a lista de ordens quando alguém salva de novo a mesma máquina + dia + turno; a D10 diz que "lançamentos adicionais viram ordens do mesmo apontamento" e a visão geral diz que o sistema "completa o apontamento existente".
 - **Decisão:** `save_production_record` **acrescenta** as ordens enviadas às existentes (segue D10). Para editar/corrigir, `update_production_record` (ou `p_replace_orders = true`) substitui a lista.
 - **Consequência:** salvar duas vezes a mesma ordem gera duas linhas (no legado, a segunda sobrescrevia a primeira). A edição de uma ordem errada passa a ser feita na tela de edição, não salvando de novo.
 - **Alternativa rejeitada:** manter a substituição do legado (contraria D10 e perde lançamentos feitos por outra pessoa no mesmo turno).
-- **A confirmar:** se a equipe está acostumada a "salvar de novo para corrigir", a tela de apontamento pode avisar que já existe apontamento e oferecer "substituir".
+- **Encerrado:** o aviso "já existe apontamento — substituir?" não será feito; a correção é pela edição.
 
 ### D31 — Correção da meta de hoje/futura no mesmo dia
-- **Status:** Provisória — confirmar com o usuário (sessão autônoma de 20/09/2026).
+- **Status:** Provisória — em discussão (21/09/2026: o usuário pediu reflexões e propostas de fluxo antes de decidir). Enquanto isso, vale o comportamento descrito abaixo.
 - **Contexto:** `machine_targets` é append-only (D13) e tem unicidade `(machine_id, valid_from)`. Um erro de digitação ao salvar a meta de hoje ficaria sem correção até amanhã.
 - **Decisão:** `save_machine_targets` corrige a meta já cadastrada para a **mesma data**, desde que essa data seja hoje ou futura. Metas que já valeram (antes de hoje) continuam imutáveis — o gatilho `validate_target_valid_from` recusa. Toda correção fica no log de auditoria (antes/depois).
 - **Consequência:** apontamentos feitos hoje **antes** da correção guardam a meta antiga (foto, D08); o gestor corrige esses pontualmente.
 - **Alternativa rejeitada:** recusar e obrigar a vigência de amanhã (bloqueia a correção de um erro óbvio).
 
 ### D32 — Meta de datas anteriores ao histórico
-- **Status:** Provisória — confirmar com o usuário (sessão autônoma de 20/09/2026).
+- **Status:** Aprovada em parte (21/09/2026). Regra confirmada pelo usuário: o apontamento recebe a **meta vigente na data do apontamento** — se a meta no dia X é N, o apontamento do dia X recebe N. É o que `machine_target_on(máquina, data)` já faz. **Em aberto:** confirmar que, num apontamento atrasado, "data do apontamento" é a data da produção (`production_date`) e não o dia em que foi digitado; e se a regra da meta mais antiga para datas antes do histórico continua.
 - **Contexto:** o histórico de metas começa na data da carga inicial (20/09/2026). Um apontamento atrasado de antes disso não teria meta vigente.
 - **Decisão:** `machine_target_on` usa a meta **mais antiga conhecida** para datas anteriores ao início do histórico, em vez de zero.
 - **Alternativa rejeitada:** meta zero (o atingimento ficaria indefinido e os gráficos mostrariam "—").
 - **A confirmar:** quando os dados do Sheets forem migrados, o `target_quantity` de cada apontamento antigo virá da própria planilha (coluna `meta`), e esta regra só valerá para apontamentos atrasados novos.
 
 ### D33 — Autor lê os próprios apontamentos
-- **Status:** Provisória — confirmar com o usuário (sessão autônoma de 20/09/2026).
+- **Status:** Aprovada em 21/09/2026, com a ressalva do usuário: a leitura "só os próprios apontamentos" é **a regra do perfil Operador**. Hoje, na prática, isso já acontece: todos os outros perfis-modelo têm `history.view`, `dashboard.view` ou `tv_mode.view` e veem toda a produção. **Em aberto:** se deve virar trava explícita por perfil (ver pergunta registrada no PR #15).
 - **Contexto:** a referência dizia "leitura de produção: `history.view` OR `dashboard.view` OR `tv_mode.view`". O perfil Operador não tem nenhuma dessas, mas tem `production.edit_own` (corrigir o próprio apontamento por 24 h, D24) — e não dá para corrigir o que não se vê.
 - **Decisão:** a política de leitura de `production_records` também libera os apontamentos em que `created_by` é o próprio usuário (ativo). As ordens seguem o apontamento-pai.
 - **Alternativa rejeitada:** dar `history.view` ao Operador (ele passaria a ver a produção de todos).
