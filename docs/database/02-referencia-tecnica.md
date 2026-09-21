@@ -1,6 +1,6 @@
 # Referência Técnica do Schema
 
-> Versão do schema: `v0.5.0` · Última atualização: 20/09/2026 · Status: **em implementação** (tabelas criadas marcadas com ✅)
+> Versão do schema: `v0.6.0` · Última atualização: 20/09/2026 · Status: **em implementação** (tabelas criadas marcadas com ✅)
 > SGBD: PostgreSQL (Supabase) · Schema: `public` (+ `auth`, gerenciado pelo Supabase)
 > Decisões citadas como `[Dxx]` estão em [03-decisoes.md](03-decisoes.md).
 
@@ -70,7 +70,7 @@ Exclusão física bloqueada por FK quando houver produção; desativar via `stat
 
 > **Regra: `start_time`/`end_time` são descritivos.** O turno de um apontamento vem SEMPRE do `shift_id` escolhido por quem aponta, nunca do relógio. Apontadores costumam trabalhar além do horário do turno (passagem de turno, organização interna), então inferir o turno pelo horário produziria dado errado. `created_at` registra *quando* o apontamento foi feito; `shift_id` registra *a que turno* a produção pertence. [D06]
 
-### 3.3 `production_records`
+### 3.3 `production_records` ✅ implementada em 20/09/2026
 | Coluna | Tipo | Restrições | Descrição |
 |---|---|---|---|
 | `id` | `uuid` | PK | |
@@ -80,15 +80,15 @@ Exclusão física bloqueada por FK quando houver produção; desativar via `stat
 | `target_quantity` | `integer` | NN, CHECK `>= 0` | Snapshot da meta vigente [D08] |
 | `operator_count` | `smallint` | CHECK `>= 0` | [D12] |
 | `work_mode` | `text` | NN, default `'regular'`, CHECK `regular`/`overtime` | Hora extra não entra no cálculo de meta [D27] |
-| `notes` | `text` | | |
-| `created_by`, `updated_by` | `uuid` | FK `profiles` | |
+| `notes` | `text` | CHECK até 500 caracteres | |
+| `created_by`, `updated_by` | `uuid` | FK `profiles`; `created_by` default `auth.uid()` | |
 | `created_at`, `updated_at` | `timestamptz` | NN, default `now()` | |
 
-- UQ `(machine_id, production_date, shift_id, work_mode)` [D10, D27]
-- Índices: `(production_date)`, `(machine_id, production_date)`, `(shift_id)`
+- UQ `production_records_unique_entry (machine_id, production_date, shift_id, work_mode)` [D10, D27]
+- Índices: `(production_date)`, `(shift_id)`, `(created_by)`. A busca por `(machine_id, production_date)` usa o índice da UQ (mesmo prefixo), por isso não há índice separado. Gatilho `set_updated_at`.
 - `UPDATE`/`DELETE` diretos negados por RLS; somente via funções (seção 6).
 
-### 3.4 `production_orders`
+### 3.4 `production_orders` ✅ implementada em 20/09/2026
 | Coluna | Tipo | Restrições | Descrição |
 |---|---|---|---|
 | `id` | `uuid` | PK | |
@@ -101,21 +101,21 @@ Exclusão física bloqueada por FK quando houver produção; desativar via `stat
 
 Índices: `(production_record_id)`, `(order_number)`. [D09]
 
-### 3.5 `machine_downtimes` *(criada sem uso — integração SFM futura)*
+### 3.5 `machine_downtimes` ✅ implementada em 20/09/2026 *(sem uso — integração SFM futura)*
 | Coluna | Tipo | Restrições | Descrição |
 |---|---|---|---|
 | `id` | `uuid` | PK | |
 | `machine_id` | `integer` | NN, FK `machines` | |
 | `reason` | `text` | NN, CHECK `maintenance`/`preventive_maintenance` | |
 | `started_at` | `timestamptz` | NN | |
-| `ended_at` | `timestamptz` | CHECK `ended_at > started_at` | Nulo = em andamento |
+| `ended_at` | `timestamptz` | CHECK `machine_downtimes_period_check`: `ended_at > started_at` | Nulo = em andamento |
 | `source` | `text` | NN, default `'manual'`, CHECK `manual`/`sfm` | |
 | `external_id` | `text` | | ID no sistema de origem |
 | `notes` | `text` | | |
-| `created_by` | `uuid` | FK `profiles` | |
+| `created_by` | `uuid` | FK `profiles`, default `auth.uid()` | |
 | `created_at` | `timestamptz` | NN, default `now()` | |
 
-UQ `(source, external_id)` (idempotência de importação) · Índice `(machine_id, started_at)`. [D05]
+UQ `machine_downtimes_source_external_id_key (source, external_id)` (idempotência de importação) · Índice `(machine_id, started_at)`. [D05]
 
 ### 3.6 `machine_targets` ✅ implementada em 20/09/2026
 | Coluna | Tipo | Restrições | Descrição |
@@ -124,7 +124,7 @@ UQ `(source, external_id)` (idempotência de importação) · Índice `(machine_
 | `machine_id` | `integer` | NN, FK `machines` | |
 | `quantity_per_shift` | `integer` | NN, CHECK `>= 0` | Igual para todos os turnos [D14] |
 | `valid_from` | `date` | NN; gatilho recusa data < hoje (SP) em INSERT e UPDATE | [D15] |
-| `created_by` | `uuid` | FK `profiles` | |
+| `created_by` | `uuid` | FK `profiles`, default `auth.uid()` | |
 | `created_at` | `timestamptz` | NN, default `now()` | |
 
 UQ `machine_targets_machine_valid_from_key (machine_id, valid_from)` — também atende a busca "maior `valid_from` ≤ data". Append-only para o passado: metas já vigentes antes de hoje não podem ser alteradas; a meta de hoje/futura pode ser corrigida pela função `save_machine_targets` [D13, D31].

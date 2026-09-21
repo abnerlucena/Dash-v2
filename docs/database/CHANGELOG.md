@@ -17,6 +17,32 @@ Formato de cada entrada:
 
 ---
 
+## [0.6.0] — 20/09/2026 — Produção: apontamentos, ordens e paradas
+
+- **Status:** Implementado no Supabase em 20/09/2026
+- **Commit/PR:** branch `claude/supabase-fase-c-noite`
+- **Migration:** `supabase/migrations/20260920103000_create_production.sql`
+- **Decisões:** D05, D08, D09, D10, D11, D12, D27
+
+### Adicionado
+- `production_records` com `work_mode` (`regular`/`overtime`, default `regular`) e UQ `production_records_unique_entry (machine_id, production_date, shift_id, work_mode)` — implementa a revisão de D10 feita por D27.
+- `production_orders` (`ON DELETE CASCADE` a partir do apontamento) e `machine_downtimes` (sem uso, para o SFM).
+- Índices: `production_records (production_date)`, `(shift_id)`, `(created_by)` (novo, para a regra de 24 h); `production_orders (production_record_id)`, `(order_number)`; `machine_downtimes (machine_id, started_at)`.
+- Regra extra: `notes` do apontamento com no máximo 500 caracteres (mesmo limite da tela atual).
+
+### Alterado em relação ao desenho
+- O índice `(machine_id, production_date)` **não** foi criado: a UQ acima começa pelas mesmas colunas e já atende a busca. Um índice separado seria duplicado (espaço e escrita a mais sem ganho).
+
+### Verificação no banco
+- Rodada duas vezes sem erro. Normal + hora extra no mesmo turno coexistem; OP `000001004521` mantém os zeros; apagar o apontamento apaga as ordens.
+- Recusados: segundo apontamento `regular` igual, `work_mode = 'extra'`, turno 9, OP com quantidade 0, parada terminando antes de começar.
+
+### Impacto no frontend
+- `producao` deixa de ser coluna: é a soma das ordens (view `production_summary`, 0.9.0).
+- Tela de apontamento precisa da marcação "hora extra" (D27).
+
+---
+
 ## [0.5.0] — 20/09/2026 — Máquinas e histórico de metas
 
 - **Status:** Implementado no Supabase em 20/09/2026
