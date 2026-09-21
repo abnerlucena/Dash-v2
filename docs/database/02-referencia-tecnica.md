@@ -1,6 +1,6 @@
 # Referência Técnica do Schema
 
-> Versão do schema: `v0.2.0` · Última atualização: 15/09/2026 · Status: **em implementação** (tabelas criadas marcadas com ✅)
+> Versão do schema: `v0.3.0` · Última atualização: 20/09/2026 · Status: **em implementação** (tabelas criadas marcadas com ✅)
 > SGBD: PostgreSQL (Supabase) · Schema: `public` (+ `auth`, gerenciado pelo Supabase)
 > Decisões citadas como `[Dxx]` estão em [03-decisoes.md](03-decisoes.md).
 
@@ -166,26 +166,26 @@ PK `(event_id, shift_id)` · Índice `(shift_id)`. Sem linhas = evento vale para
 
 CHECK `account_type <> 'personal' OR badge_number IS NOT NULL`.
 
-### 3.10 `roles`
+### 3.10 `roles` ✅ implementada em 20/09/2026
 | Coluna | Tipo | Restrições |
 |---|---|---|
-| `id` | `smallint` | PK |
-| `code` | `text` | NN, UQ |
-| `name` | `text` | NN |
+| `id` | `smallint` | PK (valor fixo definido no seed) |
+| `code` | `text` | NN, UQ, CHECK `code ~ '^[a-z_]+$'` |
+| `name` | `text` | NN, CHECK não vazio |
 | `description` | `text` | |
 
-Carga inicial: `operator`, `preparer`, `distributor`, `technician`, `manager`, `admin`, `tv_display`.
+Carga inicial (seed estrutural): `operator`, `preparer`, `distributor`, `technician`, `manager`, `admin`, `tv_display`.
 
-### 3.11 `permissions`
+### 3.11 `permissions` ✅ implementada em 20/09/2026
 | Coluna | Tipo | Restrições |
 |---|---|---|
-| `code` | `text` | PK |
+| `code` | `text` | PK, CHECK formato `area.acao` (`^[a-z_]+\.[a-z_]+$`) |
 | `description` | `text` | NN |
 | `category` | `text` | NN (agrupa na UI) |
 | `sort_order` | `smallint` | NN |
 
-### 3.12 `role_permissions`
-PK `(role_id, permission_code)` · FKs para `roles` e `permissions`.
+### 3.12 `role_permissions` ✅ implementada em 20/09/2026
+PK `(role_id, permission_code)` · FKs para `roles` e `permissions`, ambas `ON DELETE CASCADE` · Índice `(permission_code)`.
 
 ### 3.13 `user_permissions`
 | Coluna | Tipo | Restrições |

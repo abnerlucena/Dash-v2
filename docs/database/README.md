@@ -3,7 +3,7 @@
 Esta pasta é a **fonte oficial** sobre o banco de dados do Dash de Produção (Supabase / PostgreSQL).
 Ela registra **o que existe, como funciona, por que foi decidido assim e o que mudou**.
 
-> **Estado atual do schema:** `v0.2.0` — em implementação no Supabase (migrations em `supabase/migrations/`).
+> **Estado atual do schema:** `v0.3.0` — em implementação no Supabase (migrations em `supabase/migrations/`).
 > O sistema em produção continua sendo Google Sheets + Google Apps Script (`Main.gs`).
 
 ## Os documentos

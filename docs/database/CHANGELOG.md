@@ -17,6 +17,31 @@ Formato de cada entrada:
 
 ---
 
+## [0.3.0] — 20/09/2026 — Catálogo de acesso (perfis-modelo e permissões)
+
+- **Status:** Implementado no Supabase em 20/09/2026
+- **Commit/PR:** branch `claude/supabase-fase-c-noite`
+- **Migration:** `supabase/migrations/20260920100000_create_access_catalog.sql`
+- **Decisões:** D20, D22; D28 (nova, provisória)
+
+### Adicionado
+- Tabelas `roles`, `permissions` e `role_permissions`, todas com RLS ligado (políticas na 0.10.0).
+- Regras `CHECK` extras, não previstas no desenho original: `roles.code` só com letras minúsculas e `_`; `permissions.code` no formato `area.acao`; `roles.name` não vazio.
+- Índice `role_permissions (permission_code)` para a consulta inversa.
+- As linhas do catálogo (7 perfis, 18 permissões) ficam no seed estrutural, não na migration.
+
+### Antes desta versão (D28)
+- O banco configurado estava com o schema `public` vazio. As migrations de `shifts` (0.2.0 e 0.2.1) foram aplicadas **sem alteração** neste projeto em 20/09/2026, antes da 0.3.0. Verificado: 3 turnos, RLS ligado, constraints idênticas à migration.
+
+### Verificação no banco
+- Migration rodada duas vezes seguidas sem erro (idempotente).
+- Recusados como esperado: `roles.code = 'Operador X'`, `permissions.code = 'semponto'`, `role_permissions` com perfil inexistente.
+
+### Impacto no frontend
+- Nenhum ainda.
+
+---
+
 ## [0.2.2] — 16/09/2026 — Desenho: modo de trabalho (hora extra)
 
 - **Status:** Desenhado (a tabela `production_records` ainda não existe no banco)
