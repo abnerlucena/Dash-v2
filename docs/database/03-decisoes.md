@@ -21,7 +21,7 @@ Status possíveis: `Aprovada` · `Assumida` (sem confirmação explícita) · `S
 | D12 | Número de operadores por turno | Aprovada | 14/09/2026 |
 | D13 | Histórico de metas | Aprovada | 14/09/2026 |
 | D14 | Meta igual para todos os turnos | Aprovada | 14/09/2026 |
-| D15 | Meta não pode começar no passado | Aprovada | 14/09/2026 |
+| D15 | Meta não pode começar no passado | Aprovada — em revisão pela D34 | 14/09/2026 |
 | D16 | `calendar_events` com três tipos | Aprovada | 14/09/2026 |
 | D17 | Eventos por turno e vários por dia | Aprovada | 14/09/2026 |
 | D18 | Importação automática de feriados nacionais | Aprovada | 14/09/2026 |
@@ -37,9 +37,10 @@ Status possíveis: `Aprovada` · `Assumida` (sem confirmação explícita) · `S
 | D28 | Recriar `shifts` no banco que estava vazio | Aprovada (projeto de testes) | 21/09/2026 |
 | D29 | Criação e remoção de contas | Aprovada | 21/09/2026 |
 | D30 | Novo lançamento no mesmo apontamento acrescenta ordens | Aprovada | 21/09/2026 |
-| D31 | Correção da meta de hoje/futura no mesmo dia | Provisória — confirmar com o usuário (em discussão) | 20/09/2026 |
-| D32 | Meta de datas anteriores ao histórico | Aprovada em parte (regra geral) | 21/09/2026 |
+| D31 | Correção da meta de hoje/futura no mesmo dia | Provisória — será absorvida pela D34 | 20/09/2026 |
+| D32 | Meta de datas anteriores ao histórico | Aprovada em parte — regra geral mantida na D34 | 21/09/2026 |
 | D33 | Autor lê os próprios apontamentos (ligado à permissão) | Aprovada | 21/09/2026 |
+| D34 | Gestão de metas por linha do tempo (painel do gestor) | Proposta | 21/09/2026 |
 
 ---
 
@@ -115,6 +116,7 @@ Status possíveis: `Aprovada` · `Assumida` (sem confirmação explícita) · `S
 - **Decisão:** sem `shift_id` em `machine_targets`.
 
 ### D15 — Meta não retroativa
+- **Em revisão (21/09/2026):** a D34 (Proposta) permite ao gestor/admin alterar metas do passado com rastro. Quando a D34 for implementada, esta decisão passa a `Substituída por D34`.
 - **Decisão:** `valid_from` não pode ser anterior a hoje (fuso de Brasília). Correções pontuais em apontamentos são feitas pelo gestor.
 
 ### D16 — Três tipos de evento
@@ -194,7 +196,7 @@ Status possíveis: `Aprovada` · `Assumida` (sem confirmação explícita) · `S
 - **Encerrado:** o aviso "já existe apontamento — substituir?" não será feito; a correção é pela edição.
 
 ### D31 — Correção da meta de hoje/futura no mesmo dia
-- **Status:** Provisória — em discussão (21/09/2026: o usuário pediu reflexões e propostas de fluxo antes de decidir). Enquanto isso, vale o comportamento descrito abaixo.
+- **Status:** Provisória — será absorvida pela D34 (21/09/2026): corrigir a meta de hoje vira um caso de "alterar a meta de um trecho" no painel. Até a D34 ser implementada, vale o comportamento abaixo.
 - **Contexto:** `machine_targets` é append-only (D13) e tem unicidade `(machine_id, valid_from)`. Um erro de digitação ao salvar a meta de hoje ficaria sem correção até amanhã.
 - **Decisão:** `save_machine_targets` corrige a meta já cadastrada para a **mesma data**, desde que essa data seja hoje ou futura. Metas que já valeram (antes de hoje) continuam imutáveis — o gatilho `validate_target_valid_from` recusa. Toda correção fica no log de auditoria (antes/depois).
 - **Consequência:** apontamentos feitos hoje **antes** da correção guardam a meta antiga (foto, D08); o gestor corrige esses pontualmente.
@@ -214,3 +216,21 @@ Status possíveis: `Aprovada` · `Assumida` (sem confirmação explícita) · `S
 - **Por que permissão e não perfil:** as permissões são ajustáveis por pessoa (D22). Tirar de alguém o direito de corrigir também tira o de ver os próprios; com os perfis de fábrica, só o Operador depende desta regra — os demais já veem toda a produção.
 - **Alternativa rejeitada:** travar pelo perfil "Operador" (ignoraria os ajustes individuais).
 - **Alternativa rejeitada:** dar `history.view` ao Operador (ele passaria a ver a produção de todos).
+
+### D34 — Gestão de metas por linha do tempo (painel do gestor)
+- **Status:** Proposta (21/09/2026) — desenhada com o usuário; ainda não implementada. Próximo passo: protótipo navegável do painel e, depois, as migrations.
+- **Contexto:** a D15 proíbe meta no passado e a D31 tratava só a correção do dia. O usuário quer um fluxo completo: definir metas por máquina, ver a meta ao longo do tempo e corrigir qualquer trecho, inclusive no passado, com responsabilidade.
+- **Decisão (pontos confirmados pelo usuário):**
+  1. **Quem:** só gestor e admin (a permissão `targets.manage` que já existe; sem permissão separada para o passado). Na conta Admin compartilhada, o rastro registra a pessoa identificada pelo crachá (D23).
+  2. **Para quem:** uma meta por **máquina**, igual para todos os turnos (D14 mantida). Hora extra e dia anulado continuam fora do cálculo (D16, D27).
+  3. **Linha do tempo:** a meta vale **até existir uma nova**; a meta atual não tem data de fim. Nunca há duas metas ao mesmo tempo na mesma máquina (o banco impede sobreposição).
+  4. **Editar um trecho** (ex.: de 03/03 a 28/03 → 550): o sistema grava a mudança no início e, no dia seguinte ao fim, **volta sozinho** à meta que valia antes. Mudanças que existiam dentro do trecho são substituídas.
+  5. **Até onde:** qualquer data em que exista apontamento daquela máquina no passado, além de datas futuras (metas "agendadas").
+  6. **Apontamentos acompanham a linha do tempo:** ao mudar um trecho, a meta guardada em cada apontamento do trecho é recalculada (D08 mantida como "foto", mas com recálculo oficial). **Não existe mais correção avulsa** da meta de um apontamento: a meta vem sempre da linha do tempo.
+  7. **Rastro:** motivo obrigatório; antes/depois de cada meta e de cada apontamento recalculado no log de auditoria (D26); **prévia do impacto** antes de confirmar (quantos apontamentos mudam, atingimento antes e depois).
+  8. **Transparência:** gráficos e relatórios mostram um aviso nos períodos alterados ("meta alterada em … por …"); o painel lista as mudanças com o botão **Desfazer** (uma nova mudança no sentido contrário, também registrada).
+  9. **Concorrência:** se dois gestores editam a mesma máquina ao mesmo tempo, o segundo é avisado de que a linha do tempo mudou e precisa recarregar.
+- **Painel:** por máquina, gráfico da meta em "degraus" ao longo do tempo com a produção real diária por trás; metas futuras tracejadas; selecionar um trecho no gráfico abre a edição com prévia.
+- **Consequências:** D15 será substituída; D31 deixa de existir isolada; a regra geral da D32 (meta vigente na data da produção) continua. `machine_targets` ganha o motivo da mudança; nasce uma função de recálculo auditada.
+- **Em aberto:** (a) montar a linha do tempo do passado a partir da planilha de apontamentos que o usuário vai enviar (a meta gravada em cada linha); (b) **fechamento mensal** — discutir depois, como um arquivo pronto com os indicadores do mês.
+- **Alternativas rejeitadas:** metas com data de fim obrigatória (não dá para prever quando haverá meta nova); preservar correções avulsas em apontamentos (criaria metas "escondidas" diferentes do gráfico); permissão separada para alterar o passado (o usuário preferiu manter só gestor/admin).
