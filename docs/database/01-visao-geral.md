@@ -1,6 +1,6 @@
 # Visão Geral do Banco de Dados
 
-> Versão do schema: `v0.10.0` · Última atualização: 20/09/2026 · Documento em linguagem simples, para apresentação.
+> Versão do schema: `v0.10.1` · Última atualização: 20/09/2026 · Documento em linguagem simples, para apresentação.
 > Detalhes técnicos: [02-referencia-tecnica.md](02-referencia-tecnica.md)
 
 ## 1. Por que um banco novo

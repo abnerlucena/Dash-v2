@@ -1,6 +1,6 @@
 # Referência Técnica do Schema
 
-> Versão do schema: `v0.10.0` · Última atualização: 20/09/2026 · Status: **implementado no Supabase** (todas as tabelas, views, funções e RLS marcadas com ✅; dados de produção ainda no Google Sheets)
+> Versão do schema: `v0.10.1` · Última atualização: 20/09/2026 · Status: **implementado no Supabase** (todas as tabelas, views, funções e RLS marcadas com ✅; dados de produção ainda no Google Sheets)
 > SGBD: PostgreSQL (Supabase) · Schema: `public` (+ `auth`, gerenciado pelo Supabase)
 > Decisões citadas como `[Dxx]` estão em [03-decisoes.md](03-decisoes.md).
 

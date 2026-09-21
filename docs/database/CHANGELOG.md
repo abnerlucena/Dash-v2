@@ -17,6 +17,30 @@ Formato de cada entrada:
 
 ---
 
+## [0.10.1] — 20/09/2026 — Dados iniciais e script consolidado
+
+- **Status:** Implementado no Supabase em 20/09/2026
+- **Commit/PR:** branch `claude/supabase-fase-c-noite`
+- **Migration:** nenhuma nova (sem mudança estrutural). Arquivos: `supabase/seed/01_estrutural.sql`, `supabase/seed/90_demo_REMOVER.sql`, `supabase/seed/99_remover_demo.sql`, `supabase/migrations/_consolidado.sql`
+- **Decisões:** D13, D28
+
+### Adicionado
+- **Seed estrutural (real):** 7 perfis, 18 permissões, 69 ligações perfil × permissão (matriz da seção 8), 18 máquinas com os ids do legado (sequência de ids ajustada para 19+), 18 metas vigentes a partir de 20/09/2026 (valores de `MACHINES_DEFAULT` — conferir com a planilha).
+- **Seed de demonstração (fictício, marcado `[DEMO]`):** 842 apontamentos (832 normais + 10 de hora extra no TURNO 3), 1.801 ordens, 1 dia anulado (TURNO 2) e 1 feriado. Carregado com a auditoria desligada só durante a carga, para não deixar dados fictícios no log imutável.
+- **Remoção do demo:** `99_remover_demo.sql` (apaga só o que começa com `[DEMO]`).
+- **`_consolidado.sql`:** todas as migrations num arquivo idempotente, para colar no SQL Editor.
+
+### Verificação no banco
+- Seed estrutural e demo rodados duas vezes: a segunda execução inseriu 0 linhas.
+- Contagens por perfil conferem com a matriz (operador 2, preparador 6, distribuidor 9, técnico 15, gestor/admin 18, TV 1).
+- `_consolidado.sql` executado sobre o banco já completo: sem erro e sem alterar nada (28 políticas, 842 apontamentos, 3 turnos mantidos).
+- Demo: atingimento médio 87,2%; 16 apontamentos em dia anulado (fora da meta); 0 linhas de auditoria geradas.
+
+### Impacto no frontend
+- Com a fonte `supabase`, o dashboard passa a ter dados para exibir.
+
+---
+
 ## [0.10.0] — 20/09/2026 — Segurança: políticas de acesso (RLS)
 
 - **Status:** Implementado no Supabase em 20/09/2026
