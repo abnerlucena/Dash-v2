@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "dash-supabase",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["vite", "--mode", "supabase", "--port", "8081", "--strictPort"],
+      "port": 8081
+    },
+    {
+      "name": "dash-gas",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["vite", "--port", "8080", "--strictPort"],
+      "port": 8080
+    }
+  ]
+}

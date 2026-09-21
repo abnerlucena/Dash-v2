@@ -146,6 +146,12 @@ const FeedbacksTab = () => {
                         Apontamento: {dispD(r.date)} · {r.turno}
                       </p>
                     </div>
+                    {r.workMode === "overtime" ? (
+                      <span className="text-xs font-extrabold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800" style={{ borderRadius: 20 }}
+                        title="Hora extra: fora do cálculo de meta">
+                        Hora extra
+                      </span>
+                    ) : (
                     <span
                       className="text-xs font-extrabold px-2 py-0.5 rounded-full"
                       style={{
@@ -156,6 +162,7 @@ const FeedbacksTab = () => {
                     >
                       {pct}%
                     </span>
+                    )}
                   </div>
 
                   {/* Obs body — textarea in edit mode, static in view mode */}

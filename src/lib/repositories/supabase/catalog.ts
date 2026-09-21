@@ -53,7 +53,7 @@ export const supabaseTargets: DataSource["targets"] = {
       if (t.machine_id == null) continue;
       metas[t.machine_id] = t.quantity_per_shift ?? 0;
       metasInfo[t.machine_id] = {
-        updatedBy: (t.created_by && names.get(t.created_by)) || "",
+        updatedBy: (t.created_by && names.get(t.created_by)) || "carga inicial",
         updatedAt: t.created_at ?? "",
         vigenciaInicio: t.valid_from ?? "",
       };

@@ -321,7 +321,7 @@ const ProductionEntry = () => {
                         value={entry.operadores ?? ""}
                         onChange={e => updateOperadores(machine.id, e.target.value)}
                         inputMode="numeric"
-                        placeholder="Operadores"
+                        placeholder="Nº oper."
                         title="Nº de operadores no turno (vazio = lotação padrão)"
                         className="h-9 w-24 px-2 text-xs font-semibold rounded-md border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/30 placeholder:text-muted-foreground/50"
                         style={{ borderRadius: 6 }}
