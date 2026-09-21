@@ -1,6 +1,6 @@
 # Referência Técnica do Schema
 
-> Versão do schema: `v0.6.0` · Última atualização: 20/09/2026 · Status: **em implementação** (tabelas criadas marcadas com ✅)
+> Versão do schema: `v0.7.0` · Última atualização: 20/09/2026 · Status: **em implementação** (tabelas criadas marcadas com ✅)
 > SGBD: PostgreSQL (Supabase) · Schema: `public` (+ `auth`, gerenciado pelo Supabase)
 > Decisões citadas como `[Dxx]` estão em [03-decisoes.md](03-decisoes.md).
 
@@ -129,21 +129,21 @@ UQ `machine_downtimes_source_external_id_key (source, external_id)` (idempotênc
 
 UQ `machine_targets_machine_valid_from_key (machine_id, valid_from)` — também atende a busca "maior `valid_from` ≤ data". Append-only para o passado: metas já vigentes antes de hoje não podem ser alteradas; a meta de hoje/futura pode ser corrigida pela função `save_machine_targets` [D13, D31].
 
-### 3.7 `calendar_events`
+### 3.7 `calendar_events` ✅ implementada em 20/09/2026
 | Coluna | Tipo | Restrições | Descrição |
 |---|---|---|---|
 | `id` | `uuid` | PK | |
 | `event_date` | `date` | NN | |
-| `description` | `text` | NN | |
+| `description` | `text` | NN, CHECK não vazio | |
 | `event_type` | `text` | NN, CHECK `holiday`/`special_event`/`excluded_day` | [D16] |
 | `scope` | `text` | NN, CHECK `national`/`state`/`municipal`/`company` | |
 | `source` | `text` | NN, default `'manual'`, CHECK `manual`/`brasil_api` | |
-| `created_by` | `uuid` | FK `profiles` | Nulo quando importado |
+| `created_by` | `uuid` | FK `profiles`, default `auth.uid()` | Nulo quando importado |
 | `created_at` | `timestamptz` | NN, default `now()` | |
 
-Índice `(event_date)` · UQ parcial `(event_date) WHERE source = 'brasil_api'` [D17, D18]
+Índice `(event_date)` · UQ parcial `calendar_events_brasil_api_date_key (event_date) WHERE source = 'brasil_api'` [D17, D18]. A rotina de importação (Edge Function + Cron) ainda não existe.
 
-### 3.8 `calendar_event_shifts`
+### 3.8 `calendar_event_shifts` ✅ implementada em 20/09/2026
 | Coluna | Tipo | Restrições |
 |---|---|---|
 | `event_id` | `uuid` | FK `calendar_events` `ON DELETE CASCADE` |

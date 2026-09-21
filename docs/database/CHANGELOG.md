@@ -17,6 +17,28 @@ Formato de cada entrada:
 
 ---
 
+## [0.7.0] — 20/09/2026 — Calendário
+
+- **Status:** Implementado no Supabase em 20/09/2026
+- **Commit/PR:** branch `claude/supabase-fase-c-noite`
+- **Migration:** `supabase/migrations/20260920104000_create_calendar.sql`
+- **Decisões:** D16, D17, D18
+
+### Adicionado
+- `calendar_events` (RLS ligado) com índice `(event_date)` e UQ parcial `calendar_events_brasil_api_date_key (event_date) WHERE source = 'brasil_api'`.
+- `calendar_event_shifts` (PK `(event_id, shift_id)`, `ON DELETE CASCADE`, índice `(shift_id)`).
+- Regra extra: `description` não pode ser vazia; `created_by` com `default auth.uid()`.
+- A importação automática da BrasilAPI (D18) **não** foi implementada nesta versão — só a estrutura que a torna idempotente.
+
+### Verificação no banco
+- Rodada duas vezes sem erro. Dois eventos manuais no mesmo dia (um só do TURNO 2, outro do dia inteiro): OK.
+- Recusados: dois feriados importados na mesma data, tipo legado `feriado`, descrição em branco.
+
+### Impacto no frontend
+- `Holiday.type`: `feriado` ↔ `holiday`, `dia_anulado` ↔ `excluded_day` (adaptador). Eventos manuais do app entram com `scope = 'company'` até a tela ganhar esse campo (pendência).
+
+---
+
 ## [0.6.0] — 20/09/2026 — Produção: apontamentos, ordens e paradas
 
 - **Status:** Implementado no Supabase em 20/09/2026
