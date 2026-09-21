@@ -27,6 +27,9 @@ export function toAuthError(e: PgError | null | undefined): Error {
   if (/Database error saving new user/i.test(msg)) {
     return new Error("Não foi possível criar o cadastro. Confira o nº do crachá (obrigatório e não pode estar em uso).");
   }
+  if (/email rate limit/i.test(msg)) {
+    return new Error("O limite de envio de e-mails de confirmação foi atingido (servidor de e-mail do Supabase). Tente de novo em cerca de 1 hora ou fale com o administrador.");
+  }
   if (/rate limit/i.test(msg)) return new Error("Muitas tentativas em pouco tempo. Aguarde alguns minutos.");
   if (/valid email|invalid format/i.test(msg)) return new Error("E-mail inválido.");
   return toError(e, "Erro ao autenticar");
