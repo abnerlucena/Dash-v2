@@ -1,6 +1,6 @@
 # Referência Técnica do Schema
 
-> Versão do schema: `v0.7.0` · Última atualização: 20/09/2026 · Status: **em implementação** (tabelas criadas marcadas com ✅)
+> Versão do schema: `v0.8.0` · Última atualização: 20/09/2026 · Status: **em implementação** (tabelas criadas marcadas com ✅)
 > SGBD: PostgreSQL (Supabase) · Schema: `public` (+ `auth`, gerenciado pelo Supabase)
 > Decisões citadas como `[Dxx]` estão em [03-decisoes.md](03-decisoes.md).
 
@@ -210,7 +210,7 @@ PK `(user_id, permission_code)` · Índice `(permission_code)`. Permissões efet
 
 Índices: `(account_id)`, `(identified_user_id)`. Escrita só pela função `identify_shared_session`. [D23]
 
-### 3.15 `notifications`
+### 3.15 `notifications` ✅ implementada em 20/09/2026
 | Coluna | Tipo | Restrições |
 |---|---|---|
 | `id` | `uuid` | PK |
@@ -221,9 +221,9 @@ PK `(user_id, permission_code)` · Índice `(permission_code)`. Permissões efet
 | `read_at` | `timestamptz` | Nulo = não lida |
 | `created_at` | `timestamptz` | NN, default `now()` |
 
-Índice parcial `(recipient_id, created_at) WHERE read_at IS NULL`. Publicada no Realtime. [D25]
+Índice parcial `notifications_unread_idx (recipient_id, created_at) WHERE read_at IS NULL` · Índice `(related_table, related_id)`. Publicada no Realtime (`supabase_realtime`). [D25]
 
-### 3.16 `audit_logs`
+### 3.16 `audit_logs` ✅ implementada em 20/09/2026
 | Coluna | Tipo | Restrições |
 |---|---|---|
 | `id` | `bigint` | PK, identity |
@@ -236,7 +236,7 @@ PK `(user_id, permission_code)` · Índice `(permission_code)`. Permissões efet
 | `old_data`, `new_data` | `jsonb` | |
 | `ip_address` | `inet` | De `request.headers` (`x-forwarded-for`) |
 
-Índices: `(occurred_at)`, `(table_name, record_id)`, `(actor_id)`. Append-only: sem políticas de `UPDATE`/`DELETE`. [D26]
+Índices: `(occurred_at)`, `(table_name, record_id)`, `(actor_id)`. Append-only: sem políticas de `UPDATE`/`DELETE` **e** gatilhos `prevent_audit_log_changes`/`prevent_audit_log_truncate`, que recusam UPDATE, DELETE e TRUNCATE até para o dono do banco. `record_id` = `id` da linha, ou `user_id:permission_code` / `event_id:shift_id` nas tabelas de ligação. [D26]
 
 ## 4. Views
 
@@ -251,13 +251,14 @@ Views devem ser criadas com `security_invoker = true` para respeitar o RLS de qu
 
 | Trigger | Tabela / evento | Ação |
 |---|---|---|
-| `set_updated_at` | tabelas com `updated_at`, `BEFORE UPDATE` | `updated_at = now()` |
+| `set_updated_at` | `profiles`, `machines`, `production_records` (todas com `updated_at`), `BEFORE UPDATE` | `updated_at = now()` |
 | `handle_new_user` | `auth.users`, `AFTER INSERT` | Cria `profiles` (`pending`, `personal`) a partir dos metadados do cadastro |
 | `notify_approvers` | `profiles`, `AFTER INSERT` com `status = 'pending'` | Uma `notification` por usuário ativo com `users.approve` |
 | `resolve_approval_notifications` | `profiles`, `AFTER UPDATE` de `status` | Marca `read_at` nas notificações do perfil para todos |
 | `validate_target_valid_from` | `machine_targets`, `BEFORE INSERT OR UPDATE` | Recusa `valid_from < (now() at time zone 'America/Sao_Paulo')::date` e UPDATE de meta com `valid_from` antigo |
 | `set_machine_status_updated_at` | `machines`, `BEFORE INSERT OR UPDATE OF status` | `status_updated_at = now()` quando o status muda |
-| `audit_row_change` | produção, ordens, máquinas, metas, eventos, perfis, permissões | Insere em `audit_logs` |
+| `audit_row_change` | `production_records`, `production_orders`, `machines`, `machine_targets`, `calendar_events`, `calendar_event_shifts`, `profiles`, `user_permissions` — `AFTER INSERT OR UPDATE OR DELETE` | Insere em `audit_logs` (autor, pessoa identificada, IP do `x-forwarded-for`); ignora UPDATE sem mudança |
+| `prevent_audit_log_changes` | `audit_logs`, `BEFORE UPDATE OR DELETE` (+ `prevent_audit_log_truncate`, `BEFORE TRUNCATE`) | Recusa a operação |
 
 ## 6. Funções (RPC)
 

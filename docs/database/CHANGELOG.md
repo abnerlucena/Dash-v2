@@ -17,6 +17,30 @@ Formato de cada entrada:
 
 ---
 
+## [0.8.0] — 20/09/2026 — Notificações e log de auditoria
+
+- **Status:** Implementado no Supabase em 20/09/2026
+- **Commit/PR:** branch `claude/supabase-fase-c-noite`
+- **Migration:** `supabase/migrations/20260920105000_create_notifications_audit.sql`
+- **Decisões:** D23, D25, D26
+
+### Adicionado
+- `notifications` (índice parcial de não lidas + novo índice `(related_table, related_id)`), publicada no Realtime (`supabase_realtime`).
+- `audit_logs` com índices `(occurred_at)`, `(table_name, record_id)`, `(actor_id)`.
+- Função `current_identified_user_id()` — pessoa identificada por crachá na sessão atual da conta compartilhada.
+- Gatilhos: `audit_row_change` em `production_records`, `production_orders`, `machines`, `machine_targets`, `calendar_events`, `calendar_event_shifts`, `profiles`, `user_permissions`; `notify_approvers` e `resolve_approval_notifications` em `profiles`.
+- **Novo, além do desenho:** gatilho `prevent_audit_log_changes` (e `prevent_audit_log_truncate`) — recusa UPDATE, DELETE e TRUNCATE em `audit_logs` até para o dono do banco. Garante no banco a frase "nem o Admin consegue apagar esse registro".
+- `audit_row_change` ignora UPDATE que não mudou nada.
+
+### Verificação no banco
+- Rodada duas vezes sem erro. Simulação de requisição da API (usuário e IP nos cabeçalhos): cadastro gerou aviso para a gestora; ao aprovar, o aviso foi marcado como lido; log com autor e IP `200.1.2.3` (primeiro IP do `x-forwarded-for`).
+- Recusados: DELETE e TRUNCATE em `audit_logs`.
+
+### Impacto no frontend
+- Sininho de notificações pode assinar o Realtime da tabela (ainda não implementado no app).
+
+---
+
 ## [0.7.0] — 20/09/2026 — Calendário
 
 - **Status:** Implementado no Supabase em 20/09/2026
