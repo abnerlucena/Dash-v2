@@ -36,6 +36,9 @@ Status possíveis: `Aprovada` · `Assumida` (sem confirmação explícita) · `S
 | D27 | Modo de trabalho (hora extra) no apontamento | Aprovada | 16/09/2026 |
 | D28 | Recriar `shifts` no banco que estava vazio | Provisória — confirmar com o usuário | 20/09/2026 |
 | D29 | Criação e remoção de contas | Provisória — confirmar com o usuário | 20/09/2026 |
+| D30 | Novo lançamento no mesmo apontamento acrescenta ordens | Provisória — confirmar com o usuário | 20/09/2026 |
+| D31 | Correção da meta de hoje/futura no mesmo dia | Provisória — confirmar com o usuário | 20/09/2026 |
+| D32 | Meta de datas anteriores ao histórico | Provisória — confirmar com o usuário | 20/09/2026 |
 
 ---
 
@@ -180,3 +183,25 @@ Status possíveis: `Aprovada` · `Assumida` (sem confirmação explícita) · `S
 - **Decisão 2 — remoção:** as chaves estrangeiras para `profiles` usam o padrão "impedir" (sem `ON DELETE`). Quem já tem histórico não pode ser apagado; o caminho é bloquear (`status = 'blocked'`), preservando a rastreabilidade (D04, D26).
 - **Alternativa rejeitada:** `ON DELETE SET NULL` (apagaria a autoria do histórico).
 - **A confirmar:** se a LGPD exigir remoção de dados pessoais no futuro, a saída prevista é anonimizar `full_name`/`badge_number`, não apagar a linha.
+
+### D30 — Novo lançamento no mesmo apontamento acrescenta ordens
+- **Status:** Provisória — confirmar com o usuário (sessão autônoma de 20/09/2026).
+- **Contexto:** o `upsert` do legado **substitui** a lista de ordens quando alguém salva de novo a mesma máquina + dia + turno; a D10 diz que "lançamentos adicionais viram ordens do mesmo apontamento" e a visão geral diz que o sistema "completa o apontamento existente".
+- **Decisão:** `save_production_record` **acrescenta** as ordens enviadas às existentes (segue D10). Para editar/corrigir, `update_production_record` (ou `p_replace_orders = true`) substitui a lista.
+- **Consequência:** salvar duas vezes a mesma ordem gera duas linhas (no legado, a segunda sobrescrevia a primeira). A edição de uma ordem errada passa a ser feita na tela de edição, não salvando de novo.
+- **Alternativa rejeitada:** manter a substituição do legado (contraria D10 e perde lançamentos feitos por outra pessoa no mesmo turno).
+- **A confirmar:** se a equipe está acostumada a "salvar de novo para corrigir", a tela de apontamento pode avisar que já existe apontamento e oferecer "substituir".
+
+### D31 — Correção da meta de hoje/futura no mesmo dia
+- **Status:** Provisória — confirmar com o usuário (sessão autônoma de 20/09/2026).
+- **Contexto:** `machine_targets` é append-only (D13) e tem unicidade `(machine_id, valid_from)`. Um erro de digitação ao salvar a meta de hoje ficaria sem correção até amanhã.
+- **Decisão:** `save_machine_targets` corrige a meta já cadastrada para a **mesma data**, desde que essa data seja hoje ou futura. Metas que já valeram (antes de hoje) continuam imutáveis — o gatilho `validate_target_valid_from` recusa. Toda correção fica no log de auditoria (antes/depois).
+- **Consequência:** apontamentos feitos hoje **antes** da correção guardam a meta antiga (foto, D08); o gestor corrige esses pontualmente.
+- **Alternativa rejeitada:** recusar e obrigar a vigência de amanhã (bloqueia a correção de um erro óbvio).
+
+### D32 — Meta de datas anteriores ao histórico
+- **Status:** Provisória — confirmar com o usuário (sessão autônoma de 20/09/2026).
+- **Contexto:** o histórico de metas começa na data da carga inicial (20/09/2026). Um apontamento atrasado de antes disso não teria meta vigente.
+- **Decisão:** `machine_target_on` usa a meta **mais antiga conhecida** para datas anteriores ao início do histórico, em vez de zero.
+- **Alternativa rejeitada:** meta zero (o atingimento ficaria indefinido e os gráficos mostrariam "—").
+- **A confirmar:** quando os dados do Sheets forem migrados, o `target_quantity` de cada apontamento antigo virá da própria planilha (coluna `meta`), e esta regra só valerá para apontamentos atrasados novos.

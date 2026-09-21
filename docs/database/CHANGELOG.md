@@ -17,6 +17,33 @@ Formato de cada entrada:
 
 ---
 
+## [0.9.0] — 20/09/2026 — Views e funções de regra de negócio
+
+- **Status:** Implementado no Supabase em 20/09/2026
+- **Commit/PR:** branch `claude/supabase-fase-c-noite`
+- **Migration:** `supabase/migrations/20260920160000_create_views_functions.sql`
+- **Decisões:** D08, D10, D11, D12, D16, D22, D23, D24, D27; D30, D31, D32 (novas, provisórias)
+
+### Adicionado
+- Views (`security_invoker = true`): `production_summary` e `current_machine_targets`.
+- `production_summary` ganhou colunas além do desenho: `shift_name`, `machine_name`, `order_count`, `is_excluded_day` (dia/turno anulado, D16) e `counts_toward_target` (= `work_mode = 'regular'` e dia não anulado). O frontend usa `counts_toward_target` em vez de repetir a regra.
+- Funções de apoio: `is_active_user`, `has_permission`, `my_permissions`, `machine_target_on`, `list_profile_names`, `can_edit_production_record`, `can_delete_production_record`, `insert_production_orders` (interna).
+- Funções RPC: `save_production_record`, `update_production_record`, `delete_production_record`, `bulk_update_production_records`, `bulk_delete_production_records`, `create_machine`, `save_machine_targets` (nova, para a tela de Metas), `approve_user`, `identify_shared_session`.
+- `bootstrap_admin(email)` — ativa o primeiro gestor; só o dono do banco executa (SQL Editor).
+- Direito de execução: retirado de `public`/`anon`, concedido só a `authenticated`.
+
+### Verificação no banco (22 testes, em transação desfeita)
+- Operador cria apontamento e completa o próprio (ordens acrescentadas); hora extra vira linha separada com `counts_toward_target = false`.
+- Recusados com mensagem em português: operador mexendo no apontamento de outro, operador em ação em massa, operador alterando meta, usuário pendente apontando, crachá inexistente, colisão em ação em massa (nada alterado), meta no passado, máquina duplicada, `anon` chamando RPC.
+- Conta Admin: sem crachá = 0 permissões; após crachá = 18; outra sessão da mesma conta = 0.
+- Metas: só grava a máquina que mudou; correção no mesmo dia atualiza em vez de duplicar.
+
+### Impacto no frontend
+- Toda escrita de produção passa pelas RPCs; o app não grava direto nas tabelas.
+- Mensagens de erro já vêm em português do banco.
+
+---
+
 ## [0.8.0] — 20/09/2026 — Notificações e log de auditoria
 
 - **Status:** Implementado no Supabase em 20/09/2026

@@ -1,6 +1,6 @@
 # Referência Técnica do Schema
 
-> Versão do schema: `v0.8.0` · Última atualização: 20/09/2026 · Status: **em implementação** (tabelas criadas marcadas com ✅)
+> Versão do schema: `v0.9.0` · Última atualização: 20/09/2026 · Status: **em implementação** (tabelas criadas marcadas com ✅)
 > SGBD: PostgreSQL (Supabase) · Schema: `public` (+ `auth`, gerenciado pelo Supabase)
 > Decisões citadas como `[Dxx]` estão em [03-decisoes.md](03-decisoes.md).
 
@@ -238,14 +238,16 @@ PK `(user_id, permission_code)` · Índice `(permission_code)`. Permissões efet
 
 Índices: `(occurred_at)`, `(table_name, record_id)`, `(actor_id)`. Append-only: sem políticas de `UPDATE`/`DELETE` **e** gatilhos `prevent_audit_log_changes`/`prevent_audit_log_truncate`, que recusam UPDATE, DELETE e TRUNCATE até para o dono do banco. `record_id` = `id` da linha, ou `user_id:permission_code` / `event_id:shift_id` nas tabelas de ligação. [D26]
 
-## 4. Views
+## 4. Views ✅ implementadas em 20/09/2026
 
 | View | Retorna |
 |---|---|
-| `production_summary` | (apenas registros `work_mode = 'regular'` entram em atingimento de meta [D27]) Colunas de `production_records` + `good_quantity`, `rework_quantity`, `total_quantity`, `staffing_ratio`, `adjusted_target` [D11, D12] |
-| `current_machine_targets` | Meta vigente hoje (SP) por máquina: maior `valid_from <= current_date` |
+| `production_summary` | Colunas de `production_records` + `shift_name`, `machine_name`, `good_quantity` (ordens sem retrabalho), `rework_quantity`, `total_quantity`, `order_count`, `staffing_ratio` (= `operator_count / standard_operator_count`), `adjusted_target` (= meta × lotação), `is_excluded_day` (existe `excluded_day` na data, para o dia inteiro ou para o turno) e `counts_toward_target` (= `work_mode = 'regular'` **e** não anulado) [D11, D12, D16, D27] |
+| `current_machine_targets` | `machine_id`, `target_id`, `quantity_per_shift`, `valid_from`, `created_by`, `created_at` — meta vigente hoje (SP) por máquina: maior `valid_from <= hoje` |
 
-Views devem ser criadas com `security_invoker = true` para respeitar o RLS de quem consulta.
+Ambas criadas com `security_invoker = true`: respeitam o RLS de quem consulta.
+
+> **Regra de leitura para gráficos:** atingimento de meta = `sum(good_quantity) / sum(target_quantity)` filtrando `counts_toward_target`. Produção total soma todas as linhas (inclusive hora extra).
 
 ## 5. Triggers
 
@@ -260,21 +262,37 @@ Views devem ser criadas com `security_invoker = true` para respeitar o RLS de qu
 | `audit_row_change` | `production_records`, `production_orders`, `machines`, `machine_targets`, `calendar_events`, `calendar_event_shifts`, `profiles`, `user_permissions` — `AFTER INSERT OR UPDATE OR DELETE` | Insere em `audit_logs` (autor, pessoa identificada, IP do `x-forwarded-for`); ignora UPDATE sem mudança |
 | `prevent_audit_log_changes` | `audit_logs`, `BEFORE UPDATE OR DELETE` (+ `prevent_audit_log_truncate`, `BEFORE TRUNCATE`) | Recusa a operação |
 
-## 6. Funções (RPC)
+## 6. Funções ✅ implementadas em 20/09/2026
+
+### 6.1 Funções de apoio
+
+| Função | Retorno | Observação |
+|---|---|---|
+| `is_active_user()` | `boolean` | Perfil do usuário logado com `status = 'active'` |
+| `has_permission(p_code text)` | `boolean` | `status = 'active'` + `user_permissions`; em conta `shared`, só com identificação na sessão atual [D22, D23] |
+| `my_permissions()` | `text[]` | Permissões efetivas (mesmas regras); o app usa para mostrar/esconder botões |
+| `current_identified_user_id()` | `uuid` | Pessoa identificada por crachá na sessão (claim `session_id` do JWT) [D23] |
+| `machine_target_on(p_machine_id, p_date)` | `integer` | Meta vigente na data; antes do início do histórico, a mais antiga [D32] |
+| `list_profile_names()` | `table(id, full_name)` | Só id + nome, só para usuários ativos (exibir "quem apontou" sem expor crachá) |
+| `can_edit_production_record(created_by, created_at)` / `can_delete_production_record(...)` | `boolean` | Regra D24 |
+| `insert_production_orders(record_id, orders jsonb)` | `integer` | Interna (sem permissão de execução para o app) |
+
+### 6.2 Funções RPC (chamadas pelo app)
 
 | Função | Permissão exigida | Observação |
 |---|---|---|
-| `has_permission(code text) → boolean` | — | Considera `status = 'active'` e, em contas `shared`, identificação na sessão atual |
-| `save_production_record(...)` | `production.create` (ou edição, se existir) | Registro + ordens numa transação |
-| `update_production_record(id, ...)` | `production.edit`, ou `production.edit_own` se autor e `created_at > now() - 24h` | [D24] |
-| `delete_production_record(id)` | `production.delete` (ou `edit_own` na janela) | |
-| `bulk_update_production_records(ids, ...)` | `production.bulk_edit` | Mover data / trocar turno |
-| `bulk_delete_production_records(ids)` | `production.bulk_delete` | |
-| `create_machine(name, ..., initial_target)` | `machines.manage` | Máquina + primeira meta [D13] |
-| `approve_user(user_id, role_id, permissions[])` | `users.approve` | Copia o perfil e aplica ajustes |
-| `identify_shared_session(badge_number)` | conta `shared` | Grava `shared_account_sessions` |
+| `save_production_record(p_production_date, p_shift_id, p_machine_id, p_orders jsonb = null, p_notes = null, p_operator_count = null, p_work_mode = 'regular', p_replace_orders = false) → uuid` | `production.create` para criar; regra de edição (D24) se já existir | Cria ou **completa** o apontamento; ordens enviadas são acrescentadas (D30), ou substituídas com `p_replace_orders`. Meta copiada de `machine_target_on` (D08); operadores = lotação padrão se não informados. `p_notes`: null mantém, `''` apaga |
+| `update_production_record(p_id, p_notes, p_operator_count, p_orders, p_production_date, p_shift_id, p_work_mode) → uuid` | `production.edit`, ou `edit_own` se autor e `created_at > now() - 24h` | null = manter; `p_orders` substitui [D24] |
+| `delete_production_record(p_id)` | `production.delete`, ou `edit_own` na janela | Ordens apagadas em cascata |
+| `bulk_update_production_records(p_ids uuid[], p_new_date = null, p_new_shift_id = null) → integer` | `production.bulk_edit` | Até 200; colisão com apontamento existente → nada é alterado |
+| `bulk_delete_production_records(p_ids uuid[]) → integer` | `production.bulk_delete` | Até 200 |
+| `create_machine(p_name, p_initial_target = 0, p_has_target = true, p_standard_operator_count = null) → integer` | `machines.manage` | Máquina + primeira meta vigente hoje [D13] |
+| `save_machine_targets(p_targets jsonb {"id": meta}, p_valid_from = hoje) → integer` | `targets.manage` | Grava só as metas que mudaram; mesma data (hoje/futura) é corrigida [D15, D31] |
+| `approve_user(p_user_id, p_role_id, p_permissions text[] = null)` | `users.approve` | Ativa, aplica o perfil e copia (ou ajusta) as permissões [D22] |
+| `identify_shared_session(p_badge_number) → text` | conta `shared` ativa | Crachá de usuário `personal` ativo; grava `shared_account_sessions`; devolve o nome |
+| `bootstrap_admin(p_email, p_role_code = 'manager')` | só o dono do banco | Instalação: ativa o primeiro gestor. Sem execução para `anon`/`authenticated` |
 
-Funções que escrevem usam `SECURITY DEFINER` com `search_path` fixo e checagem explícita de permissão.
+Funções que escrevem usam `SECURITY DEFINER` com `search_path = ''` e checagem explícita de permissão. Execução revogada de `public`/`anon` e concedida a `authenticated`. Mensagens de erro em português (códigos `42501` sem permissão, `23505` duplicidade, `22023` parâmetro inválido, `P0002` não encontrado).
 
 ## 7. Segurança (RLS)
 
