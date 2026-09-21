@@ -41,6 +41,8 @@ Status possíveis: `Aprovada` · `Assumida` (sem confirmação explícita) · `S
 | D32 | Meta de datas anteriores ao histórico | Aprovada em parte — regra geral mantida na D34 | 21/09/2026 |
 | D33 | Autor lê os próprios apontamentos (ligado à permissão) | Aprovada | 21/09/2026 |
 | D34 | Gestão de metas por linha do tempo (painel do gestor) | Proposta | 21/09/2026 |
+| D35 | Migração do histórico da planilha Excel | Proposta | 21/09/2026 |
+| D36 | Atingimento × disponibilidade (máquinas contínuas e sob demanda) | Proposta | 21/09/2026 |
 
 ---
 
@@ -234,3 +236,34 @@ Status possíveis: `Aprovada` · `Assumida` (sem confirmação explícita) · `S
 - **Consequências:** D15 será substituída; D31 deixa de existir isolada; a regra geral da D32 (meta vigente na data da produção) continua. `machine_targets` ganha o motivo da mudança; nasce uma função de recálculo auditada.
 - **Em aberto:** (a) montar a linha do tempo do passado a partir da planilha de apontamentos que o usuário vai enviar (a meta gravada em cada linha); (b) **fechamento mensal** — discutir depois, como um arquivo pronto com os indicadores do mês.
 - **Alternativas rejeitadas:** metas com data de fim obrigatória (não dá para prever quando haverá meta nova); preservar correções avulsas em apontamentos (criaria metas "escondidas" diferentes do gráfico); permissão separada para alterar o passado (o usuário preferiu manter só gestor/admin).
+
+### D35 — Migração do histórico da planilha Excel
+- **Status:** Proposta (21/09/2026) — combinada com o usuário; depende da revisão do gestor (datas de entrada em operação, tipo de máquina, pendências).
+- **Contexto:** o histórico real está na planilha `ITAJAI - CONTROLE DE PRODUÇÃO 2026.xlsx` (20/12/2025 em diante, uma aba por mês, linha = data + turno, coluna = máquina, sem nº de OP). O app atual (Google Sheets + Apps Script) registra a **mesma** produção e será abandonado quando o sistema novo estiver em uso.
+- **Decisão (pontos confirmados pelo usuário):**
+  1. **Fonte única do histórico = a planilha Excel.** O Google Sheets do app serve só para conferência (importar os dois contaria em dobro).
+  2. **Virada:** uma **data de corte**, precedida de uma rodagem em paralelo curta (a equipe aponta no sistema; a planilha segue só para comparação). Depois do corte, só o sistema.
+  3. **A planilha nunca é alterada.** A extração é um script reproduzível (rodar de novo dá o mesmo resultado).
+  4. **Área de preparo** no banco, separada das tabelas de produção; cada valor guarda a origem (aba e célula, ex.: `JUN 26!F12`).
+  5. **Pendências revisadas caso a caso** pelo gestor antes da carga: hora extra (rótulos "HORA EXTRA", "H. EXTRA", "EXTRA 1°T/2°T"; sábado 10/01), textos no lugar de números ("Preventiva", "Manutenção" → paradas de máquina), anotações de retrabalho.
+  6. **Carga em lote** identificado e reversível; cada apontamento marcado como vindo da planilha, com a célula de origem; passa pela auditoria.
+  7. **Conferência obrigatória:** total por máquina e mês no sistema = total na planilha.
+  8. **Data de entrada em operação** por máquina: sugerida como o 1º dia com produção e confirmada pelo gestor. Zeros **antes** dela = máquina ainda não existia em Itajaí (descartados). A linha do tempo de metas (D34) começa nessa data.
+  9. **Metas:** a meta do grupo na planilha vale **para cada máquina** do grupo (ex.: "Horizontais 500" → Horizontal 1 = 500 e Horizontal 2 = 500). Agosto e setembro continuam com as metas de julho. Máquinas sem meta na planilha ficam **sem meta** até o gestor definir no painel (D34).
+  10. **Máquinas:** entram as que não existem no app (2 CONJUNTOS, 1 CONJUNTOS, REBITAGEM PINOS, MÁQUINA DE PLUG AUTOMÁTICA); **PRENSA TOX** entra como **Montagem Diversos**.
+  11. **Retrabalho:** nomenclatura antiga respeitada no histórico (só 3 anotações na planilha, tratadas uma a uma); a boa prática nova vale a partir da entrada em produção do sistema.
+  12. **OP:** apontamentos importados entram sem nº de OP ("importado da planilha"). A OP informada passa a ser boa prática nova, com integração futura ao SAP.
+- **Impacto no banco (a implementar):** data de entrada/saída de operação em `machines`; origem e lote em `production_records`; tabela da área de preparo; tipo da máquina (D36). Tudo aditivo.
+- **Alternativas rejeitadas:** importar também o Google Sheets (duplicaria); tratar todo zero como "não rodou" (misturaria máquinas que ainda não existiam); gravar direto nas tabelas de produção sem área de preparo (sem revisão nem desfazer).
+
+### D36 — Atingimento × disponibilidade (máquinas contínuas e sob demanda)
+- **Status:** Proposta (21/09/2026) — opção escolhida pelo usuário; **a classificação das máquinas precisa ser revisada pelo gestor**.
+- **Contexto:** um turno com produção zero pode ser parada (máquina contínua) ou simplesmente falta de pedido (máquina sob demanda). Contar todo zero no atingimento castiga as máquinas sob demanda; ignorar todo zero esconde as paradas das contínuas.
+- **Decisão:** dois indicadores separados.
+  - **Atingimento:** mede só os turnos em que a máquina rodou ("quando roda, rende o esperado?").
+  - **Disponibilidade:** só para máquinas **contínuas** — turnos em que rodou ÷ turnos programados, com os motivos das paradas ("ficou parada quando devia rodar?").
+- **Cadastro:** cada máquina é marcada como **contínua** ou **sob demanda** (o gestor pode mudar depois). Sugestão inicial a revisar: contínuas = embaladoras (horizontais, verticais placas/suporte e módulos, a granel), conjuntos e máquina de plug; sob demanda = kits, Refinatto, Teste Interruptores, Montagem Diversos e demais montagens.
+- **Na importação:** zeros de máquinas contínuas depois da entrada em operação viram **turnos parados** (com o motivo quando a planilha informa); zeros de máquinas sob demanda são ignorados.
+- **No dia a dia:** máquina contínua sem apontamento num turno normal gera aviso ("Horizontal 1 sem apontamento no T2 de ontem"); quem aponta informa o motivo ou lança a produção esquecida.
+- **Alternativas rejeitadas:** ignorar zeros em todas; contar zeros em todas; misturar paradas no atingimento das contínuas (um número só esconde se a máquina está lenta ou parada).
+- **Relação:** amplia a D05 (paradas de máquina) — `machine_downtimes` passará a ter motivos como falta de material e falta de operador.
