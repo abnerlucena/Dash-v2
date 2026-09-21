@@ -1,6 +1,6 @@
 # Referência Técnica do Schema
 
-> Versão do schema: `v0.4.0` · Última atualização: 20/09/2026 · Status: **em implementação** (tabelas criadas marcadas com ✅)
+> Versão do schema: `v0.5.0` · Última atualização: 20/09/2026 · Status: **em implementação** (tabelas criadas marcadas com ✅)
 > SGBD: PostgreSQL (Supabase) · Schema: `public` (+ `auth`, gerenciado pelo Supabase)
 > Decisões citadas como `[Dxx]` estão em [03-decisoes.md](03-decisoes.md).
 
@@ -46,21 +46,21 @@ Colunas de autoria (`created_by`, `updated_by`, `granted_by`, `approved_by`) →
 
 Legenda: **PK** chave primária · **FK** chave estrangeira · **NN** not null · **UQ** unique.
 
-### 3.1 `machines`
+### 3.1 `machines` ✅ implementada em 20/09/2026
 | Coluna | Tipo | Restrições | Descrição |
 |---|---|---|---|
 | `id` | `integer` | PK, `generated always as identity` | [D01] |
-| `name` | `text` | NN; UQ em `lower(name)` | [D02] |
+| `name` | `text` | NN, CHECK não vazio; UQ em `lower(name)` (`machines_name_lower_key`) | [D02] |
 | `has_target` | `boolean` | NN, default `true` | Participa do cálculo de meta |
 | `status` | `text` | NN, default `'active'`, CHECK `active`/`inactive`/`maintenance`/`preventive_maintenance` | [D05] |
-| `status_updated_at` | `timestamptz` | | Última mudança de status |
+| `status_updated_at` | `timestamptz` | | Última mudança de status (gatilho `set_machine_status_updated_at`) |
 | `standard_operator_count` | `smallint` | CHECK `>= 0` | Lotação padrão [D12] |
-| `created_by`, `updated_by` | `uuid` | FK `profiles` | [D04] |
+| `created_by`, `updated_by` | `uuid` | FK `profiles`; `created_by` default `auth.uid()` | [D04] |
 | `created_at`, `updated_at` | `timestamptz` | NN, default `now()` | |
 
-Exclusão física bloqueada por FK quando houver produção; desativar via `status`.
+Exclusão física bloqueada por FK quando houver produção; desativar via `status`. Gatilhos: `set_updated_at`, `set_machine_status_updated_at`. `id` só aceita valor manual com `OVERRIDING SYSTEM VALUE` (usado no seed para manter os ids do legado).
 
-### 3.2 `shifts` ✅ implementada em 16/09/2026
+### 3.2 `shifts` ✅ implementada em 16/09/2026 (reaplicada no projeto atual em 20/09/2026 — D28)
 | Coluna | Tipo | Restrições | Descrição |
 |---|---|---|---|
 | `id` | `smallint` | PK | 1, 2, 3 |
@@ -117,17 +117,17 @@ Exclusão física bloqueada por FK quando houver produção; desativar via `stat
 
 UQ `(source, external_id)` (idempotência de importação) · Índice `(machine_id, started_at)`. [D05]
 
-### 3.6 `machine_targets`
+### 3.6 `machine_targets` ✅ implementada em 20/09/2026
 | Coluna | Tipo | Restrições | Descrição |
 |---|---|---|---|
 | `id` | `uuid` | PK | |
 | `machine_id` | `integer` | NN, FK `machines` | |
 | `quantity_per_shift` | `integer` | NN, CHECK `>= 0` | Igual para todos os turnos [D14] |
-| `valid_from` | `date` | NN; trigger recusa data < hoje (SP) | [D15] |
+| `valid_from` | `date` | NN; gatilho recusa data < hoje (SP) em INSERT e UPDATE | [D15] |
 | `created_by` | `uuid` | FK `profiles` | |
 | `created_at` | `timestamptz` | NN, default `now()` | |
 
-UQ `(machine_id, valid_from)` — também atende a busca "maior `valid_from` ≤ data". Append-only. [D13]
+UQ `machine_targets_machine_valid_from_key (machine_id, valid_from)` — também atende a busca "maior `valid_from` ≤ data". Append-only para o passado: metas já vigentes antes de hoje não podem ser alteradas; a meta de hoje/futura pode ser corrigida pela função `save_machine_targets` [D13, D31].
 
 ### 3.7 `calendar_events`
 | Coluna | Tipo | Restrições | Descrição |
@@ -255,7 +255,8 @@ Views devem ser criadas com `security_invoker = true` para respeitar o RLS de qu
 | `handle_new_user` | `auth.users`, `AFTER INSERT` | Cria `profiles` (`pending`, `personal`) a partir dos metadados do cadastro |
 | `notify_approvers` | `profiles`, `AFTER INSERT` com `status = 'pending'` | Uma `notification` por usuário ativo com `users.approve` |
 | `resolve_approval_notifications` | `profiles`, `AFTER UPDATE` de `status` | Marca `read_at` nas notificações do perfil para todos |
-| `validate_target_valid_from` | `machine_targets`, `BEFORE INSERT` | Recusa `valid_from < (now() at time zone 'America/Sao_Paulo')::date` |
+| `validate_target_valid_from` | `machine_targets`, `BEFORE INSERT OR UPDATE` | Recusa `valid_from < (now() at time zone 'America/Sao_Paulo')::date` e UPDATE de meta com `valid_from` antigo |
+| `set_machine_status_updated_at` | `machines`, `BEFORE INSERT OR UPDATE OF status` | `status_updated_at = now()` quando o status muda |
 | `audit_row_change` | produção, ordens, máquinas, metas, eventos, perfis, permissões | Insere em `audit_logs` |
 
 ## 6. Funções (RPC)

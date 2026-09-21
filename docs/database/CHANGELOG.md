@@ -17,6 +17,30 @@ Formato de cada entrada:
 
 ---
 
+## [0.5.0] — 20/09/2026 — Máquinas e histórico de metas
+
+- **Status:** Implementado no Supabase em 20/09/2026
+- **Commit/PR:** branch `claude/supabase-fase-c-noite`
+- **Migration:** `supabase/migrations/20260920102000_create_machines.sql`
+- **Decisões:** D01, D02, D05, D12, D13, D14, D15; D31 (referenciada, registrada na 0.9.0)
+
+### Adicionado
+- Tabelas `machines` e `machine_targets`, RLS ligado.
+- Índice único `machines_name_lower_key` em `lower(name)` [D02]; UQ `(machine_id, valid_from)` em `machine_targets`.
+- Gatilhos: `set_updated_at` (machines), `set_machine_status_updated_at` (novo: grava `status_updated_at` no cadastro e em cada troca de status), `validate_target_valid_from` (INSERT **e** UPDATE: recusa vigência no passado e alteração de meta já vigente).
+- `created_by` com `default auth.uid()` (preenchido automaticamente com o usuário logado).
+
+### Verificação no banco
+- Rodada duas vezes sem erro. Cadastro de máquina + meta de hoje: OK.
+- Recusados: nome repetido com outra caixa ("Teste X"/"TESTE x"), status legado `ativo`, meta com vigência em 16/09 (mensagem em português), meta negativa, id manual sem `OVERRIDING SYSTEM VALUE`.
+- Confirmado o fuso: com o servidor já em 21/09 (UTC), o gatilho considerou "hoje" = 20/09 (Brasília).
+
+### Impacto no frontend
+- Status passa de `ativo`/`inativo` para `active`/`inactive`/`maintenance`/`preventive_maintenance` (o adaptador converte).
+- `defaultMeta` deixa de existir: a meta vem de `machine_targets`.
+
+---
+
 ## [0.4.0] — 20/09/2026 — Pessoas: perfis, permissões individuais e conta compartilhada
 
 - **Status:** Implementado no Supabase em 20/09/2026
