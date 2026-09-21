@@ -121,6 +121,49 @@ export const supabaseAuth: DataSource["auth"] = {
     try { localStorage.setItem(ONBOARDING_KEY(session.userId), "1"); } catch { /* sem localStorage */ }
   },
 
+  // O Supabase guarda UMA sessão por navegador, compartilhada entre as abas.
+  // Se outra aba entrar com outro usuário, esta aba precisa acompanhar — senão
+  // mostraria um nome e falaria com o banco como outra pessoa.
+  watchSession(onChange) {
+    const sb = getSupabase();
+    let lastUserId: string | null | undefined;
+    let running = false, again = false;
+    const check = async () => {
+      if (running) { again = true; return; }   // chegou outra troca no meio: confere de novo ao terminar
+      running = true;
+      try {
+        const { data } = await sb.auth.getSession();
+        const uid = data.session?.user.id ?? null;
+        if (uid === lastUserId) return;
+        lastUserId = uid;
+        if (!uid) { onChange(null); return; }
+        const { session } = await buildSession();
+        // Cadastro pendente ou bloqueado não tem permissão nenhuma: trata como sem login.
+        const semAcesso = (session.permissions?.length ?? 0) === 0 && session.accountType !== "shared";
+        onChange(semAcesso ? null : session);
+      } catch {
+        /* sem rede: tenta de novo no próximo evento */
+        lastUserId = undefined;
+      } finally {
+        running = false;
+        if (again) { again = false; void check(); }
+      }
+    };
+    const { data: sub } = sb.auth.onAuthStateChange(() => { void check(); });
+    const onVisible = () => { if (document.visibilityState === "visible") void check(); };
+    const onStorage = (e: StorageEvent) => { if (!e.key || e.key.startsWith("sb-")) void check(); };
+    window.addEventListener("focus", onVisible);
+    window.addEventListener("storage", onStorage);
+    document.addEventListener("visibilitychange", onVisible);
+    void check();
+    return () => {
+      sub.subscription.unsubscribe();
+      window.removeEventListener("focus", onVisible);
+      window.removeEventListener("storage", onStorage);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  },
+
   async isSessionValid(session) {
     if (session.source !== "supabase") return false;
     const { data } = await getSupabase().auth.getSession();

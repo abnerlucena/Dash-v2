@@ -1,4 +1,5 @@
-import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from "react";
+import { createContext, useContext, useState, useEffect, useCallback, useRef, type ReactNode } from "react";
+import { toast } from "sonner";
 import {
   type Session, type Machine, type ProdRecord, type Holiday, type OrdemProducao,
   loadSession, saveSession, clearSession,
@@ -233,6 +234,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!user || !isSupabase) return;
     dataSource.auth.isSessionValid(user).then(ok => { if (!ok) logout(); }).catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // ── Modo Supabase: acompanhar trocas de login feitas em outra aba ──
+  // O login do Supabase é um só por navegador. Se outra aba entrar com outro
+  // usuário (ou sair), esta aba passa a mostrar quem de fato está logado.
+  const userRef = useRef(user);
+  userRef.current = user;
+  useEffect(() => {
+    if (!isSupabase) return;
+    return dataSource.auth.watchSession(s => {
+      const cur = userRef.current;
+      if (!cur) return;                         // na tela de login: quem cuida é o login()
+      if (!s) {
+        toast.info("Sua sessão foi encerrada (saída ou login feito em outra aba).");
+        logout();
+        return;
+      }
+      if (s.userId !== cur.userId) {
+        saveSession(s);
+        setUser(s);
+        toast.info(`Esta aba agora está com o login de ${s.nome} (entrada feita em outra aba deste navegador).`);
+      }
+    });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

@@ -27,6 +27,7 @@ export const gasDataSource: DataSource = {
     async logout() { /* sessão do GAS é só local: nada a fazer no servidor */ },
     async completeOnboarding(session) { await api("completeOnboarding", {}, session); },
     async isSessionValid() { return true; },
+    watchSession() { return () => {}; },
   },
 
   production: {

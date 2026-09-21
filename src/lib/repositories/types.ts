@@ -99,6 +99,12 @@ export interface DataSource {
     completeOnboarding(session: Session | null): Promise<void>;
     /** Confere se a sessão salva ainda vale (Supabase). No GAS sempre true. */
     isSessionValid(session: Session): Promise<boolean>;
+    /**
+     * Avisa quando o login do navegador muda por fora desta aba (outra aba entrou
+     * com outro usuário, ou saiu). Recebe a sessão nova, ou null se não há login
+     * válido. Devolve a função que para de vigiar. No GAS não faz nada.
+     */
+    watchSession(onChange: (session: Session | null) => void): () => void;
   };
 
   production: {
