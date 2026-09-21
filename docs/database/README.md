@@ -34,6 +34,14 @@ Estas regras valem para pessoas **e** para o Claude Code (ver `CLAUDE.md` na rai
 5. **Nunca registrar segredos aqui:** nada de senhas, `service_role key`, tokens ou dados pessoais.
    A `anon key` e a URL do projeto também ficam fora — elas vivem no `.env.local`.
 
+## Como o app usa o banco
+
+- Chave liga/desliga: `VITE_DATA_SOURCE` = `gas` (padrão, Apps Script) ou `supabase`. Ver `src/lib/repositories/index.ts`.
+- `src/lib/repositories/` — uma operação por ação do Apps Script; `gas.ts` repassa ao `api()` atual, `supabase/` usa as views e RPCs deste schema. Adaptadores em `supabase/adapters.ts` (produção boa como produção, meta zerada para hora extra e dia anulado).
+- `src/lib/database.types.ts` — tipos do schema. **Regenerar após cada migration** (`npx supabase gen types typescript --project-id <ref>`, com login na CLI; ou o script de introspecção usado em 20/09/2026, que tem o mesmo formato).
+- Pastas do banco: `supabase/migrations/` (+ `_consolidado.sql`), `supabase/seed/`, `supabase/tests/` (verificação SQL com `rollback`).
+- Teste de ponta a ponta da camada: `npm run test:integration` (precisa de `.env.local` e das variáveis `TEST_*` de usuários de teste).
+
 ## Convenções de nomenclatura (resumo)
 
 - Nomes de tabelas e colunas em **inglês**, `snake_case`, sem acentos.
