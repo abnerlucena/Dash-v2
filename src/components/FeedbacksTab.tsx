@@ -8,7 +8,8 @@ import { data } from "@/lib/repositories";
 import { DatePickerInput } from "@/components/DatePickerInput";
 import { SelectDropdown } from "@/components/SelectDropdown";
 
-const recordKey = (r: ProdRecord) => `${r.date}-${r.machineId}-${r.turno}`;
+// Hora extra (só modo Supabase) é outro apontamento no mesmo dia/turno/máquina: chave própria.
+const recordKey = (r: ProdRecord) => `${r.date}-${r.machineId}-${r.turno}${r.workMode === "overtime" ? "-HE" : ""}`;
 
 const FeedbacksTab = () => {
   const { user, records, machines, silentRefresh } = useAuth();

@@ -46,6 +46,8 @@ export interface ProductionEntryPayload {
   savedBy: string;
   savedAt: string;
   obs: string;
+  /** Só modo Supabase: nº de operadores do turno (D12). Vazio = lotação padrão. */
+  operatorCount?: number;
 }
 
 export interface SaveEntriesOptions {

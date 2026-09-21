@@ -3,13 +3,14 @@ import { Save, Check, MessageSquare, X, Search, ChevronDown, ChevronUp, Plus } f
 import { useAuth, type OrdemProducao } from "@/contexts/AuthContext";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { TURNOS, today, pctColor } from "@/lib/api";
-import { data } from "@/lib/repositories";
+import { data, isSupabase } from "@/lib/repositories";
 import { toast } from "sonner";
 import { DatePickerInput } from "@/components/DatePickerInput";
 import { SelectDropdown } from "@/components/SelectDropdown";
 import OrdemProducaoInput from "@/components/OrdemProducaoInput";
 
-interface EntryData { machineId: number; ordens: OrdemProducao[]; obs: string; }
+// operadores: só no modo Supabase (D12); vazio = lotação padrão da máquina.
+interface EntryData { machineId: number; ordens: OrdemProducao[]; obs: string; operadores?: string; }
 
 // Static machine grouping — matched case-insensitively against backend names
 const MACHINE_GROUPS: { id: string; label: string; names: string[] }[] = [
@@ -26,6 +27,8 @@ const ProductionEntry = () => {
 
   const [selectedDate, setSelectedDate]     = useState(today());
   const [selectedTurno, setSelectedTurno]   = useState(TURNOS[0]);
+  // Só modo Supabase (D27): hora extra fica fora do cálculo de meta.
+  const [workMode, setWorkMode]             = useState<"regular" | "overtime">("regular");
   const [entries, setEntries]               = useState<Record<number, EntryData>>(() => {
     const init: Record<number, EntryData> = {};
     machines.forEach(m => { init[m.id] = { machineId: m.id, ordens: [{ ordemId: "", quantidade: 0 }], obs: "" }; });
@@ -87,6 +90,12 @@ const ProductionEntry = () => {
     updateObs(machineId, value.slice(0, 500));
   }
 
+  function updateOperadores(machineId: number, value: string) {
+    const clean = value.replace(/D/g, "").slice(0, 3);
+    setEntries(prev => ({ ...prev, [machineId]: { ...prev[machineId], operadores: clean } }));
+    setSaved(false);
+  }
+
   function updateOrdens(machineId: number, ordens: OrdemProducao[]) {
     setEntries(prev => ({ ...prev, [machineId]: { ...prev[machineId], ordens } }));
     setSaved(false);
@@ -138,10 +147,11 @@ const ProductionEntry = () => {
             savedBy: user?.nome || "",
             savedAt: nowBR,
             obs: e.obs || "",
+            ...(isSupabase && e.operadores ? { operatorCount: Number(e.operadores) } : {}),
           };
         });
 
-      await data.production.saveEntries(records, {}, user);
+      await data.production.saveEntries(records, isSupabase ? { workMode } : {}, user);
       saveOk = true;
       toast.success("Apontamento salvo com sucesso!");
     } catch (e: any) {
@@ -199,6 +209,19 @@ const ProductionEntry = () => {
               options={TURNOS.map(t => ({ value: t, label: t }))}
             />
           </div>
+          {isSupabase && (
+            <div className="flex-1">
+              <SelectDropdown
+                label="Tipo de trabalho"
+                value={workMode}
+                onChange={v => { setWorkMode(v === "overtime" ? "overtime" : "regular"); setSaved(false); }}
+                options={[
+                  { value: "regular", label: "Turno normal" },
+                  { value: "overtime", label: "Hora extra (fora da meta)" },
+                ]}
+              />
+            </div>
+          )}
         </div>
         <div className="flex items-center gap-2 mt-2.5">
           <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
@@ -293,6 +316,18 @@ const ProductionEntry = () => {
                       </button>
                     );
 
+                    const operadoresInput = isSupabase ? (
+                      <input
+                        value={entry.operadores ?? ""}
+                        onChange={e => updateOperadores(machine.id, e.target.value)}
+                        inputMode="numeric"
+                        placeholder="Operadores"
+                        title="Nº de operadores no turno (vazio = lotação padrão)"
+                        className="h-9 w-24 px-2 text-xs font-semibold rounded-md border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/30 placeholder:text-muted-foreground/50"
+                        style={{ borderRadius: 6 }}
+                      />
+                    ) : null;
+
                     const obsButton = (size: number) => (
                       <button
                         onClick={() => setObsOpen(obsOpen === machine.id ? null : machine.id)}
@@ -332,6 +367,7 @@ const ProductionEntry = () => {
 
                               <div className="flex items-center justify-between mt-2">
                                 {obsButton(9)}
+                                {operadoresInput}
                                 {addOrdemBtn}
                               </div>
                             </>
@@ -357,6 +393,7 @@ const ProductionEntry = () => {
                                 <OrdemProducaoInput ordens={entry.ordens} onChange={o => updateOrdens(machine.id, o)} />
                                 <div className="flex items-center justify-between">
                                   {obsButton(8)}
+                                  {operadoresInput}
                                   {addOrdemBtn}
                                 </div>
                               </div>
@@ -412,7 +449,7 @@ const ProductionEntry = () => {
               <p className="text-xs font-bold text-white">
                 {saved ? "Salvo com sucesso!" : `${filledCount} máquina${filledCount > 1 ? "s" : ""} preenchida${filledCount > 1 ? "s" : ""}`}
               </p>
-              <p className="text-[10px] text-white/50">{selectedDate} - {selectedTurno}</p>
+              <p className="text-[10px] text-white/50">{selectedDate} - {selectedTurno}{isSupabase && workMode === "overtime" ? " · Hora extra" : ""}</p>
             </div>
             {!saved && (
               <button onClick={handleClear}

@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Bell, BellOff, Send, Loader2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
-import { data } from "@/lib/repositories";
+import { data, isSupabase } from "@/lib/repositories";
 import { toast } from "sonner";
 
 interface AlertConfig {
@@ -90,6 +90,17 @@ const AlertConfigPanel = () => {
 
   const inputCls =
     "w-full px-3 py-2.5 rounded-md border border-border bg-background text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all";
+
+  // Alertas por e-mail não fazem parte do banco novo (nem do Main.gs atual).
+  if (isSupabase) {
+    return (
+      <div className="bg-muted/30 rounded-xl p-5 border border-border text-center">
+        <BellOff size={20} className="mx-auto mb-2 text-muted-foreground" />
+        <p className="text-sm font-bold text-foreground">Alertas por e-mail ainda não existem no modo Supabase</p>
+        <p className="text-xs text-muted-foreground mt-1">Pendência registrada para uma próxima etapa (Edge Function + Cron).</p>
+      </div>
+    );
+  }
 
   if (loading) {
     return (

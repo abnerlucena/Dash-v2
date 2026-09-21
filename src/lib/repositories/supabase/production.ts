@@ -35,6 +35,7 @@ export const supabaseProduction: DataSource["production"] = {
         p_orders: toOrdersJson(e.ordensProducao),
         p_notes: e.obs?.trim() ? e.obs.trim() : undefined,
         p_work_mode: workMode,
+        p_operator_count: e.operatorCount ?? undefined,
       });
       if (error) throw toError(error);
     }

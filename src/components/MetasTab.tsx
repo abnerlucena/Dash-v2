@@ -3,7 +3,8 @@ import { Pencil, Check, X } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { today, dispD } from "@/lib/api";
-import { data } from "@/lib/repositories";
+import { data, isSupabase } from "@/lib/repositories";
+import TargetHistory from "@/components/TargetHistory";
 import { toast } from "sonner";
 import { DatePickerInput } from "@/components/DatePickerInput";
 
@@ -18,7 +19,9 @@ const MetasTab = () => {
   const [vigencia, setVigencia]     = useState(today());
   const [saving, setSaving]         = useState(false);
 
-  const isAdmin = user?.role === "admin";
+  // Modo Supabase: quem altera metas é quem tem a permissão targets.manage (o banco confere de novo).
+  const isAdmin = isSupabase ? !!user?.permissions?.includes("targets.manage") : user?.role === "admin";
+  const [historyKey, setHistoryKey] = useState(0);
 
   function startEdit() {
     const init: Record<number, string> = {};
@@ -43,6 +46,7 @@ const MetasTab = () => {
       });
       await data.targets.saveMetas(payload, vigencia, user);
       await refreshMetas();
+      if (isSupabase) setHistoryKey(k => k + 1);
       setEditing(false);
       setEditValues({});
       toast.success("Metas salvas com sucesso!");
@@ -258,6 +262,8 @@ const MetasTab = () => {
           </p>
         </div>
       </div>
+
+      {isSupabase && <TargetHistory refreshKey={historyKey} />}
     </div>
   );
 };

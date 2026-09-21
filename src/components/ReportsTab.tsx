@@ -499,7 +499,15 @@ const ReportsTab = () => {
                               )}
                             </td>
                             <td className="px-4 py-2.5 text-xs">{dispD(r.date)}</td>
-                            <td className="px-3 py-2.5 text-xs">{r.turno}</td>
+                            <td className="px-3 py-2.5 text-xs">
+                              {r.turno}
+                              {r.workMode === "overtime" && (
+                                <span className="ml-1 text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-800" title="Hora extra: fora do cálculo de meta">HE</span>
+                              )}
+                              {r.isExcludedDay && (
+                                <span className="ml-1 text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-red-100 text-red-700" title="Dia/turno anulado: fora do cálculo de meta">anulado</span>
+                              )}
+                            </td>
                             <td className="px-3 py-2.5 text-xs font-semibold">{r.machineName}</td>
                             <td className="px-3 py-2.5 text-right text-xs text-muted-foreground">{meta > 0 ? meta.toLocaleString("pt-BR") : "—"}</td>
                             <td className="px-3 py-2.5 text-right text-xs font-bold">{prod.toLocaleString("pt-BR")}</td>
