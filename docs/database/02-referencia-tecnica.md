@@ -1,6 +1,6 @@
 # Referência Técnica do Schema
 
-> Versão do schema: `v0.10.1` · Última atualização: 20/09/2026 · Status: **implementado no Supabase** (todas as tabelas, views, funções e RLS marcadas com ✅; dados de produção ainda no Google Sheets)
+> Versão do schema: `v0.10.3` · Última atualização: 21/09/2026 · Status: **implementado no Supabase** (projeto de testes) (todas as tabelas, views, funções e RLS marcadas com ✅; dados de produção ainda no Google Sheets)
 > SGBD: PostgreSQL (Supabase) · Schema: `public` (+ `auth`, gerenciado pelo Supabase)
 > Decisões citadas como `[Dxx]` estão em [03-decisoes.md](03-decisoes.md).
 
@@ -274,7 +274,7 @@ Ambas criadas com `security_invoker = true`: respeitam o RLS de quem consulta.
 | `current_identified_user_id()` | `uuid` | Pessoa identificada por crachá na sessão (claim `session_id` do JWT) [D23] |
 | `machine_target_on(p_machine_id, p_date)` | `integer` | Meta vigente na data; antes do início do histórico, a mais antiga [D32] |
 | `list_profile_names()` | `table(id, full_name)` | Só id + nome, só para usuários ativos (exibir "quem apontou" sem expor crachá) |
-| `can_edit_production_record(created_by, created_at)` / `can_delete_production_record(...)` | `boolean` | Regra D24 |
+| `can_edit_production_record(created_by, created_at)` / `can_delete_production_record(...)` | `boolean` | Regra D24. Nunca devolve `NULL`: apontamento **sem autor** só é editável/apagável com `production.edit` / `production.delete` (correção 0.10.3) |
 | `insert_production_orders(record_id, orders jsonb)` | `integer` | Interna (sem permissão de execução para o app) |
 
 ### 6.2 Funções RPC (chamadas pelo app)
@@ -303,7 +303,7 @@ RLS habilitado em **todas** as 16 tabelas de `public` (conferido no banco: 0 sem
 | `shifts` | ativo | — | `system.admin` | — |
 | `machines` | ativo | — (via `create_machine`) | `machines.manage` | — |
 | `machine_targets` | ativo | `targets.manage` (e `save_machine_targets`) | — (append-only) | — |
-| `production_records` | `history.view` ∨ `dashboard.view` ∨ `tv_mode.view` ∨ autor ativo [D33] | — (RPC) | — (RPC) | — (RPC) |
+| `production_records` | `history.view` ∨ `dashboard.view` ∨ `tv_mode.view` ∨ (autor ∧ `production.edit_own`) [D33] | — (RPC) | — (RPC) | — (RPC) |
 | `production_orders` | se o apontamento-pai é visível | — (RPC) | — | — |
 | `machine_downtimes` | ativo | — | — | — |
 | `calendar_events` | ativo | `calendar.manage` | `calendar.manage` | `calendar.manage` |

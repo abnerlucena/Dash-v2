@@ -17,6 +17,46 @@ Formato de cada entrada:
 
 ---
 
+## [0.10.3] — 21/09/2026 — Correção: apontamento sem autor
+
+- **Status:** Implementado no Supabase (projeto de testes) em 21/09/2026
+- **Commit/PR:** branch `claude/supabase-fase-c-noite` (PR #15)
+- **Migration:** `supabase/migrations/20260921101000_fix_edit_rules_null_author.sql`
+- **Decisões:** D24
+
+### Corrigido
+- `can_edit_production_record` e `can_delete_production_record` devolviam "desconhecido" (`NULL`) em vez de "não" quando o apontamento não tem autor (`created_by` vazio). Como o teste das funções de gravação era "se NÃO pode, recuse", um usuário só com `production.edit_own` conseguia **acrescentar ordens em apontamento sem autor** — por exemplo os de demonstração e, no futuro, os migrados da planilha.
+- Agora o resultado passa por `coalesce(..., false)`: apontamento sem autor só é editável/apagável com `production.edit` / `production.delete`.
+
+### Verificação no banco
+- Novo teste em `supabase/tests/01_funcoes.sql` ("op1 NÃO completa apontamento sem autor"): **falhava antes** da correção ("deixou!") e passa depois; a gestora continua conseguindo.
+- Suítes completas: 24/24 (funções) e 23/23 (RLS). `npm run test:integration`: 7/7. Execução revogada de `anon` mantida.
+- Testes SQL ajustados para não depender de o banco estar vazio (agora existe o seed de demonstração).
+
+### Impacto no frontend
+- Nenhum na tela; o operador passa a receber a mensagem de "sem permissão" nesse caso.
+
+---
+
+## [0.10.2] — 21/09/2026 — Ver os próprios apontamentos depende de permissão
+
+- **Status:** Implementado no Supabase (projeto de testes) em 21/09/2026
+- **Commit/PR:** branch `claude/supabase-fase-c-noite` (PR #15)
+- **Migration:** `supabase/migrations/20260921100000_own_records_by_permission.sql`
+- **Decisões:** D33 (confirmada), D22, D24
+
+### Alterado
+- Política `production_records_select`: a leitura dos próprios apontamentos passa de "qualquer usuário ativo" para "quem tem `production.edit_own`" (via `alter policy`, sem apagar nada). Ligada à permissão, e não ao nome do perfil, para respeitar os ajustes individuais de permissão (D22).
+- Com os perfis de fábrica nada muda na prática: só o Operador depende desta regra.
+
+### Verificação no banco
+- Novo teste em `supabase/tests/02_rls.sql`: sem `production.edit_own`, o operador deixa de ver os próprios apontamentos.
+
+### Impacto no frontend
+- Nenhum.
+
+---
+
 ## [0.10.1] — 20/09/2026 — Dados iniciais e script consolidado
 
 - **Status:** Implementado no Supabase em 20/09/2026

@@ -39,7 +39,7 @@ Status possíveis: `Aprovada` · `Assumida` (sem confirmação explícita) · `S
 | D30 | Novo lançamento no mesmo apontamento acrescenta ordens | Aprovada | 21/09/2026 |
 | D31 | Correção da meta de hoje/futura no mesmo dia | Provisória — confirmar com o usuário (em discussão) | 20/09/2026 |
 | D32 | Meta de datas anteriores ao histórico | Aprovada em parte (regra geral) | 21/09/2026 |
-| D33 | Autor lê os próprios apontamentos | Aprovada (ver ressalva) | 21/09/2026 |
+| D33 | Autor lê os próprios apontamentos (ligado à permissão) | Aprovada | 21/09/2026 |
 
 ---
 
@@ -208,7 +208,9 @@ Status possíveis: `Aprovada` · `Assumida` (sem confirmação explícita) · `S
 - **A confirmar:** quando os dados do Sheets forem migrados, o `target_quantity` de cada apontamento antigo virá da própria planilha (coluna `meta`), e esta regra só valerá para apontamentos atrasados novos.
 
 ### D33 — Autor lê os próprios apontamentos
-- **Status:** Aprovada em 21/09/2026, com a ressalva do usuário: a leitura "só os próprios apontamentos" é **a regra do perfil Operador**. Hoje, na prática, isso já acontece: todos os outros perfis-modelo têm `history.view`, `dashboard.view` ou `tv_mode.view` e veem toda a produção. **Em aberto:** se deve virar trava explícita por perfil (ver pergunta registrada no PR #15).
+- **Status:** Aprovada em 21/09/2026. O usuário confirmou a lógica "apenas para o Operador" e escolheu a forma recomendada: a regra fica ligada à **permissão** `production.edit_own`, não ao nome do perfil (migration 0.10.2).
 - **Contexto:** a referência dizia "leitura de produção: `history.view` OR `dashboard.view` OR `tv_mode.view`". O perfil Operador não tem nenhuma dessas, mas tem `production.edit_own` (corrigir o próprio apontamento por 24 h, D24) — e não dá para corrigir o que não se vê.
-- **Decisão:** a política de leitura de `production_records` também libera os apontamentos em que `created_by` é o próprio usuário (ativo). As ordens seguem o apontamento-pai.
+- **Decisão:** a política de leitura de `production_records` também libera os apontamentos em que `created_by` é o próprio usuário **e** ele tem `production.edit_own`. As ordens seguem o apontamento-pai.
+- **Por que permissão e não perfil:** as permissões são ajustáveis por pessoa (D22). Tirar de alguém o direito de corrigir também tira o de ver os próprios; com os perfis de fábrica, só o Operador depende desta regra — os demais já veem toda a produção.
+- **Alternativa rejeitada:** travar pelo perfil "Operador" (ignoraria os ajustes individuais).
 - **Alternativa rejeitada:** dar `history.view` ao Operador (ele passaria a ver a produção de todos).

@@ -66,7 +66,8 @@ select pg_temp.as_user('00000000-0000-0000-0000-0000000000c1', '22222222-2222-22
 -- 10. Admin (identificado) troca turno em massa, e colisão é recusada
 do $$ declare c int; begin
   reset role;  -- só para buscar os ids (sem RLS de leitura ainda)
-  create temp table ids as select id from public.production_records where work_mode = 'regular';
+  create temp table ids as select id from public.production_records
+    where work_mode = 'regular' and created_by = '00000000-0000-0000-0000-0000000000b1';  -- só o que o teste criou
   grant select on ids to authenticated;
   set local role authenticated;
   c := public.bulk_update_production_records(array(select id from ids), null, 2::smallint);
@@ -97,11 +98,26 @@ do $$ begin perform public.create_machine('horizontal 1', 1);
   insert into results(test, ok, info) values ('máquina duplicada recusada', false, 'aceitou!');
 exception when others then insert into results(test, ok, info) values ('máquina duplicada recusada', true, sqlerrm); end $$;
 -- 13. nomes para exibição e exclusão
-insert into results(test, ok, info) values ('list_profile_names', (select count(*) from public.list_profile_names()) = 5, (select string_agg(full_name, ', ' order by full_name) from public.list_profile_names()));
+insert into results(test, ok, info) values ('list_profile_names', (select count(*) from public.list_profile_names() where full_name in ('Admin','Gestora','Operador Dois','Operador Um','Pendente')) = 5, (select string_agg(full_name, ', ' order by full_name) from public.list_profile_names()));
 do $$ declare c int; begin
   c := public.bulk_delete_production_records(array(select id from ids));
   insert into results(test, ok, info) values ('gestora apaga em massa', c = 1, c::text || ' apagado(s)');
 exception when others then insert into results(test, ok, info) values ('gestora apaga em massa', false, sqlerrm); end $$;
+-- 13b. (0.10.3) apontamento SEM AUTOR: operador não completa nem apaga; gestora sim
+reset role;
+insert into public.production_records (production_date, shift_id, machine_id, target_quantity, created_by)
+values ('2026-09-10', 3, 17, 0, null);  -- autor vazio de propósito
+set local role authenticated;
+select pg_temp.as_user('00000000-0000-0000-0000-0000000000b1');
+do $$ begin
+  perform public.save_production_record('2026-09-10'::date, 3::smallint, 17, '[{"order_number":"S","quantity":1}]'::jsonb);
+  insert into results(test, ok, info) values ('op1 NÃO completa apontamento sem autor', false, 'deixou!');
+exception when others then insert into results(test, ok, info) values ('op1 NÃO completa apontamento sem autor', true, sqlerrm); end $$;
+select pg_temp.as_user('00000000-0000-0000-0000-0000000000a1');
+do $$ begin
+  perform public.save_production_record('2026-09-10'::date, 3::smallint, 17, '[{"order_number":"S","quantity":1}]'::jsonb);
+  insert into results(test, ok, info) values ('gestora completa apontamento sem autor', true, 'ok');
+exception when others then insert into results(test, ok, info) values ('gestora completa apontamento sem autor', false, sqlerrm); end $$;
 -- 14. anon não executa funções
 reset role;
 set local role anon;

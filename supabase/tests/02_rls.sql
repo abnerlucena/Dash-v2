@@ -9,10 +9,10 @@ do $$ begin
 end $$;
 -- op1 aponta
 select pg_temp.as_user('00000000-0000-0000-0000-0000000000b1');
-select public.save_production_record('2026-09-19'::date, 1::smallint, 1, '[{"order_number":"A","quantity":400},{"order_number":"B","quantity":100,"is_rework":true}]'::jsonb);
-insert into results(test, ok, info) select 'op1 vê o próprio apontamento', count(*) = 1, count(*)::text from public.production_records;
-insert into results(test, ok, info) select 'op1 vê as próprias ordens', count(*) = 2, count(*)::text from public.production_orders;
-insert into results(test, ok, info) select 'op1 vê resumo com boa x retrabalho', bool_and(good_quantity = 400 and rework_quantity = 100 and target_quantity = 500), string_agg(format('boa=%s retr=%s meta=%s', good_quantity, rework_quantity, target_quantity), ';') from public.production_summary;
+select public.save_production_record('2026-09-19'::date, 1::smallint, 18, '[{"order_number":"A","quantity":400},{"order_number":"B","quantity":100,"is_rework":true}]'::jsonb);
+insert into results(test, ok, info) select 'op1 vê o próprio apontamento', count(*) = 1, count(*)::text from public.production_records where machine_id = 18;
+insert into results(test, ok, info) select 'op1 vê as próprias ordens', count(*) = 2, count(*)::text from public.production_orders o join public.production_records r on r.id = o.production_record_id where r.machine_id = 18;
+insert into results(test, ok, info) select 'op1 vê resumo com boa x retrabalho', bool_and(good_quantity = 400 and rework_quantity = 100 and target_quantity = public.machine_target_on(18, '2026-09-19')), string_agg(format('boa=%s retr=%s meta=%s', good_quantity, rework_quantity, target_quantity), ';') from public.production_summary where machine_id = 18;
 insert into results(test, ok, info) select 'op1 lê máquinas e metas vigentes', count(*) = 18, count(*)::text from public.current_machine_targets;
 insert into results(test, ok, info) select 'op1 vê só o próprio profile', count(*) = 1, count(*)::text from public.profiles;
 insert into results(test, ok, info) select 'op1 NÃO vê auditoria', count(*) = 0, count(*)::text from public.audit_logs;
@@ -36,18 +36,18 @@ do $$ begin
 exception when others then insert into results(test, ok, info) values ('op1 NÃO se dá permissão', true, sqlerrm); end $$;
 -- op2 não vê o apontamento do op1
 select pg_temp.as_user('00000000-0000-0000-0000-0000000000b2');
-insert into results(test, ok, info) select 'op2 NÃO vê apontamento do op1', count(*) = 0, count(*)::text from public.production_records;
+insert into results(test, ok, info) select 'op2 NÃO vê apontamento do op1', count(*) = 0, count(*)::text from public.production_records where created_by = '00000000-0000-0000-0000-0000000000b1';
 insert into results(test, ok, info) select 'op2 NÃO vê ordens do op1', count(*) = 0, count(*)::text from public.production_orders;
 -- TV (display) vê produção por tv_mode.view
 select pg_temp.as_user('00000000-0000-0000-0000-0000000000e1');
-insert into results(test, ok, info) select 'conta TV vê produção', count(*) = 1, count(*)::text from public.production_summary;
+insert into results(test, ok, info) select 'conta TV vê produção (inclusive a do op1)', count(*) filter (where created_by = '00000000-0000-0000-0000-0000000000b1') = 1, count(*)::text from public.production_summary;
 -- pendente: vê só o próprio perfil, nada mais
 select pg_temp.as_user('00000000-0000-0000-0000-0000000000d1');
 insert into results(test, ok, info) select 'pendente vê o próprio perfil (pending)', count(*) = 1, max(status) from public.profiles;
 insert into results(test, ok, info) select 'pendente NÃO vê máquinas', count(*) = 0, count(*)::text from public.machines;
 -- gestora: vê tudo, recebe notificação, marca como lida mas não reescreve
 select pg_temp.as_user('00000000-0000-0000-0000-0000000000a1');
-insert into results(test, ok, info) select 'gestora vê todos os perfis', count(*) = 7, count(*)::text from public.profiles;
+insert into results(test, ok, info) select 'gestora vê todos os perfis', count(*) >= 7, count(*)::text from public.profiles;
 insert into results(test, ok, info) select 'gestora vê auditoria', count(*) > 0, count(*)::text from public.audit_logs;
 insert into results(test, ok, info) select 'gestora vê aviso do pendente', count(*) >= 1, string_agg(body, ' | ') from public.notifications where read_at is null;
 do $$ declare c int; begin
@@ -65,6 +65,11 @@ do $$ declare c int; begin
   get diagnostics c = row_count;
   insert into results(test, ok, info) values ('gestora cadastra feriado e muda status', c = 1, 'ok');
 exception when others then insert into results(test, ok, info) values ('gestora cadastra feriado e muda status', false, sqlerrm); end $$;
+-- D33 (0.10.2): sem production.edit_own, o operador deixa de ver os próprios apontamentos
+delete from public.user_permissions where user_id = '00000000-0000-0000-0000-0000000000b1' and permission_code = 'production.edit_own';
+select pg_temp.as_user('00000000-0000-0000-0000-0000000000b1');
+insert into results(test, ok, info) select 'op1 sem edit_own NÃO vê os próprios', count(*) = 0, count(*)::text from public.production_records where created_by = '00000000-0000-0000-0000-0000000000b1';
+select pg_temp.as_user('00000000-0000-0000-0000-0000000000a1');
 -- anon: nada
 reset role;
 set local role anon;

@@ -1,6 +1,6 @@
 # Visão Geral do Banco de Dados
 
-> Versão do schema: `v0.10.1` · Última atualização: 20/09/2026 · Documento em linguagem simples, para apresentação.
+> Versão do schema: `v0.10.3` · Última atualização: 21/09/2026 · Documento em linguagem simples, para apresentação.
 > Detalhes técnicos: [02-referencia-tecnica.md](02-referencia-tecnica.md)
 
 ## 1. Por que um banco novo
@@ -178,4 +178,4 @@ flowchart LR
   - login por **e-mail e senha**, com cadastro que **aguarda aprovação do gestor**;
   - marcação de **hora extra** no apontamento;
   - salvar de novo o mesmo turno **acrescenta** ordens em vez de substituir; para trocar, usa-se **Editar** (D30, confirmada);
-  - o operador vê **os próprios apontamentos** (D33, confirmada).
+  - o operador vê **os próprios apontamentos** — porque pode corrigi-los em até 24 h (D33, confirmada).

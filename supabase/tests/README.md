@@ -29,4 +29,5 @@ O resultado mostra a tabela `results`: cada linha é um teste, com `ok = true` q
 banco se comportou como esperado. Linhas "NÃO pode…" passam quando o banco **recusa** a ação,
 e a coluna `info` traz a mensagem de erro devolvida.
 
-Resultado em 20/09/2026: 22/22 testes de funções e 22/22 de RLS com `ok = true`.
+Resultado em 21/09/2026 (schema v0.10.3, banco já com o seed de demonstração): 24/24 testes de funções e 23/23 de RLS com `ok = true`.
+Os testes filtram pelos dados que eles mesmos criam, então funcionam com o banco vazio ou com dados.
