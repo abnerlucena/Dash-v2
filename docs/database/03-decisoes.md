@@ -3,7 +3,7 @@
 Cada decisão registra **o contexto**, **o que foi escolhido**, **as alternativas** e **o custo**.
 Decisões não são apagadas: quando revistas, recebem o status `Substituída por Dxx`.
 
-Status possíveis: `Aprovada` · `Assumida` (sem confirmação explícita) · `Substituída` · `Proposta`.
+Status possíveis: `Aprovada` · `Assumida` (sem confirmação explícita) · `Substituída` · `Proposta` · `Provisória — confirmar com o usuário` (tomada numa sessão autônoma, sem ninguém para consultar).
 
 | ID | Tema | Status | Data |
 |---|---|---|---|
@@ -34,6 +34,7 @@ Status possíveis: `Aprovada` · `Assumida` (sem confirmação explícita) · `S
 | D25 | Notificações por destinatário | Aprovada | 15/09/2026 |
 | D26 | Log de auditoria por trigger, retenção adiada | Aprovada | 14/09/2026 |
 | D27 | Modo de trabalho (hora extra) no apontamento | Aprovada | 16/09/2026 |
+| D28 | Recriar `shifts` no banco que estava vazio | Provisória — confirmar com o usuário | 20/09/2026 |
 
 ---
 
@@ -160,3 +161,11 @@ Status possíveis: `Aprovada` · `Assumida` (sem confirmação explícita) · `S
 - **Formato:** texto com CHECK em vez de booleano, para acomodar futuros modos (`training`, `trial`) sem coluna nova.
 - **Custo:** uma coluna a mais e uma marcação na tela de apontamento; os gráficos do frontend precisam respeitar a regra.
 - **Quando o TURNO 3 virar regular:** nada muda na estrutura — os apontamentos novos simplesmente deixam de ser marcados como `overtime`, e o passado continua verdadeiro.
+
+### D28 — Recriar `shifts` no banco que estava vazio
+- **Status:** Provisória — confirmar com o usuário (sessão autônoma de 20/09/2026).
+- **Contexto:** a documentação registrava `shifts` como criada em 16/09/2026, mas o banco apontado pelo arquivo de segredos estava com o schema `public` **vazio**, sem nenhum rastro de criação ou remoção da tabela. Detalhes em [notas/2026-09-20-verificacao-inicial.md](notas/2026-09-20-verificacao-inicial.md).
+- **Decisão:** aplicar as duas migrations versionadas de `shifts` sem nenhuma alteração, antes das demais.
+- **Alternativas rejeitadas:** trabalhar só offline (atrasaria toda a verificação real); reescrever a migration de `shifts` (mudaria o histórico versionado).
+- **Por que é seguro:** a ação é só aditiva. Se `shifts` existir em outro projeto, ele não é tocado.
+- **A confirmar:** qual é o projeto oficial. Se for outro, basta rodar `supabase/migrations/_consolidado.sql` nele.
