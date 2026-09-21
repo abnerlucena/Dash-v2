@@ -2,7 +2,8 @@ import { useState, useMemo, useRef } from "react";
 import { Save, Check, MessageSquare, X, Search, ChevronDown, ChevronUp, Plus } from "lucide-react";
 import { useAuth, type OrdemProducao } from "@/contexts/AuthContext";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { TURNOS, today, api, pctColor } from "@/lib/api";
+import { TURNOS, today, pctColor } from "@/lib/api";
+import { data } from "@/lib/repositories";
 import { toast } from "sonner";
 import { DatePickerInput } from "@/components/DatePickerInput";
 import { SelectDropdown } from "@/components/SelectDropdown";
@@ -140,7 +141,7 @@ const ProductionEntry = () => {
           };
         });
 
-      await api("upsert", { records }, user);
+      await data.production.saveEntries(records, {}, user);
       saveOk = true;
       toast.success("Apontamento salvo com sucesso!");
     } catch (e: any) {

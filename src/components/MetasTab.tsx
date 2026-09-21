@@ -2,7 +2,8 @@ import { useState } from "react";
 import { Pencil, Check, X } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { api, today, dispD } from "@/lib/api";
+import { today, dispD } from "@/lib/api";
+import { data } from "@/lib/repositories";
 import { toast } from "sonner";
 import { DatePickerInput } from "@/components/DatePickerInput";
 
@@ -40,7 +41,7 @@ const MetasTab = () => {
         const v = Number(editValues[m.id]);
         if (!isNaN(v) && v >= 0) payload[m.id] = v;
       });
-      await api("saveMetas", { metas: payload, vigenciaInicio: vigencia }, user);
+      await data.targets.saveMetas(payload, vigencia, user);
       await refreshMetas();
       setEditing(false);
       setEditValues({});

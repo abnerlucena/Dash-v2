@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Bell, BellOff, Send, Loader2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
-import { api } from "@/lib/api";
+import { data } from "@/lib/repositories";
 import { toast } from "sonner";
 
 interface AlertConfig {
@@ -32,7 +32,7 @@ const AlertConfigPanel = () => {
   });
 
   useEffect(() => {
-    api("getAlertConfig", {}, user)
+    data.alerts.getAlertConfig(user)
       .then((r) => {
         if (r.config) {
           setConfig({
@@ -65,7 +65,7 @@ const AlertConfigPanel = () => {
     }
     setSaving(true);
     try {
-      await api("saveAlertConfig", { config }, user);
+      await data.alerts.saveAlertConfig(config, user);
       toast.success("Configuração salva!");
     } catch (e: any) {
       toast.error(e.message || "Erro ao salvar.");
@@ -80,7 +80,7 @@ const AlertConfigPanel = () => {
     }
     setTesting(true);
     try {
-      await api("testAlertEmail", {}, user);
+      await data.alerts.testAlertEmail(user);
       toast.success("E-mail de teste enviado!");
     } catch (e: any) {
       toast.error(e.message || "Erro ao enviar e-mail de teste.");

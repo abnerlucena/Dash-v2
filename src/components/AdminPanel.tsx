@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import { X, Users, Factory, KeyRound, CalendarX, Bell } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
-import { api, dispD } from "@/lib/api";
+import { dispD } from "@/lib/api";
+import { data, type AdminUser } from "@/lib/repositories";
 import { toast } from "sonner";
 import { SelectDropdown } from "@/components/SelectDropdown";
 import { DatePickerInput } from "@/components/DatePickerInput";
@@ -10,11 +11,6 @@ import type { Holiday } from "@/lib/api";
 
 interface AdminPanelProps {
   onClose: () => void;
-}
-
-interface AdminUser {
-  nome: string;
-  status: string;
 }
 
 interface AdminMachine {
@@ -60,24 +56,25 @@ const AdminPanel = ({ onClose }: AdminPanelProps) => {
   const [hAdding, setHAdding] = useState(false);
 
   useEffect(() => {
-    api("listUsers", {}, user)
+    data.users.listUsers(user)
       .then(r => setUsers(r.users || []))
       .catch(() => {})
       .finally(() => setLoading(false));
-    api("getMachines", {}, user)
-      .then(r => setAllMachines(r.allMachines || r.machines || []))
+    data.machines.getMachines(user)
+      .then(r => setAllMachines((r.allMachines || r.machines || []) as AdminMachine[]))
       .catch(() => {})
       .finally(() => setMachLoading(false));
-    api("getHolidays", {}, user)
-      .then(r => setHolidaysList(r.holidays || []))
+    data.calendar.getHolidays(user)
+      .then(r => setHolidaysList((r.holidays || []) as Holiday[]))
       .catch(() => {})
       .finally(() => setHolLoading(false));
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  async function toggleUser(nome: string) {
+  async function toggleUser(target: AdminUser) {
+    const nome = target.nome;
     try {
-      const r = await api("toggleUser", { targetNome: nome }, user);
+      const r = await data.users.toggleUser(target, user);
       setUsers(u => u.map(x => x.nome === nome ? { ...x, status: r.newStatus } : x));
       toast.success(`${nome} ${r.newStatus === "ativo" ? "ativado" : "bloqueado"}.`);
     } catch (e: any) { toast.error(e.message); }
@@ -87,10 +84,10 @@ const AdminPanel = ({ onClose }: AdminPanelProps) => {
     if (!cNome || !cSenha) { toast.error("Preencha nome e senha."); return; }
     setCreating(true);
     try {
-      await api("adminCreateUser", { nome: cNome, senha: cSenha }, user);
+      await data.users.adminCreateUser(cNome, cSenha, user);
       toast.success(`Usuário "${cNome}" criado!`);
       setCNome(""); setCSenha("");
-      const r = await api("listUsers", {}, user);
+      const r = await data.users.listUsers(user);
       setUsers(r.users || []);
     } catch (e: any) { toast.error(e.message); }
     setCreating(false);
@@ -99,7 +96,7 @@ const AdminPanel = ({ onClose }: AdminPanelProps) => {
   async function resetPw() {
     if (!rTarget || !newPw) { toast.error("Selecione usuário e nova senha."); return; }
     try {
-      await api("resetPassword", { targetNome: rTarget, novaSenha: newPw }, user);
+      await data.users.resetPassword(rTarget, newPw, user);
       toast.success(`Senha de "${rTarget}" redefinida.`);
       setRTarget(""); setNewPw("");
     } catch (e: any) { toast.error(e.message); }
@@ -109,11 +106,11 @@ const AdminPanel = ({ onClose }: AdminPanelProps) => {
     if (!mName.trim()) { toast.error("Informe o nome da máquina."); return; }
     setMAdding(true);
     try {
-      await api("addMachine", { name: mName.trim(), hasMeta: true, defaultMeta: Number(mMeta) || 0 }, user);
+      await data.machines.addMachine(mName.trim(), Number(mMeta) || 0, user);
       toast.success(`Máquina "${mName}" adicionada!`);
       setMName(""); setMMeta("");
-      const r = await api("getMachines", {}, user);
-      setAllMachines(r.allMachines || r.machines || []);
+      const r = await data.machines.getMachines(user);
+      setAllMachines((r.allMachines || r.machines || []) as AdminMachine[]);
       refreshMachines();
     } catch (e: any) { toast.error(e.message); }
     setMAdding(false);
@@ -121,7 +118,7 @@ const AdminPanel = ({ onClose }: AdminPanelProps) => {
 
   async function toggleMachine(mId: number) {
     try {
-      const r = await api("toggleMachine", { machineId: mId }, user);
+      const r = await data.machines.toggleMachine(mId, user);
       setAllMachines(prev => prev.map(m => m.id === mId ? { ...m, status: r.newStatus } : m));
       toast.success(`Máquina ${r.newStatus === "ativo" ? "ativada" : "desativada"}.`);
       refreshMachines();
@@ -131,7 +128,7 @@ const AdminPanel = ({ onClose }: AdminPanelProps) => {
   async function generateInvite() {
     setInviteLoading(true);
     try {
-      const r = await api("generateInviteCode", {}, user);
+      const r = await data.users.generateInviteCode(user);
       setInviteCode(r.code);
       toast.success("Código de convite gerado!");
     } catch (e: any) { toast.error(e.message); }
@@ -143,11 +140,11 @@ const AdminPanel = ({ onClose }: AdminPanelProps) => {
     if (!hLabel.trim()) { toast.error("Informe a descrição."); return; }
     setHAdding(true);
     try {
-      await api("addHoliday", { date: hDate, label: hLabel.trim(), type: hType }, user);
+      await data.calendar.addHoliday(hDate, hLabel.trim(), hType, user);
       toast.success("Feriado adicionado!");
       setHDate(""); setHLabel(""); setHType("feriado");
-      const r = await api("getHolidays", {}, user);
-      setHolidaysList(r.holidays || []);
+      const r = await data.calendar.getHolidays(user);
+      setHolidaysList((r.holidays || []) as Holiday[]);
       refreshHolidays();
     } catch (e: any) { toast.error(e.message); }
     setHAdding(false);
@@ -155,7 +152,7 @@ const AdminPanel = ({ onClose }: AdminPanelProps) => {
 
   async function removeHoliday(id: string) {
     try {
-      await api("removeHoliday", { id }, user);
+      await data.calendar.removeHoliday(id, user);
       toast.success("Feriado removido.");
       setHolidaysList(prev => prev.filter(h => h.id !== id));
       refreshHolidays();
@@ -230,7 +227,7 @@ const AdminPanel = ({ onClose }: AdminPanelProps) => {
                           </td>
                           <td className="px-3 py-2 text-center">
                             {u.nome !== "Admin" && (
-                              <button onClick={() => toggleUser(u.nome)}
+                              <button onClick={() => toggleUser(u)}
                                 className={`text-xs font-semibold px-2 py-1 rounded-md ${u.status === "ativo" ? "bg-red-50 text-red-600 hover:bg-red-100" : "bg-green-50 text-green-600 hover:bg-green-100"}`}>
                                 {u.status === "ativo" ? "Bloquear" : "Ativar"}
                               </button>

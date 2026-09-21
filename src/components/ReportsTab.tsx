@@ -5,7 +5,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useIsMobile } from "@/hooks/use-mobile";
 import FilterBar from "@/components/FilterBar";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
-import { today, fmt, dispD, pctColor, saveCachedRecords, TURNOS, api } from "@/lib/api";
+import { today, fmt, dispD, pctColor, saveCachedRecords, TURNOS } from "@/lib/api";
+import { data } from "@/lib/repositories";
 import { toast } from "sonner";
 import ExportModal from "@/components/ExportModal";
 
@@ -153,7 +154,7 @@ const ReportsTab = () => {
   async function executeBulkDelete() {
     setBulkLoading(true);
     try {
-      await api("bulkDelete", { ids: [...selectedIds] }, user);
+      await data.production.bulkDelete([...selectedIds], user);
       const next = records.filter(r => !r.id || !selectedIds.has(r.id));
       setRecords(next);
       saveCachedRecords(next);
@@ -172,7 +173,7 @@ const ReportsTab = () => {
     setBulkLoading(true);
     let ok = false;
     try {
-      await api("bulkMove", { ids: [...selectedIds], newDate: bulkMoveDate }, user);
+      await data.production.bulkMove([...selectedIds], bulkMoveDate, user);
       ok = true;
       toast.success(`${selectedIds.size} registro(s) movido(s) para ${dispD(bulkMoveDate)}`);
       setSelectedIds(new Set());
@@ -190,7 +191,7 @@ const ReportsTab = () => {
     setBulkLoading(true);
     let ok = false;
     try {
-      await api("bulkEditTurno", { ids: [...selectedIds], newTurno: bulkTurno }, user);
+      await data.production.bulkEditTurno([...selectedIds], bulkTurno, user);
       ok = true;
       toast.success(`${selectedIds.size} registro(s) atualizados para ${bulkTurno}`);
       setSelectedIds(new Set());
