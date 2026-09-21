@@ -1,6 +1,6 @@
 # Referência Técnica do Schema
 
-> Versão do schema: `v0.9.0` · Última atualização: 20/09/2026 · Status: **em implementação** (tabelas criadas marcadas com ✅)
+> Versão do schema: `v0.10.0` · Última atualização: 20/09/2026 · Status: **implementado no Supabase** (todas as tabelas, views, funções e RLS marcadas com ✅; dados de produção ainda no Google Sheets)
 > SGBD: PostgreSQL (Supabase) · Schema: `public` (+ `auth`, gerenciado pelo Supabase)
 > Decisões citadas como `[Dxx]` estão em [03-decisoes.md](03-decisoes.md).
 
@@ -294,16 +294,31 @@ Ambas criadas com `security_invoker = true`: respeitam o RLS de quem consulta.
 
 Funções que escrevem usam `SECURITY DEFINER` com `search_path = ''` e checagem explícita de permissão. Execução revogada de `public`/`anon` e concedida a `authenticated`. Mensagens de erro em português (códigos `42501` sem permissão, `23505` duplicidade, `22023` parâmetro inválido, `P0002` não encontrado).
 
-## 7. Segurança (RLS)
+## 7. Segurança (RLS) ✅ implementada em 20/09/2026
 
-RLS habilitado em **todas** as tabelas de `public`. Princípios:
+RLS habilitado em **todas** as 16 tabelas de `public` (conferido no banco: 0 sem RLS). Todas as políticas valem `to authenticated`; `anon` não tem política nem privilégio de tabela.
 
-- Leitura de produção: `history.view` OR `dashboard.view` OR `tv_mode.view`.
-- `INSERT` direto só onde não há regra de negócio adicional; escrita de produção via RPC.
-- `notifications`: cada usuário lê/atualiza apenas `recipient_id = auth.uid()`.
-- `audit_logs`: leitura para `system.admin`; nenhuma política de escrita (somente triggers).
-- `profiles`: usuário lê o próprio; `users.approve` lê e altera todos.
+| Tabela | SELECT | INSERT | UPDATE | DELETE |
+|---|---|---|---|---|
+| `shifts` | ativo | — | `system.admin` | — |
+| `machines` | ativo | — (via `create_machine`) | `machines.manage` | — |
+| `machine_targets` | ativo | `targets.manage` (e `save_machine_targets`) | — (append-only) | — |
+| `production_records` | `history.view` ∨ `dashboard.view` ∨ `tv_mode.view` ∨ autor ativo [D33] | — (RPC) | — (RPC) | — (RPC) |
+| `production_orders` | se o apontamento-pai é visível | — (RPC) | — | — |
+| `machine_downtimes` | ativo | — | — | — |
+| `calendar_events` | ativo | `calendar.manage` | `calendar.manage` | `calendar.manage` |
+| `calendar_event_shifts` | ativo | `calendar.manage` | — | `calendar.manage` |
+| `roles`, `permissions`, `role_permissions` | ativo | — | — | — |
+| `profiles` | próprio ∨ `users.approve` | — (gatilho) | `users.approve` | — |
+| `user_permissions` | próprias ∨ `users.approve` | `users.approve` | — | `users.approve` |
+| `shared_account_sessions` | própria conta ∨ `system.admin` | — (RPC) | — | — |
+| `notifications` | `recipient_id = auth.uid()` | — (gatilho) | próprio, **só a coluna `read_at`** | — |
+| `audit_logs` | `system.admin` | — (gatilho) | — (bloqueado por gatilho) | — (bloqueado por gatilho) |
+
+"ativo" = `is_active_user()`. Nas políticas as funções aparecem como `(select public.f())`, para serem avaliadas uma vez por consulta. Views usam `security_invoker = true` e herdam estas regras.
+
 - Chaves no frontend: somente URL do projeto e `anon key`. A `service_role` nunca sai do Supabase.
+- Testes: `supabase/tests/02_rls.sql`.
 
 ## 8. Catálogo de permissões
 

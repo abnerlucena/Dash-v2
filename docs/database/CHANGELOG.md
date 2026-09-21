@@ -17,6 +17,33 @@ Formato de cada entrada:
 
 ---
 
+## [0.10.0] — 20/09/2026 — Segurança: políticas de acesso (RLS)
+
+- **Status:** Implementado no Supabase em 20/09/2026
+- **Commit/PR:** branch `claude/supabase-fase-c-noite`
+- **Migration:** `supabase/migrations/20260920170000_enable_rls_policies.sql`
+- **Decisões:** D19, D22, D23, D25, D26; D33 (nova, provisória)
+
+### Adicionado
+- 28 políticas RLS em 16 tabelas (todas as de `public`). Resumo na seção 7 da referência técnica.
+- Leitura de produção: `history.view`, `dashboard.view`, `tv_mode.view` **ou** autor do apontamento (D33).
+- Cadastros básicos (turnos, máquinas, metas, calendário, catálogo) legíveis por qualquer usuário **ativo**; pendentes e bloqueados não leem nada além do próprio perfil.
+- `notifications`: além da política por linha, privilégio de UPDATE restrito à coluna `read_at`.
+- `anon` (visitante não logado): todos os privilégios de tabela e view revogados — segunda tranca além do RLS.
+- Testes de verificação versionados em `supabase/tests/` (usuários fictícios, sempre com `rollback`).
+
+### Verificação no banco (22 testes, em transação desfeita)
+- Operador vê só os próprios apontamentos/ordens; outro operador não vê; conta TV vê pela permissão `tv_mode.view`.
+- Recusados: gravação direta em `production_records`, UPDATE em máquina/perfil sem permissão (0 linhas), autoconcessão de permissão, reescrita do texto de notificação, leitura por `anon`.
+- Gestora vê todos os perfis, auditoria e o aviso de novo cadastro; marca como lido.
+- Conferência final: **16 tabelas em `public`, 0 sem RLS**.
+
+### Impacto no frontend
+- Usuário pendente precisa de uma tela "aguardando aprovação" (ele não enxerga dados).
+- O app só funciona logado: não há leitura anônima.
+
+---
+
 ## [0.9.0] — 20/09/2026 — Views e funções de regra de negócio
 
 - **Status:** Implementado no Supabase em 20/09/2026

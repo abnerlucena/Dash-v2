@@ -1,6 +1,6 @@
 # Visão Geral do Banco de Dados
 
-> Versão do schema: `v0.2.2` · Última atualização: 16/09/2026 · Documento em linguagem simples, para apresentação.
+> Versão do schema: `v0.10.0` · Última atualização: 20/09/2026 · Documento em linguagem simples, para apresentação.
 > Detalhes técnicos: [02-referencia-tecnica.md](02-referencia-tecnica.md)
 
 ## 1. Por que um banco novo
@@ -159,3 +159,23 @@ Nem o Admin consegue apagar esse registro.
 | **SFM** (chão de fábrica) | Tabela de paradas de máquina com código de origem, sem duplicar importações |
 | **SAP** (OPs de PCP/Logística) | Número da OP guardado como texto, preservando zeros à esquerda |
 | **Banco da WEG** | Nomes em inglês, sem acentos, tipos padrão — tradução direta |
+
+## 11. Onde estamos (20/09/2026)
+
+```mermaid
+flowchart LR
+  A["Desenho<br/>✅ 14–16/09"] --> B["Banco criado no Supabase<br/>✅ 20/09"]
+  B --> C["Dados iniciais<br/>(turnos, perfis, máquinas, metas)"]
+  C --> D["App lê e grava no Supabase<br/>atrás de uma chave liga/desliga"]
+  D --> E["Migração dos dados<br/>da planilha"]
+  E --> F["Desligar o Apps Script"]
+```
+
+- O banco está **completo** no Supabase: as 16 tabelas, as 2 views, as regras de negócio e a segurança.
+- Cada regra foi **testada no banco real** (44 testes automáticos): por exemplo, um operador não consegue mexer no apontamento de outro, e um cadastro pendente não enxerga nada.
+- O sistema em produção **continua sendo a planilha** até a migração dos dados e a virada.
+- O que o usuário vai notar quando o app passar a usar o banco:
+  - login por **e-mail e senha**, com cadastro que **aguarda aprovação do gestor**;
+  - marcação de **hora extra** no apontamento;
+  - salvar de novo o mesmo turno **acrescenta** ordens em vez de substituir (a confirmar — D30);
+  - o operador vê **os próprios apontamentos** (D33).

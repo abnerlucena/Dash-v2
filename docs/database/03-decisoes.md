@@ -39,6 +39,7 @@ Status possíveis: `Aprovada` · `Assumida` (sem confirmação explícita) · `S
 | D30 | Novo lançamento no mesmo apontamento acrescenta ordens | Provisória — confirmar com o usuário | 20/09/2026 |
 | D31 | Correção da meta de hoje/futura no mesmo dia | Provisória — confirmar com o usuário | 20/09/2026 |
 | D32 | Meta de datas anteriores ao histórico | Provisória — confirmar com o usuário | 20/09/2026 |
+| D33 | Autor lê os próprios apontamentos | Provisória — confirmar com o usuário | 20/09/2026 |
 
 ---
 
@@ -205,3 +206,9 @@ Status possíveis: `Aprovada` · `Assumida` (sem confirmação explícita) · `S
 - **Decisão:** `machine_target_on` usa a meta **mais antiga conhecida** para datas anteriores ao início do histórico, em vez de zero.
 - **Alternativa rejeitada:** meta zero (o atingimento ficaria indefinido e os gráficos mostrariam "—").
 - **A confirmar:** quando os dados do Sheets forem migrados, o `target_quantity` de cada apontamento antigo virá da própria planilha (coluna `meta`), e esta regra só valerá para apontamentos atrasados novos.
+
+### D33 — Autor lê os próprios apontamentos
+- **Status:** Provisória — confirmar com o usuário (sessão autônoma de 20/09/2026).
+- **Contexto:** a referência dizia "leitura de produção: `history.view` OR `dashboard.view` OR `tv_mode.view`". O perfil Operador não tem nenhuma dessas, mas tem `production.edit_own` (corrigir o próprio apontamento por 24 h, D24) — e não dá para corrigir o que não se vê.
+- **Decisão:** a política de leitura de `production_records` também libera os apontamentos em que `created_by` é o próprio usuário (ativo). As ordens seguem o apontamento-pai.
+- **Alternativa rejeitada:** dar `history.view` ao Operador (ele passaria a ver a produção de todos).
