@@ -35,6 +35,7 @@ Status possíveis: `Aprovada` · `Assumida` (sem confirmação explícita) · `S
 | D26 | Log de auditoria por trigger, retenção adiada | Aprovada | 14/09/2026 |
 | D27 | Modo de trabalho (hora extra) no apontamento | Aprovada | 16/09/2026 |
 | D28 | Recriar `shifts` no banco que estava vazio | Provisória — confirmar com o usuário | 20/09/2026 |
+| D29 | Criação e remoção de contas | Provisória — confirmar com o usuário | 20/09/2026 |
 
 ---
 
@@ -169,3 +170,13 @@ Status possíveis: `Aprovada` · `Assumida` (sem confirmação explícita) · `S
 - **Alternativas rejeitadas:** trabalhar só offline (atrasaria toda a verificação real); reescrever a migration de `shifts` (mudaria o histórico versionado).
 - **Por que é seguro:** a ação é só aditiva. Se `shifts` existir em outro projeto, ele não é tocado.
 - **A confirmar:** qual é o projeto oficial. Se for outro, basta rodar `supabase/migrations/_consolidado.sql` nele.
+
+### D29 — Criação e remoção de contas
+- **Status:** Provisória — confirmar com o usuário (sessão autônoma de 20/09/2026).
+- **Contexto:** a regra D21 (crachá obrigatório para conta pessoal) precisava de um comportamento concreto no gatilho `handle_new_user`, e as chaves estrangeiras para `profiles` (autoria, aprovação, auditoria) precisavam de uma regra de remoção.
+- **Decisão 1 — cadastro sem crachá:** o gatilho **recusa** o cadastro pessoal sem crachá, com a mensagem "O nº do crachá é obrigatório para contas pessoais." Contas `shared` (Admin) e `display` (TV) são criadas enviando `account_type` nos metadados do cadastro.
+- **Consequência:** criar usuário pelo botão "Add user" do painel do Supabase (que não envia metadados) falha. Usar a tela de cadastro do app ou a API com `options.data`.
+- **Alternativa rejeitada:** criar o perfil mesmo sem crachá (exigiria afrouxar a regra D21 no banco).
+- **Decisão 2 — remoção:** as chaves estrangeiras para `profiles` usam o padrão "impedir" (sem `ON DELETE`). Quem já tem histórico não pode ser apagado; o caminho é bloquear (`status = 'blocked'`), preservando a rastreabilidade (D04, D26).
+- **Alternativa rejeitada:** `ON DELETE SET NULL` (apagaria a autoria do histórico).
+- **A confirmar:** se a LGPD exigir remoção de dados pessoais no futuro, a saída prevista é anonimizar `full_name`/`badge_number`, não apagar a linha.

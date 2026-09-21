@@ -1,6 +1,6 @@
 # Referência Técnica do Schema
 
-> Versão do schema: `v0.3.0` · Última atualização: 20/09/2026 · Status: **em implementação** (tabelas criadas marcadas com ✅)
+> Versão do schema: `v0.4.0` · Última atualização: 20/09/2026 · Status: **em implementação** (tabelas criadas marcadas com ✅)
 > SGBD: PostgreSQL (Supabase) · Schema: `public` (+ `auth`, gerenciado pelo Supabase)
 > Decisões citadas como `[Dxx]` estão em [03-decisoes.md](03-decisoes.md).
 
@@ -151,12 +151,12 @@ UQ `(machine_id, valid_from)` — também atende a busca "maior `valid_from` ≤
 
 PK `(event_id, shift_id)` · Índice `(shift_id)`. Sem linhas = evento vale para todos os turnos. [D17]
 
-### 3.9 `profiles`
+### 3.9 `profiles` ✅ implementada em 20/09/2026
 | Coluna | Tipo | Restrições | Descrição |
 |---|---|---|---|
 | `id` | `uuid` | PK, FK `auth.users(id)` `ON DELETE CASCADE` | |
-| `full_name` | `text` | NN | Não único |
-| `badge_number` | `text` | UQ | Nº de cadastro do crachá [D21] |
+| `full_name` | `text` | NN, CHECK não vazio | Não único |
+| `badge_number` | `text` | UQ, CHECK não vazio | Nº de cadastro do crachá [D21] |
 | `account_type` | `text` | NN, default `'personal'`, CHECK `personal`/`shared`/`display` | |
 | `status` | `text` | NN, default `'pending'`, CHECK `pending`/`active`/`blocked` | [D20] |
 | `role_id` | `smallint` | FK `roles` | Perfil-modelo aplicado |
@@ -164,7 +164,9 @@ PK `(event_id, shift_id)` · Índice `(shift_id)`. Sem linhas = evento vale para
 | `approved_at` | `timestamptz` | | |
 | `created_at`, `updated_at` | `timestamptz` | NN, default `now()` | |
 
-CHECK `account_type <> 'personal' OR badge_number IS NOT NULL`.
+CHECK `profiles_personal_requires_badge`: `account_type <> 'personal' OR badge_number IS NOT NULL`. Índices: `(status)`, `(role_id)`. Gatilho `set_updated_at`.
+
+> **Criação e remoção de contas [D29]:** o gatilho `handle_new_user` recusa cadastro pessoal sem crachá com mensagem em português. Contas `shared`/`display` são criadas enviando `account_type` nos metadados do cadastro. Usuários que já têm histórico (aprovaram alguém, apontaram produção, aparecem na auditoria) **não podem ser apagados** — as chaves estrangeiras impedem; a saída é `status = 'blocked'`.
 
 ### 3.10 `roles` ✅ implementada em 20/09/2026
 | Coluna | Tipo | Restrições |
@@ -187,7 +189,7 @@ Carga inicial (seed estrutural): `operator`, `preparer`, `distributor`, `technic
 ### 3.12 `role_permissions` ✅ implementada em 20/09/2026
 PK `(role_id, permission_code)` · FKs para `roles` e `permissions`, ambas `ON DELETE CASCADE` · Índice `(permission_code)`.
 
-### 3.13 `user_permissions`
+### 3.13 `user_permissions` ✅ implementada em 20/09/2026
 | Coluna | Tipo | Restrições |
 |---|---|---|
 | `user_id` | `uuid` | FK `profiles` `ON DELETE CASCADE` |
@@ -195,18 +197,18 @@ PK `(role_id, permission_code)` · FKs para `roles` e `permissions`, ambas `ON D
 | `granted_by` | `uuid` | FK `profiles` |
 | `granted_at` | `timestamptz` | NN, default `now()` |
 
-PK `(user_id, permission_code)`. Permissões efetivas = somente esta tabela (perfil é copiado na aprovação). [D22]
+PK `(user_id, permission_code)` · Índice `(permission_code)`. Permissões efetivas = somente esta tabela (perfil é copiado na aprovação). [D22]
 
-### 3.14 `shared_account_sessions`
+### 3.14 `shared_account_sessions` ✅ implementada em 20/09/2026
 | Coluna | Tipo | Restrições |
 |---|---|---|
 | `id` | `uuid` | PK |
 | `auth_session_id` | `uuid` | NN, UQ (claim `session_id` do JWT) |
-| `account_id` | `uuid` | NN, FK `profiles` |
-| `identified_user_id` | `uuid` | NN, FK `profiles` (ativo, `personal`) |
+| `account_id` | `uuid` | NN, FK `profiles` `ON DELETE CASCADE` |
+| `identified_user_id` | `uuid` | NN, FK `profiles` `ON DELETE CASCADE` (ativo, `personal` — checado pela função) |
 | `identified_at` | `timestamptz` | NN, default `now()` |
 
-[D23]
+Índices: `(account_id)`, `(identified_user_id)`. Escrita só pela função `identify_shared_session`. [D23]
 
 ### 3.15 `notifications`
 | Coluna | Tipo | Restrições |

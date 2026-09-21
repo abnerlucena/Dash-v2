@@ -17,6 +17,32 @@ Formato de cada entrada:
 
 ---
 
+## [0.4.0] — 20/09/2026 — Pessoas: perfis, permissões individuais e conta compartilhada
+
+- **Status:** Implementado no Supabase em 20/09/2026
+- **Commit/PR:** branch `claude/supabase-fase-c-noite`
+- **Migration:** `supabase/migrations/20260920101000_create_profiles.sql`
+- **Decisões:** D19, D20, D21, D22, D23; D29 (nova, provisória)
+
+### Adicionado
+- Tabelas `profiles`, `user_permissions`, `shared_account_sessions` (RLS ligado; políticas na 0.10.0).
+- Função/gatilho genérico `set_updated_at` (ligado em `profiles`; as próximas tabelas com `updated_at` reutilizam).
+- Função/gatilho `handle_new_user` em `auth.users`: cria o `profile` `pending` a partir de `full_name`, `badge_number` e `account_type` (opcional) enviados no cadastro.
+- Índices: `profiles (status)`, `profiles (role_id)`, `user_permissions (permission_code)`, `shared_account_sessions (account_id)` e `(identified_user_id)`.
+- Regras extras: `full_name` e `badge_number` não podem ser texto vazio.
+
+### Verificação no banco
+- Migration rodada duas vezes sem erro.
+- Cadastro com crachá → perfil `pending`, `personal`, sem perfil-modelo. Conta `shared` sem crachá → aceita.
+- Recusados: cadastro pessoal sem crachá (mensagem "O nº do crachá é obrigatório para contas pessoais.") e crachá duplicado.
+- `set_updated_at` sobrescreve `updated_at` em UPDATE. Testes feitos em transação desfeita (nenhum usuário ficou no banco).
+
+### Impacto no frontend
+- A tela de cadastro do modo Supabase precisa enviar `full_name` e `badge_number` em `options.data`.
+- Contas criadas pelo painel do Supabase (sem metadados) são recusadas — ver D29.
+
+---
+
 ## [0.3.0] — 20/09/2026 — Catálogo de acesso (perfis-modelo e permissões)
 
 - **Status:** Implementado no Supabase em 20/09/2026
