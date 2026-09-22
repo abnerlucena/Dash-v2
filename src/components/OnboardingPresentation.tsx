@@ -705,7 +705,7 @@ function ColdOpenScene({ progress }: { progress: MotionValue<number> }) {
         <WEGLogo height={64} className="text-foreground" />
       </motion.div>
       <motion.div style={{ opacity: taglineOpacity, y: taglineY }}>
-        <Display className="text-5xl sm:text-6xl md:text-7xl">
+        <Display className="text-4xl sm:text-6xl md:text-7xl">
           Onde a sua linha<br />
           <span className="bg-gradient-to-r from-weg-300 via-weg-200 to-weg-300 bg-clip-text text-transparent">vira número.</span>
         </Display>
@@ -969,7 +969,7 @@ const OnboardingPresentation = ({ onComplete }: OnboardingPresentationProps) => 
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.6, duration: 0.6 }}
             >
-              <Display className="text-5xl sm:text-6xl md:text-7xl">Tudo pronto.</Display>
+              <Display className="text-4xl sm:text-6xl md:text-7xl">Tudo pronto.</Display>
               <p className="text-foreground text-base sm:text-lg mt-5 max-w-md mx-auto">
                 Lance, analise, calibre, leve e comente. O ciclo é seu.
               </p>

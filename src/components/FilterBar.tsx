@@ -36,16 +36,16 @@ const FilterBar = ({
   ].join(" · ");
 
   return (
-    <div className={cn(isMobile && "rounded-lg border bg-card p-3")}>
+    <div className={cn(isMobile && "w-full min-w-0 rounded-lg border bg-card p-3")}>
       {isMobile && (
         <button
           onClick={() => setOpen(!open)}
           aria-expanded={open}
-          className="flex min-h-11 w-full items-center gap-2 text-left"
+          className="flex min-h-11 w-full min-w-0 items-center gap-2 text-left"
         >
           <SlidersHorizontal size={14} className="shrink-0 text-muted-foreground" aria-hidden="true" />
           <span className="text-sm font-medium">Filtros</span>
-          <span className="flex-1 truncate text-right text-xs text-muted-foreground">{summary}</span>
+          <span className="min-w-0 flex-1 truncate text-right text-xs text-muted-foreground">{summary}</span>
           <ChevronDown size={14} aria-hidden="true" className={cn("shrink-0 text-muted-foreground transition-transform duration-base ease-out", open && "rotate-180")} />
         </button>
       )}
