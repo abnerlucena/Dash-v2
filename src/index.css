@@ -1,77 +1,178 @@
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap');
+@import "@fontsource-variable/geist";
+@import "@fontsource-variable/geist-mono";
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+/* ─────────────────────────────────────────────────────────────
+ * Design tokens — Dash de Produção WEG (docs/ui/UI-SPEC.md §4)
+ * Valores em HSL sem hsl() para permitir hsl(var(--x) / <alpha>).
+ * ───────────────────────────────────────────────────────────── */
 @layer base {
   :root {
-    --background: 228 14% 97%;
-    --foreground: 215 28% 10%;
+    /* Escala da marca WEG — 600 = azul WEG, 900 = navy WEG */
+    --weg-50: 207 100% 97%;
+    --weg-100: 207 95% 93%;
+    --weg-200: 207 90% 84%;
+    --weg-300: 207 85% 70%;
+    --weg-400: 207 85% 56%;
+    --weg-500: 207 100% 42%;
+    --weg-600: 207 100% 35%;
+    --weg-700: 208 100% 29%;
+    --weg-800: 209 100% 24%;
+    --weg-900: 210 100% 20%;
+    --weg-950: 213 50% 8%;
 
-    --card: 0 0% 100%;
-    --card-foreground: 215 28% 10%;
-
-    --popover: 0 0% 100%;
-    --popover-foreground: 215 28% 10%;
-
-    --primary: 207 100% 35%;
-    --primary-foreground: 0 0% 100%;
-
-    --secondary: 210 40% 96%;
-    --secondary-foreground: 215 28% 10%;
-
-    --muted: 220 14% 95%;
-    --muted-foreground: 215 16% 47%;
-
-    --accent: 188 100% 33%;
-    --accent-foreground: 0 0% 100%;
-
-    --destructive: 0 84% 60%;
-    --destructive-foreground: 0 0% 100%;
-
-    --border: 220 13% 91%;
-    --input: 216 12% 84%;
-    --ring: 207 100% 35%;
-
-    --radius: 0.75rem;
-
-    /* WEG brand colors */
-    --weg-navy: 210 100% 20%;
-    --weg-navy-mid: 207 100% 27%;
-    --weg-blue: 207 100% 35%;
+    /* Aliases legados (usados por componentes existentes) */
+    --weg-blue: var(--weg-600);
+    --weg-navy: var(--weg-900);
+    --weg-navy-mid: var(--weg-800);
+    --weg-light-blue: var(--weg-300);
+    --weg-teal: var(--weg-400);
+    --weg-dark: var(--weg-950);
     --weg-tab-bg: 210 100% 14%;
-    --weg-tab-active: 207 100% 35%;
-    --weg-dark: 213 50% 8%;
+    --weg-tab-active: var(--weg-600);
 
-    --success: 142 71% 45%;
+    /* Superfícies — tema claro */
+    --background: 220 20% 97%;
+    --foreground: 213 40% 10%;
+    --card: 0 0% 100%;
+    --card-foreground: 213 40% 10%;
+    --surface-2: 220 20% 98%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 213 40% 10%;
+
+    --primary: var(--weg-600);
+    --primary-foreground: 0 0% 100%;
+    --secondary: 220 16% 95%;
+    --secondary-foreground: 213 40% 10%;
+    --muted: 220 16% 95%;
+    --muted-foreground: 213 12% 40%;
+    --accent: 220 16% 94%;
+    --accent-foreground: 213 40% 10%;
+    /* Azul de destaque para texto/linhas (links, sparklines) */
+    --brand-text: var(--weg-600);
+
+    /* Status — sempre acompanhados de rótulo/ícone */
+    --success: 142 64% 32%;
     --success-foreground: 0 0% 100%;
-    --warning: 38 92% 50%;
+    --warning: 32 95% 38%;
     --warning-foreground: 0 0% 100%;
+    --destructive: 0 72% 48%;
+    --destructive-foreground: 0 0% 100%;
+    --info: var(--weg-600);
 
-    --sidebar-background: 210 100% 20%;
+    --border: 220 14% 90%;
+    --input: 220 14% 86%;
+    --ring: var(--weg-600);
+
+    /* Gráficos — escala azul WEG + neutro (verde/vermelho reservados a status) */
+    --chart-1: var(--weg-600);
+    --chart-2: var(--weg-300);
+    --chart-3: var(--weg-900);
+    --chart-4: 213 12% 62%;
+    --chart-grid: 220 14% 91%;
+    --chart-reference: 213 12% 50%;
+
+    /* Raios concêntricos */
+    --radius: 0.625rem;      /* 10px — cards, tabela */
+    --radius-sm: 0.25rem;    /* 4px — chips, barras */
+    --radius-md: 0.375rem;   /* 6px — botões, inputs */
+    --radius-xl: 0.875rem;   /* 14px — modais, sheets */
+
+    /* Elevação — só para camadas flutuantes */
+    --shadow-popover: 0 8px 24px -6px hsl(213 40% 10% / 0.14), 0 2px 6px hsl(213 40% 10% / 0.06);
+    --shadow-modal: 0 24px 64px -12px hsl(213 40% 10% / 0.28), 0 4px 12px hsl(213 40% 10% / 0.08);
+
+    /* Motion (medido nos vídeos de referência) */
+    --duration-press: 100ms;
+    --duration-fast: 150ms;
+    --duration-base: 200ms;
+    --duration-slow: 250ms;
+    --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+    --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+    --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+
+    --sidebar-background: var(--weg-900);
     --sidebar-foreground: 0 0% 100%;
-    --sidebar-primary: 207 100% 35%;
+    --sidebar-primary: var(--weg-600);
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 207 100% 35%;
+    --sidebar-accent: var(--weg-600);
     --sidebar-accent-foreground: 0 0% 100%;
     --sidebar-border: 210 100% 25%;
-    --sidebar-ring: 207 100% 35%;
+    --sidebar-ring: var(--weg-600);
+
+    color-scheme: light;
+  }
+
+  /* Tema escuro — derivado do navy WEG (--weg-950), não de um cinza neutro */
+  .dark {
+    --background: 213 50% 5%;
+    --foreground: 210 35% 94%;
+    --card: 213 40% 9%;
+    --card-foreground: 210 35% 94%;
+    --surface-2: 213 34% 12%;
+    --popover: 213 36% 11%;
+    --popover-foreground: 210 35% 94%;
+
+    --primary: var(--weg-600);
+    --primary-foreground: 0 0% 100%;
+    --secondary: 213 30% 14%;
+    --secondary-foreground: 210 35% 94%;
+    --muted: 213 30% 14%;
+    --muted-foreground: 212 14% 62%;
+    --accent: 213 30% 15%;
+    --accent-foreground: 210 35% 94%;
+    --brand-text: var(--weg-300);
+
+    --success: 145 58% 50%;
+    --success-foreground: 213 50% 5%;
+    --warning: 38 92% 56%;
+    --warning-foreground: 213 50% 5%;
+    --destructive: 0 80% 64%;
+    --destructive-foreground: 213 50% 5%;
+    --info: var(--weg-300);
+
+    --border: 213 30% 17%;
+    --input: 213 28% 22%;
+    --ring: var(--weg-400);
+
+    --chart-1: var(--weg-400);
+    --chart-2: var(--weg-200);
+    --chart-3: var(--weg-700);
+    --chart-4: 212 14% 45%;
+    --chart-grid: 213 30% 15%;
+    --chart-reference: 212 14% 60%;
+
+    --shadow-popover: 0 8px 24px -6px hsl(0 0% 0% / 0.5), 0 0 0 1px hsl(213 30% 17%);
+    --shadow-modal: 0 24px 64px -12px hsl(0 0% 0% / 0.6), 0 0 0 1px hsl(213 30% 17%);
+
+    color-scheme: dark;
   }
 }
 
 @layer base {
   * {
     @apply border-border;
-    font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+  }
+
+  html {
+    font-family: 'Geist Variable', system-ui, sans-serif;
+    font-feature-settings: "tnum" 1;
   }
 
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground text-sm;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     /* Safety net: previne scroll horizontal causado por elemento com largura fixa em mobile */
     overflow-x: hidden;
+  }
+
+  :focus-visible {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 2px;
   }
 
   /* Mobile: força font-size mínimo de 16px em campos editáveis para evitar
@@ -93,10 +194,29 @@
   .scrollbar-hide::-webkit-scrollbar {
     display: none;
   }
+  /* Feedback tátil ao pressionar (better-ui: sempre 0.96) */
+  .press {
+    transition-property: transform;
+    transition-duration: var(--duration-press);
+    transition-timing-function: var(--ease-out);
+  }
+  .press:active:not(:disabled) {
+    transform: scale(0.96);
+  }
 }
 
 /* TV Mode — progress bar animation (duration controlled via inline style on element) */
 @keyframes tvSlideProgress {
-  from { width: 0%; }
-  to   { width: 100%; }
+  from { transform: scaleX(0); }
+  to   { transform: scaleX(1); }
+}
+
+/* Reduced motion: sem deslocamento/escala; opacidade e cor continuam */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+  }
+  .press:active:not(:disabled) { transform: none; }
 }
