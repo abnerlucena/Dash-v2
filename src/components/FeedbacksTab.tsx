@@ -125,7 +125,7 @@ const FeedbacksTab = () => {
   return (
     <div className="space-y-5">
       {/* Filtros */}
-      <div className="bg-card rounded-xl border border-border p-4 flex flex-wrap items-end gap-3" style={{ borderRadius: 12 }}>
+      <div className="bg-card rounded-lg border border-border p-4 flex flex-wrap items-end gap-3">
         <DatePickerInput label="De" value={dateFrom} onChange={setDateFrom} max={dateTo || undefined} />
         <DatePickerInput label="Até" value={dateTo} onChange={setDateTo} min={dateFrom || undefined} />
         <SelectDropdown
@@ -138,7 +138,7 @@ const FeedbacksTab = () => {
           ]}
         />
         <div className="ml-auto self-end">
-          <span className="text-xs font-bold px-4 py-2 rounded-md border" style={{ borderColor: "#0066B3", color: "#0066B3", borderRadius: 6 }}>
+          <span className="inline-flex h-8 items-center rounded-md border px-3 text-sm text-muted-foreground tabular-nums">
             {observations.length} {observations.length === 1 ? "observação" : "observações"}
           </span>
         </div>
@@ -146,7 +146,7 @@ const FeedbacksTab = () => {
 
       {/* Cards de observações */}
       {observations.length === 0 ? (
-        <div className="bg-card rounded-xl border border-border p-8 text-center" style={{ borderRadius: 12 }}>
+        <div className="bg-card rounded-lg border border-border p-8 text-center">
           <p className="text-sm text-muted-foreground">Nenhuma observação encontrada no período selecionado.</p>
         </div>
       ) : (
@@ -162,20 +162,19 @@ const FeedbacksTab = () => {
             return (
               <div
                 key={`${r.date}-${r.machineId}-${r.turno}-${i}`}
-                className="bg-card rounded-xl border-l-4 border border-border p-4 flex flex-col justify-between"
-                style={{ borderLeftColor: "#0066B3", borderRadius: 12, background: "#F8FCFF" }}
+                className="flex flex-col justify-between rounded-lg border bg-card p-4"
               >
                 <div>
                   {/* Header */}
                   <div className="flex items-start justify-between mb-1">
                     <div>
-                      <h4 className="text-xs font-extrabold text-foreground uppercase">{r.machineName}</h4>
-                      <p className="text-[11px] text-muted-foreground">
+                      <h4 className="text-xs font-semibold text-foreground uppercase">{r.machineName}</h4>
+                      <p className="text-caption text-muted-foreground">
                         Apontamento: {dispD(r.date)} · {r.turno}
                       </p>
                     </div>
                     <span
-                      className="text-xs font-extrabold px-2 py-0.5 rounded-full"
+                      className="text-xs font-semibold px-1.5 py-px rounded-sm"
                       style={{
                         color: pctColor(pct),
                         backgroundColor: `${pctColor(pct)}15`,
@@ -194,12 +193,10 @@ const FeedbacksTab = () => {
                       rows={3}
                       autoFocus
                       className="mt-3 mb-3 w-full px-3 py-2 rounded-lg text-sm text-foreground border border-primary/40 bg-white focus:outline-none focus:ring-2 focus:ring-primary/30 resize-none"
-                      style={{ borderRadius: 8 }}
                     />
                   ) : (
                     <div
-                      className="mt-3 mb-3 px-3 py-2 rounded-lg text-sm text-foreground"
-                      style={{ background: "#EFF6FF", borderRadius: 8 }}
+                      className="my-3 rounded-md bg-surface-2 px-3 py-2 text-sm"
                     >
                       {r.obs}
                     </div>
@@ -214,7 +211,7 @@ const FeedbacksTab = () => {
                           if (next.has(key)) next.delete(key); else next.add(key);
                           return next;
                         })}
-                        className="flex items-center gap-1 text-[11px] font-semibold text-muted-foreground hover:text-foreground transition-colors"
+                        className="flex items-center gap-1 text-caption font-semibold text-muted-foreground hover:text-foreground transition-colors"
                       >
                         <ClipboardList size={11} />
                         Ordens de Produção ({r.ordensProducao!.length})
@@ -223,9 +220,9 @@ const FeedbacksTab = () => {
                       {ordensExpanded.has(key) && (
                         <div className="mt-1.5 pl-2 border-l-2 border-primary/20 space-y-0.5">
                           {r.ordensProducao!.map((o, oi) => (
-                            <p key={oi} className="text-[11px] text-muted-foreground flex items-center gap-1.5 flex-wrap">
+                            <p key={oi} className="text-caption text-muted-foreground flex items-center gap-1.5 flex-wrap">
                               {o.retrabalho && (
-                                <span className="text-[9px] font-extrabold px-1.5 py-px rounded bg-amber-500/90 text-white tracking-wide">RETRABALHO</span>
+                                <span className="text-caption font-semibold px-1.5 py-px rounded-sm border border-warning/30 bg-warning/10 text-warning">Retrabalho</span>
                               )}
                               <span className="font-semibold text-foreground">#{o.ordemId}</span>
                               <span>— {o.quantidade.toLocaleString("pt-BR")} pç</span>
@@ -240,7 +237,7 @@ const FeedbacksTab = () => {
 
                 {/* Footer */}
                 <div className="flex items-center justify-between">
-                  <p className="text-[10px] text-muted-foreground">
+                  <p className="text-caption text-muted-foreground">
                     Registrado por <strong>{r.savedBy}</strong> em {r.savedAt || dispD(r.date)}
                   </p>
 
@@ -252,8 +249,7 @@ const FeedbacksTab = () => {
                           <button
                             onClick={() => handleSaveEdit(r)}
                             disabled={isSaving || !editText.trim()}
-                            className="flex items-center gap-1 text-[11px] font-bold px-3 py-1 rounded-md text-white transition-colors disabled:opacity-50"
-                            style={{ background: "#0066B3", borderRadius: 6 }}
+                            className="press inline-flex h-8 items-center gap-1 rounded-md px-3 text-xs font-medium transition-colors duration-fast bg-primary text-primary-foreground hover:bg-weg-700 disabled:opacity-50"
                           >
                             {isSaving ? <Loader size={12} className="animate-spin" /> : <Check size={12} />}
                             Salvar
@@ -261,8 +257,7 @@ const FeedbacksTab = () => {
                           <button
                             onClick={cancelEdit}
                             disabled={isSaving}
-                            className="flex items-center gap-1 text-[11px] font-bold px-3 py-1 rounded-md border border-border text-muted-foreground hover:text-foreground transition-colors"
-                            style={{ borderRadius: 6 }}
+                            className="press inline-flex h-8 items-center gap-1 rounded-md px-3 text-xs font-medium transition-colors duration-fast border text-muted-foreground hover:bg-accent hover:text-foreground"
                           >
                             <X size={12} />
                             Cancelar
@@ -274,8 +269,7 @@ const FeedbacksTab = () => {
                           <button
                             onClick={() => handleDelete(r)}
                             disabled={isSaving}
-                            className="flex items-center gap-1 text-[11px] font-bold px-3 py-1 rounded-md text-white transition-colors disabled:opacity-50"
-                            style={{ background: "#EF4444", borderRadius: 6 }}
+                            className="press inline-flex h-8 items-center gap-1 rounded-md px-3 text-xs font-medium transition-colors duration-fast bg-destructive text-destructive-foreground hover:bg-destructive/90 disabled:opacity-50"
                           >
                             {isSaving ? <Loader size={12} className="animate-spin" /> : <Trash2 size={12} />}
                             Confirmar
@@ -283,8 +277,7 @@ const FeedbacksTab = () => {
                           <button
                             onClick={() => setDeletingKey(null)}
                             disabled={isSaving}
-                            className="flex items-center gap-1 text-[11px] font-bold px-3 py-1 rounded-md border border-border text-muted-foreground hover:text-foreground transition-colors"
-                            style={{ borderRadius: 6 }}
+                            className="press inline-flex h-8 items-center gap-1 rounded-md px-3 text-xs font-medium transition-colors duration-fast border text-muted-foreground hover:bg-accent hover:text-foreground"
                           >
                             <X size={12} />
                             Cancelar
@@ -295,16 +288,14 @@ const FeedbacksTab = () => {
                         <>
                           <button
                             onClick={() => startEdit(r)}
-                            className="flex items-center gap-1 text-[11px] font-bold px-3 py-1 rounded-md transition-colors hover:bg-primary/10"
-                            style={{ color: "#0066B3", borderRadius: 6 }}
+                            className="press inline-flex h-8 items-center gap-1 rounded-md px-3 text-xs font-medium transition-colors duration-fast text-brand-text hover:bg-accent"
                           >
                             <Pencil size={11} />
                             Editar
                           </button>
                           <button
                             onClick={() => { setEditingKey(null); setDeletingKey(key); }}
-                            className="flex items-center gap-1 text-[11px] font-bold px-3 py-1 rounded-md transition-colors hover:bg-red-50"
-                            style={{ color: "#EF4444", borderRadius: 6 }}
+                            className="press inline-flex h-8 items-center gap-1 rounded-md px-3 text-xs font-medium transition-colors duration-fast text-destructive hover:bg-destructive/10"
                           >
                             <Trash2 size={11} />
                             Excluir

@@ -201,10 +201,10 @@ const ProductionEntry = () => {
         </div>
         <div className="flex items-center gap-2 mt-2.5">
           <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
-            <div className="h-full bg-primary rounded-full transition-all duration-300"
+            <div className="h-full bg-primary rounded-full transition-colors duration-300"
               style={{ width: `${(filledCount / Math.max(machines.length, 1)) * 100}%` }} />
           </div>
-          <span className="text-[10px] font-bold text-muted-foreground shrink-0">{filledCount}/{machines.length}</span>
+          <span className="text-caption font-medium text-muted-foreground shrink-0">{filledCount}/{machines.length}</span>
         </div>
       </div>
 
@@ -216,8 +216,7 @@ const ProductionEntry = () => {
           placeholder="Buscar máquina..."
           value={search}
           onChange={e => setSearch(e.target.value)}
-          className="w-full pl-9 pr-9 py-2.5 rounded-md border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all placeholder:text-muted-foreground/40"
-          style={{ borderRadius: 8 }}
+          className="w-full pl-9 pr-9 py-2.5 rounded-md border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors placeholder:text-muted-foreground/40"
         />
         {search && (
           <button onClick={() => setSearch("")}
@@ -237,15 +236,12 @@ const ProductionEntry = () => {
           const allFilled  = filled === total && total > 0;
           const someFilled = filled > 0 && !allFilled;
 
-          const badgeStyle = allFilled
-            ? { backgroundColor: "#22C55E", color: "white" }
+          const badgeBase = "border text-xs font-medium px-1.5 py-px rounded-sm tabular-nums";
+          const badgeClass = allFilled
+            ? `${badgeBase} border-success/30 bg-success/10 text-success`
             : someFilled
-            ? { backgroundColor: "#0066B315", color: "#0066B3" }
-            : undefined;
-          const badgeBase = "text-xs font-bold px-2 py-0.5 rounded-full";
-          const badgeClass = allFilled || someFilled
-            ? badgeBase
-            : `${badgeBase} bg-muted text-muted-foreground`;
+            ? `${badgeBase} border-info/30 bg-info/10 text-info`
+            : `${badgeBase} border-transparent bg-muted text-muted-foreground`;
 
           return (
             <div key={group.id} className="space-y-1.5">
@@ -255,11 +251,10 @@ const ProductionEntry = () => {
                 onClick={() => !isSearching && toggleGroup(group.id)}
                 disabled={isSearching}
                 className="w-full flex items-center justify-between px-3 py-2 rounded-lg bg-muted/40 border border-border/50 transition-colors hover:bg-muted/60"
-                style={{ borderRadius: 8 }}
               >
-                <span className="text-xs font-bold text-foreground uppercase tracking-wide">{group.label}</span>
+                <span className="text-xs font-medium text-foreground">{group.label}</span>
                 <div className="flex items-center gap-2">
-                  <span className={badgeClass} style={badgeStyle}>{filled}/{total}</span>
+                  <span className={badgeClass}>{filled}/{total}</span>
                   {!isSearching && (
                     isCollapsed
                       ? <ChevronDown size={13} className="text-muted-foreground" />
@@ -283,8 +278,7 @@ const ProductionEntry = () => {
                       <button
                         onClick={() => updateOrdens(machine.id, [...entry.ordens, { ordemId: "", quantidade: 0 }])}
                         disabled={entry.ordens.length >= 10}
-                        className="h-9 px-3 flex items-center gap-1.5 text-xs font-semibold rounded-md border border-dashed border-primary/50 text-primary hover:bg-primary/5 transition-all disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
-                        style={{ borderRadius: 6 }}
+                        className="h-9 px-3 flex items-center gap-1.5 text-xs font-semibold rounded-md border border-dashed border-primary/50 text-primary hover:bg-primary/5 transition-colors disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
                         title="Adicionar outra ordem"
                       >
                         <Plus size={12} />
@@ -296,7 +290,6 @@ const ProductionEntry = () => {
                       <button
                         onClick={() => setObsOpen(obsOpen === machine.id ? null : machine.id)}
                         className={`${size === 9 ? "w-9 h-9" : "w-8 h-8"} rounded-md flex items-center justify-center transition-colors ${hasObs ? "bg-primary/10 text-primary border border-primary/20" : "bg-muted text-muted-foreground border border-border"}`}
-                        style={{ borderRadius: 6 }}
                         title="Observação"
                       >
                         <MessageSquare size={14} />
@@ -305,25 +298,24 @@ const ProductionEntry = () => {
 
                     return (
                       <div key={machine.id}
-                        className={`bg-card rounded-xl border shadow-sm overflow-hidden transition-colors ${isFilled ? "border-primary/20" : "border-border"}`}
-                        style={{ borderRadius: 12 }}>
+                        className={`bg-card rounded-lg border overflow-hidden transition-colors ${isFilled ? "border-primary/20" : "border-border"}`}>
                         <div className="p-3.5">
 
                           {isMobile ? (
                             /* ── Mobile: 1 coluna ── */
                             <>
                               <div className="flex items-center justify-between mb-1.5">
-                                <h4 className="text-xs font-bold text-foreground leading-tight truncate flex-1 min-w-0 mr-2">
+                                <h4 className="text-xs font-medium text-foreground leading-tight truncate flex-1 min-w-0 mr-2">
                                   {machine.name}
                                 </h4>
                                 {pct !== null && (
-                                  <span className="shrink-0 text-xs font-extrabold px-2.5 py-1 rounded-full"
-                                    style={{ color: pctColor(pct), backgroundColor: `${pctColor(pct)}15`, borderRadius: 20 }}>
+                                  <span className="shrink-0 text-xs font-semibold px-2.5 py-1 rounded-full"
+                                    style={{ color: pctColor(pct), backgroundColor: `${pctColor(pct)}15` }}>
                                     {pct}%
                                   </span>
                                 )}
                               </div>
-                              <p className="text-[10px] text-muted-foreground mb-2.5">
+                              <p className="text-caption text-muted-foreground mb-2.5">
                                 Meta: <strong>{metaVal > 0 ? metaVal.toLocaleString("pt-BR") : "—"}</strong>
                               </p>
 
@@ -339,13 +331,13 @@ const ProductionEntry = () => {
                             <div className="flex gap-4 items-start">
                               {/* Left 55% */}
                               <div className="flex flex-col justify-center" style={{ flex: "0 0 55%", minWidth: 0 }}>
-                                <h4 className="text-xs font-bold text-foreground leading-tight truncate">{machine.name}</h4>
-                                <p className="text-[10px] text-muted-foreground mt-0.5">
+                                <h4 className="text-xs font-medium text-foreground leading-tight truncate">{machine.name}</h4>
+                                <p className="text-caption text-muted-foreground mt-0.5">
                                   Meta: <strong>{metaVal > 0 ? metaVal.toLocaleString("pt-BR") : "—"}</strong>
                                 </p>
                                 {pct !== null && (
-                                  <span className="mt-1.5 self-start text-xs font-extrabold px-2.5 py-0.5 rounded-full"
-                                    style={{ color: pctColor(pct), backgroundColor: `${pctColor(pct)}15`, borderRadius: 20 }}>
+                                  <span className="mt-1.5 self-start text-xs font-semibold px-1.5 py-px rounded-sm"
+                                    style={{ color: pctColor(pct), backgroundColor: `${pctColor(pct)}15` }}>
                                     {pct}%
                                   </span>
                                 )}
@@ -371,21 +363,20 @@ const ProductionEntry = () => {
                                 placeholder="Observação geral (ex: parada para manutenção)"
                                 rows={2}
                                 maxLength={500}
-                                className="w-full px-3.5 py-3 rounded-md border border-border bg-background text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all placeholder:text-muted-foreground/40 resize-none"
-                                style={{ borderRadius: 6 }}
+                                className="w-full px-3.5 py-3 rounded-md border border-border bg-background text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors placeholder:text-muted-foreground/40 resize-none"
                               />
                               <button onClick={() => setObsOpen(null)}
                                 className="absolute top-2 right-2 p-1 rounded-md text-muted-foreground hover:text-foreground">
                                 <X size={14} />
                               </button>
-                              <p className="text-[10px] text-muted-foreground text-right mt-0.5">{entry.obs.length}/500</p>
+                              <p className="text-caption text-muted-foreground text-right mt-0.5">{entry.obs.length}/500</p>
                             </div>
                           )}
 
                           {/* Per-machine progress bar */}
                           {pct !== null && (
                             <div className="h-1 bg-muted rounded-full overflow-hidden mt-2.5">
-                              <div className="h-full rounded-full transition-all duration-400"
+                              <div className="h-full rounded-full transition-colors duration-400"
                                 style={{ width: `${Math.min(pct, 100)}%`, backgroundColor: pctColor(pct) }} />
                             </div>
                           )}
@@ -405,23 +396,21 @@ const ProductionEntry = () => {
       {/* ── Floating save bar — UNCHANGED ── */}
       {hasChanges && (
         <div className={`fixed ${isMobile ? "bottom-20" : "bottom-6"} left-4 right-4 z-40 max-w-lg mx-auto`}>
-          <div className="rounded-xl p-3 shadow-2xl shadow-black/30 flex items-center gap-3"
-            style={{ background: "#003366", borderRadius: 12 }}>
+          <div className="flex items-center gap-3 rounded-lg bg-weg-900 p-3 shadow-modal dark:bg-weg-800">
             <div className="flex-1 min-w-0">
-              <p className="text-xs font-bold text-white">
+              <p className="text-xs font-medium text-white">
                 {saved ? "Salvo com sucesso!" : `${filledCount} máquina${filledCount > 1 ? "s" : ""} preenchida${filledCount > 1 ? "s" : ""}`}
               </p>
-              <p className="text-[10px] text-white/50">{selectedDate} - {selectedTurno}</p>
+              <p className="text-caption text-white/50">{selectedDate} - {selectedTurno}</p>
             </div>
             {!saved && (
               <button onClick={handleClear}
-                className="shrink-0 px-3 py-2 rounded-lg text-xs font-bold text-white/60 hover:text-white/90 transition-colors">
+                className="press h-11 shrink-0 rounded-md px-3 text-sm text-white/70 transition-colors duration-fast hover:text-white">
                 Limpar
               </button>
             )}
             <button onClick={handleSave} disabled={saving || saved}
-              className={`shrink-0 px-5 py-3 rounded-lg font-bold text-sm flex items-center gap-2 transition-all ${saved ? "bg-green-500 text-white" : "bg-white text-[#003366] active:scale-95"} disabled:opacity-70`}
-              style={{ borderRadius: 8 }}>
+              className={`press flex h-11 shrink-0 items-center gap-2 rounded-md px-5 text-sm font-medium transition-colors duration-fast ${saved ? "bg-success text-success-foreground" : "bg-white text-weg-900"} disabled:opacity-70`}>
               {saving ? <Save size={16} className="animate-spin" /> : saved ? <Check size={16} /> : <Save size={16} />}
               {saving ? "Salvando..." : saved ? "Salvo!" : "Salvar"}
             </button>

@@ -3,12 +3,13 @@ import { useNavigate } from "react-router-dom";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
 import WEGLogo from "@/components/WEGLogo";
 import { useAuth } from "@/contexts/AuthContext";
-import { useIsMobile } from "@/hooks/use-mobile";
+import { Button } from "@/components/ui/button";
+import { ThemeToggle } from "@/components/ThemeToggle";
+import { cn } from "@/lib/utils";
 
 const LoginPage = () => {
   const navigate = useNavigate();
   const { login, register } = useAuth();
-  const isMobile = useIsMobile();
   const [mode, setMode] = useState<"login" | "register">("login");
   const [nome, setNome] = useState("");
   const [codigoAcesso, setCodigoAcesso] = useState("");
@@ -48,54 +49,59 @@ const LoginPage = () => {
     setLoading(false);
   }
 
-  const inputCls = "w-full px-4 py-3 rounded-md border text-sm font-medium focus:outline-none focus:ring-2 transition-all";
-  const inputLight = `${inputCls} border-border bg-white placeholder:text-muted-foreground/50 focus:ring-primary/30 focus:border-primary`;
-  const inputDark = `${inputCls} border-white/20 bg-white/10 text-white placeholder:text-white/40 focus:ring-white/30 focus:border-white/50 backdrop-blur-sm`;
+  const inputCls =
+    "h-11 w-full rounded-md border border-input bg-card px-3 text-sm text-foreground placeholder:text-muted-foreground transition-colors duration-fast focus:outline-none focus:ring-2 focus:ring-ring/40 focus:border-ring";
+  const labelCls = "mb-1.5 block text-sm text-foreground";
 
   return (
-    <div className="min-h-screen flex items-center justify-center relative overflow-hidden px-4"
-      style={{ background: 'linear-gradient(160deg, #001D3D 0%, #003366 40%, #004E8C 100%)' }}>
+    // Fundo navy WEG sólido (assinatura da marca), sem grade nem degradê
+    <div className="relative flex min-h-screen items-center justify-center bg-weg-900 px-4 dark:bg-weg-950">
+      <ThemeToggle onBrand className="absolute right-4 top-4" />
 
-      {/* Grid pattern */}
-      <div className="absolute inset-0 opacity-[0.04]"
-        style={{ backgroundImage: `linear-gradient(rgba(255,255,255,.5) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.5) 1px, transparent 1px)`, backgroundSize: '60px 60px' }} />
-
-      <div className="relative z-10 w-full max-w-[420px]">
-        <div className="bg-white rounded-xl p-8 sm:p-10 shadow-2xl" style={{ borderRadius: 14 }}>
+      <main className="w-full max-w-[400px]">
+        <div className="rounded-xl border bg-card p-6 shadow-modal sm:p-8">
           {/* Logo */}
-          <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center rounded-md p-3 px-5 mb-4" style={{ background: '#003366', borderRadius: 4 }}>
-              <WEGLogo height={36} color="#fff" />
+          <div className="mb-6 text-center">
+            <div className="mb-4 inline-flex items-center justify-center rounded-sm bg-weg-600 px-4 py-2.5">
+              <WEGLogo height={32} className="text-white" />
             </div>
-            <h1 className="text-lg font-extrabold tracking-tight" style={{ color: '#003366' }}>Dashboard de Produção</h1>
-            <p className="text-sm text-muted-foreground mt-1">{isLogin ? "Faça login para continuar" : "Crie sua conta de acesso"}</p>
+            <h1 className="text-lg font-semibold tracking-tight">Dashboard de Produção</h1>
+            <p className="mt-1 text-sm text-muted-foreground">{isLogin ? "Faça login para continuar" : "Crie sua conta de acesso"}</p>
           </div>
 
           {/* Mode toggle */}
-          <div className="flex rounded-md p-1 mb-6 gap-1" style={{ background: '#F0F2F5', borderRadius: 4 }}>
+          <div role="tablist" aria-label="Modo de acesso" className="mb-6 flex gap-1 rounded-md bg-muted p-1">
             {(["login", "register"] as const).map(m => (
-              <button key={m} onClick={() => switchMode(m)}
-                className={`flex-1 py-2.5 text-sm font-bold rounded-sm transition-all duration-200 ${mode === m ? "bg-white shadow-sm" : "hover:text-foreground"}`}
-                style={{ color: mode === m ? '#003366' : '#94A3B8', borderRadius: 3 }}>
-                {m === "login" ? "Entrar" : "Criar Conta"}
+              <button
+                key={m}
+                role="tab"
+                aria-selected={mode === m}
+                onClick={() => switchMode(m)}
+                className={cn(
+                  "h-9 flex-1 rounded-sm text-sm transition-colors duration-fast",
+                  mode === m ? "bg-card font-medium text-foreground" : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                {m === "login" ? "Entrar" : "Criar conta"}
               </button>
             ))}
           </div>
 
           {/* Form */}
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-4" noValidate>
             <div>
-              <label className="text-xs font-bold mb-1.5 block tracking-wide uppercase" style={{ color: '#1E293B' }}>Nome de usuário</label>
-              <input value={nome} onChange={e => setNome(e.target.value)} placeholder="Seu nome" autoFocus className={inputLight} style={{ borderRadius: 6 }} />
+              <label htmlFor="login-nome" className={labelCls}>Nome de usuário</label>
+              <input id="login-nome" value={nome} onChange={e => setNome(e.target.value)} placeholder="Seu nome" autoFocus autoComplete="username" className={inputCls} />
             </div>
             <div>
-              <label className="text-xs font-bold mb-1.5 block tracking-wide uppercase" style={{ color: '#1E293B' }}>Senha</label>
+              <label htmlFor="login-senha" className={labelCls}>Senha</label>
               <div className="relative">
-                <input type={showPw ? "text" : "password"} value={senha} onChange={e => setSenha(e.target.value)} placeholder="Mínimo 4 caracteres"
-                  className={`${inputLight} pr-16`} style={{ borderRadius: 6 }} />
+                <input id="login-senha" type={showPw ? "text" : "password"} value={senha} onChange={e => setSenha(e.target.value)} placeholder="Mínimo 4 caracteres"
+                  autoComplete={isLogin ? "current-password" : "new-password"} className={`${inputCls} pr-12`} />
                 <button type="button" onClick={() => setShowPw(!showPw)}
-                  className="absolute right-0 top-0 bottom-0 px-3 flex items-center text-muted-foreground hover:text-foreground transition-colors border-l border-border">
-                  {showPw ? <EyeOff size={16} /> : <Eye size={16} />}
+                  aria-label={showPw ? "Ocultar senha" : "Mostrar senha"}
+                  className="absolute inset-y-0 right-0 flex w-11 items-center justify-center text-muted-foreground transition-colors duration-fast hover:text-foreground">
+                  {showPw ? <EyeOff size={16} aria-hidden="true" /> : <Eye size={16} aria-hidden="true" />}
                 </button>
               </div>
             </div>
@@ -103,41 +109,44 @@ const LoginPage = () => {
             {!isLogin && (
               <div className="space-y-4">
                 <div>
-                  <label className="text-xs font-bold mb-1.5 block tracking-wide uppercase" style={{ color: '#1E293B' }}>Confirmar senha</label>
-                  <input type={showPw ? "text" : "password"} value={senha2} onChange={e => setSenha2(e.target.value)} placeholder="Repita a senha"
-                    className={inputLight} style={{ borderRadius: 6 }} />
+                  <label htmlFor="login-senha2" className={labelCls}>Confirmar senha</label>
+                  <input id="login-senha2" type={showPw ? "text" : "password"} value={senha2} onChange={e => setSenha2(e.target.value)} placeholder="Repita a senha"
+                    autoComplete="new-password" className={inputCls} />
                 </div>
                 <div>
-                  <label className="text-xs font-bold mb-1.5 block tracking-wide uppercase" style={{ color: '#1E293B' }}>Código de acesso</label>
-                  <input value={codigoAcesso} onChange={e => setCodigoAcesso(e.target.value)} placeholder="Informe o código fornecido" autoComplete="off"
-                    className={inputLight} style={{ borderRadius: 6 }} />
-                  <p className="text-[11px] text-muted-foreground mt-1">Solicite o código de acesso ao administrador.</p>
+                  <label htmlFor="login-codigo" className={labelCls}>Código de acesso</label>
+                  <input id="login-codigo" value={codigoAcesso} onChange={e => setCodigoAcesso(e.target.value)} placeholder="Informe o código fornecido" autoComplete="off"
+                    aria-describedby="login-codigo-hint" className={inputCls} />
+                  <p id="login-codigo-hint" className="mt-1 text-xs text-muted-foreground">Solicite o código de acesso ao administrador.</p>
                 </div>
               </div>
             )}
 
             {alert.msg && (
-              <div className={`rounded-md p-3 text-sm font-medium ${alert.type === "error" ? "bg-red-50 text-red-700 border border-red-200" : "bg-green-50 text-green-700 border border-green-200"}`}
-                style={{ borderRadius: 6 }}>
+              <div
+                role={alert.type === "error" ? "alert" : "status"}
+                className={cn(
+                  "rounded-md border p-3 text-sm",
+                  alert.type === "error" ? "border-destructive/30 bg-destructive/10 text-destructive" : "border-success/30 bg-success/10 text-success",
+                )}
+              >
                 {alert.msg}
               </div>
             )}
 
-            <button type="submit" disabled={loading}
-              className="w-full py-3.5 text-white font-bold text-sm shadow-lg hover:brightness-110 disabled:opacity-60 disabled:cursor-not-allowed transition-all duration-200 flex items-center justify-center gap-2"
-              style={{ background: 'linear-gradient(135deg, #003366, #0066B3)', borderRadius: 8 }}>
-              {loading && <Loader2 size={16} className="animate-spin" />}
-              {loading ? "Aguarde..." : (isLogin ? "Entrar" : "Criar Conta")}
-            </button>
+            <Button type="submit" size="lg" disabled={loading} className="w-full">
+              {loading && <Loader2 className="animate-spin" aria-hidden="true" />}
+              {loading ? "Aguarde…" : (isLogin ? "Entrar" : "Criar conta")}
+            </Button>
           </form>
 
           {isLogin && (
-            <p className="text-center text-xs text-muted-foreground mt-5">
-              Esqueceu a senha? Fale com o <strong className="text-foreground">administrador</strong>.
+            <p className="mt-5 text-center text-xs text-muted-foreground">
+              Esqueceu a senha? Fale com o <span className="font-medium text-foreground">administrador</span>.
             </p>
           )}
         </div>
-      </div>
+      </main>
     </div>
   );
 };

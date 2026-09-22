@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { cn } from "@/lib/utils";
 import { Pencil, Check, X } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -56,8 +57,8 @@ const MetasTab = () => {
     <div className="space-y-6">
 
       {/* Tipo de Meta */}
-      <div className="bg-card rounded-xl border border-border p-5" style={{ borderRadius: 12 }}>
-        <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-4">
+      <div className="bg-card rounded-lg border border-border p-5">
+        <p className="text-xs font-medium text-muted-foreground mb-4">
           Tipo de Meta Aplicada no Dashboard
         </p>
         <div className={`grid ${isMobile ? "grid-cols-3 gap-2" : "grid-cols-3 gap-4"}`}>
@@ -65,10 +66,13 @@ const MetasTab = () => {
             const active = turnosAtivos === n;
             return (
               <button key={n} onClick={() => setTurnosAtivos(n)}
-                className="flex flex-col items-center justify-center py-4 rounded-lg border-2 transition-all"
-                style={{ borderColor: active ? "#0066B3" : "#E2E8F0", backgroundColor: active ? "#0066B310" : "transparent", borderRadius: 10 }}>
-                <span className="text-xl font-extrabold" style={{ color: active ? "#003366" : "#94A3B8" }}>{n}</span>
-                <span className="text-xs font-semibold" style={{ color: active ? "#003366" : "#94A3B8" }}>
+                aria-pressed={active}
+                className={cn(
+                  "press flex flex-col items-center justify-center rounded-lg border py-4 transition-colors duration-fast",
+                  active ? "border-primary bg-primary/10 text-foreground ring-1 ring-primary" : "text-muted-foreground hover:bg-accent",
+                )}>
+                <span className="text-xl font-semibold tabular-nums">{n}</span>
+                <span className="text-xs">
                   {n === 1 ? "Turno" : "Turnos"}
                 </span>
               </button>
@@ -81,31 +85,28 @@ const MetasTab = () => {
       </div>
 
       {/* Tabela Metas por Máquina */}
-      <div className="bg-card rounded-xl border border-border overflow-hidden shadow-sm" style={{ borderRadius: 12 }}>
+      <div className="bg-card rounded-lg border border-border overflow-hidden">
 
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-3 gap-4" style={{ background: "#003366" }}>
-          <h3 className="text-sm font-bold text-white shrink-0">Metas por Máquina</h3>
+        <div className="flex items-center justify-between gap-4 border-b px-4 py-3">
+          <h3 className="shrink-0 text-sm font-medium">Metas por máquina</h3>
 
           {isAdmin && (
             !editing ? (
               <button onClick={startEdit}
-                className="flex items-center gap-2 px-4 py-1.5 rounded-md border border-white/40 text-white text-xs font-bold hover:bg-white/10 transition-colors"
-                style={{ borderRadius: 6 }}>
+                className="press inline-flex h-9 items-center gap-2 rounded-md border bg-card px-4 text-sm transition-colors duration-fast hover:bg-accent">
                 <Pencil size={13} />
                 Alterar Metas
               </button>
             ) : (
               <div className="flex items-center gap-2">
                 <button onClick={cancelEdit} disabled={saving}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-white/30 text-white/70 text-xs font-bold hover:bg-white/10 transition-colors disabled:opacity-50"
-                  style={{ borderRadius: 6 }}>
+                  className="press inline-flex h-9 items-center gap-1.5 rounded-md px-3 text-sm text-muted-foreground transition-colors duration-fast hover:bg-accent hover:text-foreground disabled:opacity-50">
                   <X size={13} />
                   Cancelar
                 </button>
                 <button onClick={handleSave} disabled={saving}
-                  className="flex items-center gap-1.5 px-4 py-1.5 rounded-md bg-green-500 text-white text-xs font-bold hover:bg-green-400 disabled:opacity-60 transition-colors"
-                  style={{ borderRadius: 6 }}>
+                  className="press inline-flex h-9 items-center gap-1.5 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors duration-fast hover:bg-weg-700 disabled:opacity-60">
                   <Check size={13} />
                   {saving ? "Salvando..." : "Salvar Metas"}
                 </button>
@@ -116,10 +117,10 @@ const MetasTab = () => {
 
         {/* Vigência banner — only while editing */}
         {editing && (
-          <div className="px-5 py-2.5 border-b border-amber-200 bg-amber-50 flex items-center gap-3 flex-wrap">
-            <span className="text-xs font-bold text-amber-800 uppercase tracking-wider shrink-0">Vigente a partir de:</span>
+          <div className="px-5 py-2.5 border-b border-warning/30 bg-warning/10 flex items-center gap-3 flex-wrap">
+            <span className="text-xs font-medium text-warning shrink-0">Vigente a partir de:</span>
             <DatePickerInput value={vigencia} onChange={setVigencia} />
-            <p className="text-xs text-amber-700">As metas entrarão em vigor nesta data para todos os usuários.</p>
+            <p className="text-xs text-warning">As metas entrarão em vigor nesta data para todos os usuários.</p>
           </div>
         )}
 
@@ -133,21 +134,20 @@ const MetasTab = () => {
               const info      = metasInfo[m.id];
               return (
                 <div key={m.id} className="px-4 py-3 space-y-2">
-                  <p className="text-xs font-bold text-foreground">{m.name}</p>
+                  <p className="text-xs font-medium text-foreground">{m.name}</p>
                   {editing ? (
                     <input
                       type="number"
                       value={editValues[m.id] ?? ""}
                       onChange={e => setEditValues(prev => ({ ...prev, [m.id]: e.target.value }))}
-                      className="w-full px-2.5 py-2 text-sm border-2 border-primary rounded-md bg-background font-bold focus:outline-none focus:ring-2 focus:ring-primary/30 text-center"
-                      style={{ borderRadius: 6 }}
+                      className="w-full px-2.5 py-2 text-sm border-2 border-primary rounded-md bg-background font-medium focus:outline-none focus:ring-2 focus:ring-primary/30 text-center"
                       placeholder="Meta/Turno"
                     />
                   ) : null}
-                  <div className="grid grid-cols-3 gap-2 text-[11px]">
+                  <div className="grid grid-cols-3 gap-2 text-caption">
                     <div>
                       <span className="text-muted-foreground">Meta/Turno</span>
-                      <p className={`font-extrabold ${editing ? "text-primary" : "text-foreground"}`}>
+                      <p className={`font-semibold ${editing ? "text-primary" : "text-foreground"}`}>
                         {metaTurno.toLocaleString("pt-BR")}
                       </p>
                     </div>
@@ -165,7 +165,7 @@ const MetasTab = () => {
                     </div>
                   </div>
                   {!editing && info?.vigenciaInicio && (
-                    <p className="text-[10px] text-muted-foreground">
+                    <p className="text-caption text-muted-foreground">
                       Desde {dispD(info.vigenciaInicio)} · por {info.updatedBy}
                     </p>
                   )}
@@ -179,27 +179,26 @@ const MetasTab = () => {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border bg-muted/30">
-                  <th className="text-left px-5 py-3 text-xs font-bold text-muted-foreground uppercase tracking-wider">Máquina</th>
-                  <th className="text-center px-4 py-3 text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                  <th className="text-left px-5 py-3 text-xs font-normal text-muted-foreground">Máquina</th>
+                  <th className="text-center px-4 py-3 text-xs font-normal text-muted-foreground">
                     Meta / Turno {editing && <span className="normal-case font-normal text-primary">(editando)</span>}
                   </th>
-                  <th className="text-center px-4 py-3 text-xs font-bold text-muted-foreground uppercase tracking-wider">Meta / Dia</th>
-                  <th className="text-center px-4 py-3 text-xs font-bold text-muted-foreground uppercase tracking-wider">Meta / Mês ({DIAS_UTEIS_MES} dias)</th>
-                  <th className="text-center px-4 py-3 text-xs font-bold text-muted-foreground uppercase tracking-wider">Vigente Desde</th>
+                  <th className="text-center px-4 py-3 text-xs font-normal text-muted-foreground">Meta / Dia</th>
+                  <th className="text-center px-4 py-3 text-xs font-normal text-muted-foreground">Meta / Mês ({DIAS_UTEIS_MES} dias)</th>
+                  <th className="text-center px-4 py-3 text-xs font-normal text-muted-foreground">Vigente Desde</th>
                 </tr>
               </thead>
               <tbody>
-                {machines.map((m, i) => {
+                {machines.map((m) => {
                   const metaTurno = editing ? (Number(editValues[m.id]) || 0) : (metas[m.id] ?? m.defaultMeta);
                   const metaDia   = metaTurno * turnosAtivos;
                   const metaMes   = metaDia * DIAS_UTEIS_MES;
                   const info      = metasInfo[m.id];
-                  const rowBg     = editing ? (i % 2 === 0 ? "#EFF6FF" : "#E0EDFF") : (i % 2 === 0 ? "transparent" : "#F8FAFC");
 
                   return (
-                    <tr key={m.id} className="border-b border-border/50" style={{ background: rowBg }}>
+                    <tr key={m.id} className={cn("border-b border-border/50 transition-colors duration-fast", editing ? "bg-primary/5" : "hover:bg-surface-2")}>
 
-                      <td className="px-5 py-3 font-bold text-foreground text-xs uppercase">{m.name}</td>
+                      <td className="px-4 py-2 text-sm font-medium">{m.name}</td>
 
                       {/* Meta/Turno — input when editing */}
                       <td className="px-4 py-2.5 text-center">
@@ -208,11 +207,10 @@ const MetasTab = () => {
                             type="number"
                             value={editValues[m.id] ?? ""}
                             onChange={e => setEditValues(prev => ({ ...prev, [m.id]: e.target.value }))}
-                            className="w-28 px-2.5 py-1.5 text-sm border-2 border-primary rounded-md bg-white font-bold focus:outline-none focus:ring-2 focus:ring-primary/30 text-center"
-                            style={{ borderRadius: 6 }}
+                            className="w-28 px-2.5 py-1.5 text-sm border-2 border-primary rounded-md bg-white font-medium focus:outline-none focus:ring-2 focus:ring-primary/30 text-center"
                           />
                         ) : (
-                          <span className="font-extrabold text-foreground">{metaTurno.toLocaleString("pt-BR")}</span>
+                          <span className="font-semibold text-foreground">{metaTurno.toLocaleString("pt-BR")}</span>
                         )}
                       </td>
 
@@ -234,9 +232,9 @@ const MetasTab = () => {
                       <td className="px-4 py-3 text-center">
                         {info?.vigenciaInicio ? (
                           <>
-                            <span className="text-xs font-bold text-foreground">{dispD(info.vigenciaInicio)}</span>
+                            <span className="text-xs font-medium text-foreground">{dispD(info.vigenciaInicio)}</span>
                             <br />
-                            <span className="text-[10px] text-muted-foreground">por {info.updatedBy}</span>
+                            <span className="text-caption text-muted-foreground">por {info.updatedBy}</span>
                           </>
                         ) : (
                           <span className="text-xs text-muted-foreground">—</span>

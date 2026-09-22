@@ -209,14 +209,13 @@ const ReportsTab = () => {
       <div className="flex items-center gap-2">
         {SUB_TABS.map(st => (
           <button key={st.id} onClick={() => setSubTab(st.id)}
-            className={`px-5 py-2 text-sm font-semibold border transition-all ${
+            className={`px-5 py-2 text-sm font-semibold border transition-colors ${
               subTab === st.id
                 ? "text-white border-transparent shadow-sm"
                 : "bg-card text-foreground border-border hover:bg-muted"
             }`}
             style={{
-              borderRadius: 20,
-              ...(subTab === st.id ? { background: "#0066B3" } : {}),
+              ...(subTab === st.id ? { background: "hsl(var(--primary))" } : {}),
             }}>
             {st.label}
           </button>
@@ -229,21 +228,20 @@ const ReportsTab = () => {
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.2 }}
-          className="bg-card rounded-xl border border-border shadow-sm overflow-hidden"
-          style={{ borderRadius: 12 }}
+          className="bg-card rounded-lg border border-border overflow-hidden"
         >
           {/* Calendar header */}
-          <div className="flex items-center justify-between px-4 py-3" style={{ background: "#003366" }}>
+          <div className="flex items-center justify-between px-4 py-3" style={{ background: "hsl(var(--weg-900))" }}>
             <button onClick={prevMonth} className="w-9 h-9 flex items-center justify-center rounded-lg text-white hover:bg-white/10 transition-colors">
               <ChevronLeft size={20} />
             </button>
             <div className="text-center">
-              <h2 className="text-base font-bold text-white">
+              <h2 className="text-base font-medium text-white">
                 {MONTH_NAMES[calMonth]} {calYear}
               </h2>
               <button onClick={goToday}
-                className="text-[11px] font-semibold px-3 py-0.5 mt-0.5 rounded-full transition-colors"
-                style={{ background: "#0066B3", color: "#fff" }}>
+                className="text-caption font-semibold px-3 py-0.5 mt-0.5 rounded-full transition-colors"
+                style={{ background: "hsl(var(--primary))", color: "hsl(var(--primary-foreground))" }}>
                 Hoje
               </button>
             </div>
@@ -253,9 +251,9 @@ const ReportsTab = () => {
           </div>
 
           {/* Weekday headers */}
-          <div className="grid grid-cols-7 border-b border-border" style={{ background: "#F8FAFC" }}>
+          <div className="grid grid-cols-7 border-b border-border" style={{ background: "hsl(var(--surface-2))" }}>
             {WEEKDAYS.map(wd => (
-              <div key={wd} className="text-center py-2 text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
+              <div key={wd} className="text-center py-2 text-caption font-medium text-muted-foreground">
                 {wd}
               </div>
             ))}
@@ -274,13 +272,13 @@ const ReportsTab = () => {
                   const holiday = holidays.find(h => h.date === dateStr);
 
                   const cellBg = holiday
-                    ? holiday.type === "feriado" ? "#EFF6FF" : "#FEF2F2"
+                    ? holiday.type === "feriado" ? "hsl(var(--info) / 0.08)" : "hsl(var(--destructive) / 0.08)"
                     : isToday ? undefined : undefined;
 
                   const holidayStyle = holiday
                     ? holiday.type === "feriado"
-                      ? { bg: "#DBEAFE", color: "#1D4ED8" }
-                      : { bg: "#FEE2E2", color: "#B91C1C" }
+                      ? { bg: "hsl(var(--info) / 0.14)", color: "hsl(var(--info))" }
+                      : { bg: "hsl(var(--destructive) / 0.14)", color: "hsl(var(--destructive))" }
                     : null;
 
                   return (
@@ -292,12 +290,12 @@ const ReportsTab = () => {
                       className={`p-1.5 relative transition-colors ${data ? "cursor-pointer" : ""} ${isToday && !holiday ? "bg-primary/5" : data && !holiday ? "hover:bg-muted/30" : ""}`}
                       style={cellBg ? { background: cellBg } : {}}>
                       <div className="flex items-start justify-between mb-1">
-                        <span className={`text-sm font-bold leading-none ${
+                        <span className={`text-sm font-medium leading-none ${
                           isToday
                             ? "w-7 h-7 rounded-full flex items-center justify-center text-white"
                             : "text-foreground"
                         }`}
-                          style={isToday ? { background: "#0066B3" } : {}}>
+                          style={isToday ? { background: "hsl(var(--primary))" } : {}}>
                           {day}
                         </span>
                         <div className="flex items-center gap-0.5">
@@ -309,7 +307,7 @@ const ReportsTab = () => {
                               <PopoverTrigger asChild>
                                 <button
                                   onClick={(e) => e.stopPropagation()}
-                                  className="text-[11px] leading-none cursor-pointer hover:scale-125 transition-transform"
+                                  className="text-caption leading-none cursor-pointer hover:scale-125 transition-transform"
                                   aria-label={`Ver detalhes: ${holiday.label}`}
                                 >
                                   {holiday.type === "feriado" ? "🎉" : "🚫"}
@@ -320,21 +318,21 @@ const ReportsTab = () => {
                                   <div className="flex items-start gap-2">
                                     <span className="text-xl mt-0.5">{holiday.type === "feriado" ? "🎉" : "🚫"}</span>
                                     <div>
-                                      <p className="text-sm font-bold text-foreground leading-tight">{holiday.label}</p>
-                                      <p className="text-[11px] text-muted-foreground mt-0.5">{dispD(dateStr)}</p>
+                                      <p className="text-sm font-medium text-foreground leading-tight">{holiday.label}</p>
+                                      <p className="text-caption text-muted-foreground mt-0.5">{dispD(dateStr)}</p>
                                     </div>
                                   </div>
                                   <span
-                                    className="inline-flex text-[11px] font-bold px-2.5 py-0.5 rounded-full"
+                                    className="inline-flex text-caption font-medium px-1.5 py-px rounded-sm"
                                     style={holidayStyle ? { background: holidayStyle.bg, color: holidayStyle.color } : {}}
                                   >
                                     {holiday.type === "feriado" ? "Feriado Nacional/Local" : "Dia Anulado"}
                                   </span>
                                   {!data && (
-                                    <p className="text-[10px] text-muted-foreground">Nenhum apontamento neste dia.</p>
+                                    <p className="text-caption text-muted-foreground">Nenhum apontamento neste dia.</p>
                                   )}
                                   {data && (
-                                    <p className="text-[10px] text-muted-foreground">
+                                    <p className="text-caption text-muted-foreground">
                                       {Object.values(data.counts).reduce((s, v) => s + v, 0)} apontamento(s) registrado(s).
                                     </p>
                                   )}
@@ -343,7 +341,7 @@ const ReportsTab = () => {
                             </Popover>
                           )}
                           {data && (
-                            <span className="text-[10px] font-semibold text-muted-foreground">
+                            <span className="text-caption font-semibold text-muted-foreground">
                               {formatNum(data.totalProd)}
                             </span>
                           )}
@@ -352,7 +350,7 @@ const ReportsTab = () => {
                       {holiday && !isMobile && holidayStyle && (
                         <button
                           onClick={(e) => { e.stopPropagation(); setHolidayPopover(prev => prev === dateStr ? null : dateStr); }}
-                          className="text-left w-full text-[10px] font-semibold px-1.5 py-0.5 rounded truncate mb-0.5 cursor-pointer"
+                          className="text-left w-full text-caption font-semibold px-1.5 py-0.5 rounded truncate mb-0.5 cursor-pointer"
                           style={{ background: holidayStyle.bg, color: holidayStyle.color }}
                         >
                           {holiday.label}
@@ -365,8 +363,8 @@ const ReportsTab = () => {
                             const count = data.counts[turnoName] ?? 0;
                             return (
                               <div key={turnoName}
-                                className="text-[10px] font-medium px-1.5 py-0.5 rounded truncate"
-                                style={{ background: "#0066B315", color: "#0066B3" }}>
+                                className="text-caption font-medium px-1.5 py-0.5 rounded truncate"
+                                style={{ background: "hsl(var(--primary) / 0.1)", color: "hsl(var(--brand-text))" }}>
                                 Turno {turnoNum} · {count} apt
                               </div>
                             );
@@ -374,7 +372,7 @@ const ReportsTab = () => {
                         </div>
                       )}
                       {data && isMobile && (
-                        <div className="w-1.5 h-1.5 rounded-full mx-auto mt-0.5" style={{ background: "#0066B3" }} />
+                        <div className="w-1.5 h-1.5 rounded-full mx-auto mt-0.5" style={{ background: "hsl(var(--primary))" }} />
                       )}
                     </div>
                   );
@@ -402,14 +400,13 @@ const ReportsTab = () => {
             extra={
               <div className="flex items-center gap-2 self-end">
                 <button onClick={handleExportCSV}
-                  className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold text-white transition-all hover:opacity-90"
-                  style={{ background: 'linear-gradient(135deg,#003366,#0066B3)', borderRadius: 8 }}>
+                  className="flex items-center gap-2 press inline-flex h-9 items-center justify-center gap-2 rounded-md px-4 text-sm font-medium text-primary-foreground transition-colors hover:opacity-90 bg-primary hover:bg-weg-700">
                   <Download size={14} />
                   CSV
                 </button>
                 <button onClick={handleExportPDF}
-                  className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold text-white transition-all hover:opacity-90"
-                  style={{ background: 'linear-gradient(135deg,#7c3aed,#a855f7)', borderRadius: 8 }}>
+                  className="flex items-center gap-2 press inline-flex h-9 items-center justify-center gap-2 rounded-md px-4 text-sm font-medium text-white transition-colors hover:opacity-90"
+                  style={{ background: "hsl(var(--primary))" }}>
                   <FileText size={14} />
                   PDF
                 </button>
@@ -417,9 +414,9 @@ const ReportsTab = () => {
             }
           />
 
-          <div className="bg-card rounded-xl border border-border shadow-sm" style={{ borderRadius: 12 }}>
+          <div className="bg-card rounded-lg border border-border">
             <div className="p-4 border-b border-border flex items-center justify-between">
-              <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
+              <h3 className="text-sm font-medium text-foreground flex items-center gap-2">
                 <FileText size={16} className="text-primary" />
                 Dados Detalhados ({filtered.length} registros)
               </h3>
@@ -440,7 +437,7 @@ const ReportsTab = () => {
               <div className="overflow-x-auto">
                 <table className="w-full text-sm min-w-[740px]">
                   <thead>
-                    <tr style={{ background: '#003366', color: '#fff' }}>
+                    <tr style={{ background: 'hsl(var(--weg-900))', color: "hsl(var(--primary-foreground))" }}>
                       <th className="w-8 px-2 py-3 text-center">
                         <input
                           type="checkbox"
@@ -451,14 +448,14 @@ const ReportsTab = () => {
                         />
                       </th>
                       <th className="w-8 px-2 py-3" />
-                      <th className="text-left px-4 py-3 text-xs font-semibold uppercase">Data</th>
-                      <th className="text-left px-3 py-3 text-xs font-semibold uppercase">Turno</th>
-                      <th className="text-left px-3 py-3 text-xs font-semibold uppercase">Máquina</th>
-                      <th className="text-right px-3 py-3 text-xs font-semibold uppercase">Meta</th>
-                      <th className="text-right px-3 py-3 text-xs font-semibold uppercase">Produção</th>
-                      <th className="text-center px-3 py-3 text-xs font-semibold uppercase">%</th>
-                      <th className="text-left px-3 py-3 text-xs font-semibold uppercase">Por</th>
-                      <th className="text-left px-3 py-3 text-xs font-semibold uppercase">Obs</th>
+                      <th className="text-left px-4 py-3 text-xs font-normal uppercase">Data</th>
+                      <th className="text-left px-3 py-3 text-xs font-normal uppercase">Turno</th>
+                      <th className="text-left px-3 py-3 text-xs font-normal uppercase">Máquina</th>
+                      <th className="text-right px-3 py-3 text-xs font-normal uppercase">Meta</th>
+                      <th className="text-right px-3 py-3 text-xs font-normal uppercase">Produção</th>
+                      <th className="text-center px-3 py-3 text-xs font-normal uppercase">%</th>
+                      <th className="text-left px-3 py-3 text-xs font-normal uppercase">Por</th>
+                      <th className="text-left px-3 py-3 text-xs font-normal uppercase">Obs</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -470,7 +467,7 @@ const ReportsTab = () => {
                       const hasOrdens = (r.ordensProducao?.length ?? 0) > 0;
                       const isExpanded = expandedRow === rowKey;
                       const isChecked = r.id ? selectedIds.has(r.id) : false;
-                      const rowBg = isChecked ? '#EFF6FF' : i % 2 === 0 ? '#F8FAFC' : '#fff';
+                      const rowBg = isChecked ? 'hsl(var(--info) / 0.08)' : i % 2 === 0 ? 'hsl(var(--surface-2))' : "hsl(var(--card))";
                       return (
                         <Fragment key={rowKey}>
                           <tr
@@ -483,7 +480,7 @@ const ReportsTab = () => {
                                   checked={isChecked}
                                   onChange={() => toggleSelect(r.id!)}
                                   className="w-3.5 h-3.5 rounded cursor-pointer"
-                                  style={{ accentColor: '#0066B3' }}
+                                  style={{ accentColor: 'hsl(var(--primary))' }}
                                 />
                               )}
                             </td>
@@ -501,11 +498,11 @@ const ReportsTab = () => {
                             <td className="px-3 py-2.5 text-xs">{r.turno}</td>
                             <td className="px-3 py-2.5 text-xs font-semibold">{r.machineName}</td>
                             <td className="px-3 py-2.5 text-right text-xs text-muted-foreground">{meta > 0 ? meta.toLocaleString("pt-BR") : "—"}</td>
-                            <td className="px-3 py-2.5 text-right text-xs font-bold">{prod.toLocaleString("pt-BR")}</td>
+                            <td className="px-3 py-2.5 text-right text-xs font-medium">{prod.toLocaleString("pt-BR")}</td>
                             <td className="px-3 py-2.5 text-center">
                               {pct !== null ? (
-                                <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full"
-                                  style={{ color: pctColor(pct), backgroundColor: `${pctColor(pct)}15`, borderRadius: 20 }}>
+                                <span className="text-caption font-semibold px-1.5 py-px rounded-sm"
+                                  style={{ color: pctColor(pct), backgroundColor: `${pctColor(pct)}15` }}>
                                   {pct}%
                                 </span>
                               ) : "—"}
@@ -522,13 +519,13 @@ const ReportsTab = () => {
                                     const isR = !!o.retrabalho;
                                     return (
                                     <span key={oi}
-                                      className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full border ${isR ? "border-amber-400/50" : "border-primary/20"}`}
+                                      className={`inline-flex items-center gap-1 text-caption font-semibold px-2.5 py-1 rounded-full border ${isR ? "border-warning/50" : "border-primary/20"}`}
                                       style={isR
-                                        ? { background: "#F59E0B15", color: "#B45309" }
-                                        : { background: "#0066B310", color: "#0066B3" }}>
-                                      {isR && <span className="text-[9px] font-extrabold px-1 py-px rounded bg-amber-500/90 text-white tracking-wide">RETRABALHO</span>}
+                                        ? { background: "hsl(var(--warning) / 0.1)", color: "hsl(var(--warning))" }
+                                        : { background: "hsl(var(--primary) / 0.08)", color: "hsl(var(--brand-text))" }}>
+                                      {isR && <span className="text-caption font-semibold px-1 py-px rounded-sm border border-warning/30 bg-warning/10 text-warning">Retrabalho</span>}
                                       <span className="text-muted-foreground font-medium">#{o.ordemId}</span>
-                                      <span className={`mx-0.5 ${isR ? "text-amber-500/50" : "text-primary/40"}`}>→</span>
+                                      <span className={`mx-0.5 ${isR ? "text-warning/50" : "text-primary/40"}`}>→</span>
                                       <span>{o.quantidade.toLocaleString("pt-BR")} pç</span>
                                       {o.obs && <span className="text-muted-foreground ml-1">· {o.obs}</span>}
                                     </span>
@@ -558,10 +555,10 @@ const ReportsTab = () => {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 20 }}
             transition={{ duration: 0.2 }}
-            className="fixed bottom-6 left-1/2 z-40 flex items-center gap-3 px-5 py-3 rounded-2xl shadow-2xl border border-white/10"
-            style={{ transform: "translateX(-50%)", background: "#001D3D", minWidth: 320 }}
+            className="fixed bottom-6 left-1/2 z-40 flex items-center gap-3 px-5 py-3 rounded-xl shadow-modal border border-white/10"
+            style={{ transform: "translateX(-50%)", background: "hsl(var(--weg-950))", minWidth: 320 }}
           >
-            <span className="text-white text-xs font-bold mr-1">{selectedIds.size} selecionado(s)</span>
+            <span className="text-white text-xs font-medium mr-1">{selectedIds.size} selecionado(s)</span>
             <button
               onClick={() => setBulkAction("turno")}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-white hover:bg-white/10 transition-colors"
@@ -581,7 +578,7 @@ const ReportsTab = () => {
             <button
               onClick={() => setBulkAction("delete")}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold rounded-lg transition-colors"
-              style={{ background: "#EF4444", color: "#fff" }}
+              style={{ background: "hsl(var(--destructive))", color: "hsl(var(--primary-foreground))" }}
               title="Excluir selecionados"
             >
               <Trash2 size={13} />
@@ -608,7 +605,7 @@ const ReportsTab = () => {
             exit={{ opacity: 0 }}
             transition={{ duration: 0.15 }}
             className="fixed inset-0 z-50 flex items-center justify-center p-4"
-            style={{ background: "rgba(0,0,0,0.5)" }}
+            style={{ background: "hsl(var(--weg-950) / 0.5)" }}
             onClick={() => !bulkLoading && setBulkAction(null)}
           >
             <motion.div
@@ -616,17 +613,17 @@ const ReportsTab = () => {
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 16 }}
               transition={{ duration: 0.18 }}
-              className="bg-card w-full max-w-sm rounded-xl border border-border shadow-xl overflow-hidden"
+              className="bg-card w-full max-w-sm rounded-xl border border-border shadow-modal overflow-hidden"
               onClick={e => e.stopPropagation()}
             >
               {bulkAction === "delete" && (
                 <>
                   <div className="px-5 py-4 border-b border-border flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-full flex items-center justify-center" style={{ background: "#FEE2E2" }}>
-                      <Trash2 size={16} style={{ color: "#EF4444" }} />
+                    <div className="w-9 h-9 rounded-full flex items-center justify-center" style={{ background: "hsl(var(--destructive) / 0.14)" }}>
+                      <Trash2 size={16} style={{ color: "hsl(var(--destructive))" }} />
                     </div>
                     <div>
-                      <p className="text-sm font-bold text-foreground">Excluir registros</p>
+                      <p className="text-sm font-medium text-foreground">Excluir registros</p>
                       <p className="text-xs text-muted-foreground">{selectedIds.size} registro(s) serão excluídos permanentemente</p>
                     </div>
                   </div>
@@ -636,8 +633,8 @@ const ReportsTab = () => {
                       Cancelar
                     </button>
                     <button onClick={executeBulkDelete} disabled={bulkLoading}
-                      className="px-4 py-2 text-sm font-bold rounded-lg text-white transition-all disabled:opacity-60"
-                      style={{ background: "#EF4444" }}>
+                      className="px-4 py-2 text-sm font-medium rounded-lg text-white transition-colors disabled:opacity-60"
+                      style={{ background: "hsl(var(--destructive))" }}>
                       {bulkLoading ? "Excluindo..." : "Excluir"}
                     </button>
                   </div>
@@ -647,11 +644,11 @@ const ReportsTab = () => {
               {bulkAction === "move" && (
                 <>
                   <div className="px-5 py-4 border-b border-border">
-                    <p className="text-sm font-bold text-foreground">Mover para outra data</p>
+                    <p className="text-sm font-medium text-foreground">Mover para outra data</p>
                     <p className="text-xs text-muted-foreground mt-0.5">{selectedIds.size} registro(s) serão movidos</p>
                   </div>
                   <div className="px-5 py-4 space-y-3">
-                    <label className="text-xs font-semibold text-muted-foreground uppercase">Data destino</label>
+                    <label className="text-xs font-semibold text-muted-foreground">Data destino</label>
                     <input
                       type="date"
                       value={bulkMoveDate}
@@ -665,8 +662,8 @@ const ReportsTab = () => {
                       Cancelar
                     </button>
                     <button onClick={executeBulkMove} disabled={bulkLoading || !bulkMoveDate}
-                      className="px-4 py-2 text-sm font-bold rounded-lg text-white transition-all disabled:opacity-60"
-                      style={{ background: "#0066B3" }}>
+                      className="px-4 py-2 text-sm font-medium rounded-lg text-white transition-colors disabled:opacity-60"
+                      style={{ background: "hsl(var(--primary))" }}>
                       {bulkLoading ? "Movendo..." : "Mover"}
                     </button>
                   </div>
@@ -676,11 +673,11 @@ const ReportsTab = () => {
               {bulkAction === "turno" && (
                 <>
                   <div className="px-5 py-4 border-b border-border">
-                    <p className="text-sm font-bold text-foreground">Alterar turno</p>
+                    <p className="text-sm font-medium text-foreground">Alterar turno</p>
                     <p className="text-xs text-muted-foreground mt-0.5">{selectedIds.size} registro(s) serão atualizados</p>
                   </div>
                   <div className="px-5 py-4 space-y-3">
-                    <label className="text-xs font-semibold text-muted-foreground uppercase">Novo turno</label>
+                    <label className="text-xs font-semibold text-muted-foreground">Novo turno</label>
                     <select
                       value={bulkTurno}
                       onChange={e => setBulkTurno(e.target.value)}
@@ -695,8 +692,8 @@ const ReportsTab = () => {
                       Cancelar
                     </button>
                     <button onClick={executeBulkTurno} disabled={bulkLoading}
-                      className="px-4 py-2 text-sm font-bold rounded-lg text-white transition-all disabled:opacity-60"
-                      style={{ background: "#0066B3" }}>
+                      className="px-4 py-2 text-sm font-medium rounded-lg text-white transition-colors disabled:opacity-60"
+                      style={{ background: "hsl(var(--primary))" }}>
                       {bulkLoading ? "Salvando..." : "Salvar"}
                     </button>
                   </div>
@@ -724,7 +721,7 @@ const ReportsTab = () => {
               exit={{ opacity: 0 }}
               transition={{ duration: 0.15 }}
               className="fixed inset-0 z-50 flex items-center justify-center p-4"
-              style={{ background: "rgba(0,0,0,0.5)" }}
+              style={{ background: "hsl(var(--weg-950) / 0.5)" }}
               onClick={() => setSelectedDate(null)}
             >
               <motion.div
@@ -732,15 +729,14 @@ const ReportsTab = () => {
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.95, y: 20 }}
                 transition={{ duration: 0.2 }}
-                className="bg-card w-full max-w-lg rounded-xl border border-border shadow-xl overflow-hidden"
-                style={{ borderRadius: 12 }}
+                className="bg-card w-full max-w-lg rounded-xl border border-border shadow-modal overflow-hidden"
                 onClick={e => e.stopPropagation()}
               >
                 {/* Modal header */}
-                <div className="flex items-center justify-between px-5 py-3" style={{ background: "#003366" }}>
+                <div className="flex items-center justify-between px-5 py-3" style={{ background: "hsl(var(--weg-900))" }}>
                   <div>
-                    <h3 className="text-sm font-bold text-white">Produção do dia {dateLabel}</h3>
-                    <p className="text-[11px] text-white/70 mt-0.5">
+                    <h3 className="text-sm font-medium text-white">Produção do dia {dateLabel}</h3>
+                    <p className="text-caption text-white/70 mt-0.5">
                       {dayRecords.length} registro{dayRecords.length !== 1 ? "s" : ""} · Total: {totalDay.toLocaleString("pt-BR")} pç
                     </p>
                   </div>
@@ -751,18 +747,18 @@ const ReportsTab = () => {
                 </div>
 
                 {/* Summary bar */}
-                <div className="px-5 py-3 border-b border-border flex items-center gap-4" style={{ background: "#F8FAFC" }}>
+                <div className="px-5 py-3 border-b border-border flex items-center gap-4" style={{ background: "hsl(var(--surface-2))" }}>
                   <div className="flex-1">
-                    <span className="text-[10px] font-bold text-muted-foreground uppercase">Produção</span>
-                    <p className="text-lg font-extrabold text-foreground">{totalDay.toLocaleString("pt-BR")}</p>
+                    <span className="text-caption font-medium text-muted-foreground uppercase">Produção</span>
+                    <p className="text-lg font-semibold text-foreground">{totalDay.toLocaleString("pt-BR")}</p>
                   </div>
                   <div className="flex-1">
-                    <span className="text-[10px] font-bold text-muted-foreground uppercase">Meta</span>
-                    <p className="text-lg font-extrabold text-foreground">{totalMeta.toLocaleString("pt-BR")}</p>
+                    <span className="text-caption font-medium text-muted-foreground uppercase">Meta</span>
+                    <p className="text-lg font-semibold text-foreground">{totalMeta.toLocaleString("pt-BR")}</p>
                   </div>
                   <div>
-                    <span className="text-[10px] font-bold text-muted-foreground uppercase">Atingimento</span>
-                    <p className="text-lg font-extrabold" style={{ color: pctColor(pctDay) }}>{pctDay}%</p>
+                    <span className="text-caption font-medium text-muted-foreground uppercase">Atingimento</span>
+                    <p className="text-lg font-semibold" style={{ color: pctColor(pctDay) }}>{pctDay}%</p>
                   </div>
                 </div>
 
@@ -770,19 +766,19 @@ const ReportsTab = () => {
                 <div className="max-h-[350px] overflow-y-auto">
                   <table className="w-full text-sm">
                     <thead>
-                      <tr className="border-b border-border" style={{ background: "#F8FAFC" }}>
-                        <th className="text-left px-4 py-2 text-[10px] font-bold text-muted-foreground uppercase">Turno</th>
-                        <th className="text-left px-3 py-2 text-[10px] font-bold text-muted-foreground uppercase">Máquina</th>
-                        <th className="text-right px-3 py-2 text-[10px] font-bold text-muted-foreground uppercase">Meta</th>
-                        <th className="text-right px-3 py-2 text-[10px] font-bold text-muted-foreground uppercase">Produção</th>
-                        <th className="text-center px-3 py-2 text-[10px] font-bold text-muted-foreground uppercase">%</th>
+                      <tr className="border-b border-border" style={{ background: "hsl(var(--surface-2))" }}>
+                        <th className="text-left px-4 py-2 text-caption font-normal text-muted-foreground uppercase">Turno</th>
+                        <th className="text-left px-3 py-2 text-caption font-normal text-muted-foreground uppercase">Máquina</th>
+                        <th className="text-right px-3 py-2 text-caption font-normal text-muted-foreground uppercase">Meta</th>
+                        <th className="text-right px-3 py-2 text-caption font-normal text-muted-foreground uppercase">Produção</th>
+                        <th className="text-center px-3 py-2 text-caption font-normal text-muted-foreground uppercase">%</th>
                       </tr>
                     </thead>
                     <tbody>
                       {dayRecords.map((r, i) => {
                         const pct = r.meta > 0 ? Math.round(r.producao / r.meta * 100) : null;
                         const hasOrdens = (r.ordensProducao?.length ?? 0) > 0;
-                        const rowBg = i % 2 === 0 ? "#fff" : "#F8FAFC";
+                        const rowBg = i % 2 === 0 ? "hsl(var(--card))" : "hsl(var(--surface-2))";
                         return (
                           <Fragment key={`${r.turno}-${r.machineId}-${i}`}>
                             <tr
@@ -793,11 +789,11 @@ const ReportsTab = () => {
                               <td className="px-3 py-2.5 text-right text-xs text-muted-foreground">
                                 {r.meta > 0 ? r.meta.toLocaleString("pt-BR") : "—"}
                               </td>
-                              <td className="px-3 py-2.5 text-right text-xs font-bold">{r.producao.toLocaleString("pt-BR")}</td>
+                              <td className="px-3 py-2.5 text-right text-xs font-medium">{r.producao.toLocaleString("pt-BR")}</td>
                               <td className="px-3 py-2.5 text-center">
                                 {pct !== null ? (
-                                  <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full"
-                                    style={{ color: pctColor(pct), backgroundColor: `${pctColor(pct)}15`, borderRadius: 20 }}>
+                                  <span className="text-caption font-semibold px-1.5 py-px rounded-sm"
+                                    style={{ color: pctColor(pct), backgroundColor: `${pctColor(pct)}15` }}>
                                     {pct}%
                                   </span>
                                 ) : "—"}
@@ -813,13 +809,13 @@ const ReportsTab = () => {
                                       return (
                                       <span
                                         key={oi}
-                                        className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full border ${isR ? "border-amber-400/40" : "border-primary/15"}`}
+                                        className={`inline-flex items-center gap-1 text-caption font-semibold px-1.5 py-px rounded-sm border ${isR ? "border-warning/40" : "border-primary/15"}`}
                                         style={isR
-                                          ? { background: "#F59E0B12", color: "#B45309" }
-                                          : { background: "#0066B308", color: "#0066B3" }}
+                                          ? { background: "hsl(var(--warning) / 0.08)", color: "hsl(var(--warning))" }
+                                          : { background: "hsl(var(--primary) / 0.05)", color: "hsl(var(--brand-text))" }}
                                         title={`${isR ? "RETRABALHO · " : ""}${o.quantidade.toLocaleString("pt-BR")} pç${o.obs ? ` — ${o.obs}` : ""}`}
                                       >
-                                        {isR && <span className="text-[8px] font-extrabold px-1 rounded bg-amber-500/90 text-white">R</span>}
+                                        {isR && <span className="text-caption font-semibold px-1 rounded-sm border border-warning/30 bg-warning/10 text-warning" title="Retrabalho">R</span>}
                                         #{o.ordemId} → {o.quantidade.toLocaleString("pt-BR")} pç
                                       </span>
                                       );
@@ -838,8 +834,8 @@ const ReportsTab = () => {
                 {/* Footer */}
                 <div className="px-5 py-3 border-t border-border flex justify-end">
                   <button onClick={() => setSelectedDate(null)}
-                    className="px-4 py-2 text-xs font-bold text-white rounded-lg transition-all hover:opacity-90"
-                    style={{ background: "#0066B3", borderRadius: 8 }}>
+                    className="px-4 py-2 text-xs font-medium text-white rounded-lg transition-colors hover:opacity-90"
+                    style={{ background: "hsl(var(--primary))" }}>
                     Fechar
                   </button>
                 </div>

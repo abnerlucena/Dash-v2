@@ -1,5 +1,7 @@
 import { useState, useEffect } from "react";
-import { X, Users, Factory, KeyRound, CalendarX, Bell } from "lucide-react";
+import { Users, Factory, KeyRound, CalendarX, Bell } from "lucide-react";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { api, dispD } from "@/lib/api";
 import { toast } from "sonner";
@@ -163,37 +165,36 @@ const AdminPanel = ({ onClose }: AdminPanelProps) => {
   }
 
   const tabCls = (key: string) =>
-    `px-4 py-2 text-sm font-bold rounded-lg transition-all cursor-pointer ${tab === key ? "bg-primary/10 text-primary border border-primary/20" : "text-muted-foreground hover:text-foreground border border-transparent"}`;
+    cn("inline-flex h-9 items-center gap-1.5 whitespace-nowrap rounded-md px-3 text-sm transition-colors duration-fast", tab === key ? "bg-accent font-medium text-foreground" : "text-muted-foreground hover:text-foreground");
 
-  const inputCls = "w-full px-3 py-2.5 rounded-md border border-border bg-background text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/30";
+  const inputCls = "h-9 w-full rounded-md border border-input bg-card px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring/40";
 
   return (
-    <div className="fixed inset-0 z-[100] bg-black/50 flex items-center justify-center p-4">
-      <div className="bg-card rounded-xl w-full max-w-[620px] max-h-[90vh] overflow-y-auto shadow-2xl" style={{ borderRadius: 14 }}>
-        {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-border" style={{ background: '#003366', borderRadius: '14px 14px 0 0', color: '#fff' }}>
-          <span className="font-bold text-sm">Painel do Administrador</span>
-          <button onClick={onClose} className="p-1 rounded-md hover:bg-white/10 text-white/80">
-            <X size={18} />
-          </button>
-        </div>
+    // Dialog do Radix: Esc fecha, foco fica preso no modal e o fundo fica inerte
+    <Dialog open onOpenChange={(o) => { if (!o) onClose(); }}>
+      <DialogContent className="flex max-h-[90vh] max-w-[640px] flex-col gap-0 overflow-hidden p-0">
+        <DialogHeader className="border-b px-4 py-3 text-left">
+          <DialogTitle className="text-sm font-medium">Painel do administrador</DialogTitle>
+          <DialogDescription className="text-xs">Usuários, máquinas, convites, feriados e alertas</DialogDescription>
+        </DialogHeader>
+        <div className="overflow-y-auto">
 
         {/* Tabs */}
-        <div className="flex gap-2 p-4 pb-0">
-          <button onClick={() => setTab("users")} className={tabCls("users")}>
-            <Users size={14} className="inline mr-1.5" />Usuários
+        <div role="tablist" aria-label="Seções do painel" className="flex gap-1 overflow-x-auto p-4 pb-0">
+          <button role="tab" aria-selected={tab === "users"} onClick={() => setTab("users")} className={tabCls("users")}>
+            <Users size={14} aria-hidden="true" />Usuários
           </button>
-          <button onClick={() => setTab("machines")} className={tabCls("machines")}>
-            <Factory size={14} className="inline mr-1.5" />Máquinas
+          <button role="tab" aria-selected={tab === "machines"} onClick={() => setTab("machines")} className={tabCls("machines")}>
+            <Factory size={14} aria-hidden="true" />Máquinas
           </button>
-          <button onClick={() => setTab("invites")} className={tabCls("invites")}>
-            <KeyRound size={14} className="inline mr-1.5" />Convites
+          <button role="tab" aria-selected={tab === "invites"} onClick={() => setTab("invites")} className={tabCls("invites")}>
+            <KeyRound size={14} aria-hidden="true" />Convites
           </button>
-          <button onClick={() => setTab("feriados")} className={tabCls("feriados")}>
-            <CalendarX size={14} className="inline mr-1.5" />Feriados
+          <button role="tab" aria-selected={tab === "feriados"} onClick={() => setTab("feriados")} className={tabCls("feriados")}>
+            <CalendarX size={14} aria-hidden="true" />Feriados
           </button>
-          <button onClick={() => setTab("alertas")} className={tabCls("alertas")}>
-            <Bell size={14} className="inline mr-1.5" />Alertas
+          <button role="tab" aria-selected={tab === "alertas"} onClick={() => setTab("alertas")} className={tabCls("alertas")}>
+            <Bell size={14} aria-hidden="true" />Alertas
           </button>
         </div>
 
@@ -208,30 +209,30 @@ const AdminPanel = ({ onClose }: AdminPanelProps) => {
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="bg-muted/50">
-                        <th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground">Nome</th>
-                        <th className="text-center px-3 py-2 text-xs font-semibold text-muted-foreground">Perfil</th>
-                        <th className="text-center px-3 py-2 text-xs font-semibold text-muted-foreground">Status</th>
-                        <th className="text-center px-3 py-2 text-xs font-semibold text-muted-foreground">Ação</th>
+                        <th className="text-left px-3 py-2 text-xs font-normal text-muted-foreground">Nome</th>
+                        <th className="text-center px-3 py-2 text-xs font-normal text-muted-foreground">Perfil</th>
+                        <th className="text-center px-3 py-2 text-xs font-normal text-muted-foreground">Status</th>
+                        <th className="text-center px-3 py-2 text-xs font-normal text-muted-foreground">Ação</th>
                       </tr>
                     </thead>
                     <tbody>
                       {users.map((u, i) => (
-                        <tr key={u.nome} className="border-b border-border/50" style={{ background: i % 2 === 0 ? '#F8FAFC' : '#fff' }}>
+                        <tr key={u.nome} className="border-b border-border/50">
                           <td className="px-3 py-2 font-semibold text-foreground">{u.nome}</td>
                           <td className="px-3 py-2 text-center">
-                            <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${u.role === "admin" ? "bg-amber-100 text-amber-800" : "bg-blue-50 text-blue-800"}`} style={{ borderRadius: 20 }}>
+                            <span className={`text-xs font-semibold px-1.5 py-px rounded-sm ${u.role === "admin" ? "bg-warning/10 text-warning" : "bg-info/10 text-info"}`}>
                               {u.role === "admin" ? "Admin" : "Operador"}
                             </span>
                           </td>
                           <td className="px-3 py-2 text-center">
-                            <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${u.status === "ativo" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`} style={{ borderRadius: 20 }}>
+                            <span className={`text-xs font-medium px-1.5 py-px rounded-sm ${u.status === "ativo" ? "bg-success/10 text-success" : "bg-destructive/10 text-destructive"}`}>
                               {u.status === "ativo" ? "Ativo" : "Bloqueado"}
                             </span>
                           </td>
                           <td className="px-3 py-2 text-center">
                             {u.nome !== "Admin" && (
                               <button onClick={() => toggleUser(u.nome)}
-                                className={`text-xs font-semibold px-2 py-1 rounded-md ${u.status === "ativo" ? "bg-red-50 text-red-600 hover:bg-red-100" : "bg-green-50 text-green-600 hover:bg-green-100"}`}>
+                                className={`text-xs font-semibold px-2 py-1 rounded-md ${u.status === "ativo" ? "bg-destructive/10 text-destructive hover:bg-destructive/10" : "bg-success/10 text-success hover:bg-success/10"}`}>
                                 {u.status === "ativo" ? "Bloquear" : "Ativar"}
                               </button>
                             )}
@@ -244,28 +245,27 @@ const AdminPanel = ({ onClose }: AdminPanelProps) => {
               )}
 
               {/* Create user */}
-              <div className="bg-muted/30 rounded-xl p-4 border border-border">
-                <p className="text-sm font-bold text-foreground mb-3">Criar Novo Usuário</p>
+              <div className="bg-surface-2 rounded-lg border p-4">
+                <p className="text-sm font-medium text-foreground mb-3">Criar Novo Usuário</p>
                 <div className="grid grid-cols-2 gap-3 mb-3">
                   <div>
-                    <label className="text-[10px] font-bold text-muted-foreground uppercase mb-1 block">Nome</label>
+                    <label className="mb-1 block text-xs text-muted-foreground">Nome</label>
                     <input value={cNome} onChange={e => setCNome(e.target.value)} placeholder="Nome do usuário" className={inputCls} />
                   </div>
                   <div>
-                    <label className="text-[10px] font-bold text-muted-foreground uppercase mb-1 block">Senha</label>
+                    <label className="mb-1 block text-xs text-muted-foreground">Senha</label>
                     <input type="password" value={cSenha} onChange={e => setCSenha(e.target.value)} placeholder="Mín. 4 caracteres" className={inputCls} />
                   </div>
                 </div>
                 <button onClick={createUser} disabled={creating}
-                  className="px-4 py-2 rounded-lg text-sm font-bold text-white disabled:opacity-60 transition-all"
-                  style={{ background: 'linear-gradient(135deg,#16a34a,#22C55E)', borderRadius: 8 }}>
+                  className="press inline-flex h-9 items-center justify-center gap-2 rounded-md px-4 text-sm font-medium text-primary-foreground disabled:opacity-60 transition-colors bg-primary hover:bg-weg-700">
                   {creating ? "Criando..." : "Criar Usuário"}
                 </button>
               </div>
 
               {/* Reset password */}
-              <div className="bg-muted/30 rounded-xl p-4 border border-border">
-                <p className="text-sm font-bold text-foreground mb-3">Redefinir Senha</p>
+              <div className="bg-surface-2 rounded-lg border p-4">
+                <p className="text-sm font-medium text-foreground mb-3">Redefinir Senha</p>
                 <div className="grid grid-cols-2 gap-3 mb-3">
                   <div>
                     <SelectDropdown
@@ -279,13 +279,12 @@ const AdminPanel = ({ onClose }: AdminPanelProps) => {
                     />
                   </div>
                   <div>
-                    <label className="text-[10px] font-bold text-muted-foreground uppercase mb-1 block">Nova Senha</label>
+                    <label className="mb-1 block text-xs text-muted-foreground">Nova Senha</label>
                     <input type="password" value={newPw} onChange={e => setNewPw(e.target.value)} placeholder="Mín. 4 caracteres" className={inputCls} />
                   </div>
                 </div>
                 <button onClick={resetPw}
-                  className="px-4 py-2 rounded-lg text-sm font-bold text-white transition-all"
-                  style={{ background: 'linear-gradient(135deg,#003366,#0066B3)', borderRadius: 8 }}>
+                  className="press inline-flex h-9 items-center justify-center gap-2 rounded-md px-4 text-sm font-medium text-primary-foreground transition-colors bg-primary hover:bg-weg-700">
                   Redefinir
                 </button>
               </div>
@@ -302,27 +301,27 @@ const AdminPanel = ({ onClose }: AdminPanelProps) => {
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="bg-muted/50">
-                        <th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground w-10">ID</th>
-                        <th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground">Nome</th>
-                        <th className="text-center px-3 py-2 text-xs font-semibold text-muted-foreground w-16">Meta</th>
-                        <th className="text-center px-3 py-2 text-xs font-semibold text-muted-foreground w-16">Status</th>
-                        <th className="text-center px-3 py-2 text-xs font-semibold text-muted-foreground w-20">Ação</th>
+                        <th className="text-left px-3 py-2 text-xs font-normal text-muted-foreground w-10">ID</th>
+                        <th className="text-left px-3 py-2 text-xs font-normal text-muted-foreground">Nome</th>
+                        <th className="text-center px-3 py-2 text-xs font-normal text-muted-foreground w-16">Meta</th>
+                        <th className="text-center px-3 py-2 text-xs font-normal text-muted-foreground w-16">Status</th>
+                        <th className="text-center px-3 py-2 text-xs font-normal text-muted-foreground w-20">Ação</th>
                       </tr>
                     </thead>
                     <tbody>
                       {allMachines.map((m: any, i: number) => (
-                        <tr key={m.id} className="border-b border-border/50" style={{ background: i % 2 === 0 ? '#F8FAFC' : '#fff', opacity: m.status === "inativo" ? 0.5 : 1 }}>
+                        <tr key={m.id} className="border-b border-border/50" style={{ opacity: m.status === "inativo" ? 0.5 : 1 }}>
                           <td className="px-3 py-2 text-muted-foreground text-xs">{m.id}</td>
                           <td className="px-3 py-2 font-semibold text-foreground text-xs">{m.name}</td>
                           <td className="px-3 py-2 text-center text-xs">{m.defaultMeta || "—"}</td>
                           <td className="px-3 py-2 text-center">
-                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${m.status === "ativo" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`} style={{ borderRadius: 20 }}>
+                            <span className={`text-caption font-medium px-1.5 py-px rounded-sm ${m.status === "ativo" ? "bg-success/10 text-success" : "bg-destructive/10 text-destructive"}`}>
                               {m.status === "ativo" ? "Ativa" : "Inativa"}
                             </span>
                           </td>
                           <td className="px-3 py-2 text-center">
                             <button onClick={() => toggleMachine(m.id)}
-                              className={`text-[10px] font-semibold px-2 py-1 rounded-md ${m.status === "ativo" ? "bg-red-50 text-red-600" : "bg-green-50 text-green-600"}`}>
+                              className={`text-caption font-semibold px-2 py-1 rounded-md ${m.status === "ativo" ? "bg-destructive/10 text-destructive" : "bg-success/10 text-success"}`}>
                               {m.status === "ativo" ? "Desativar" : "Ativar"}
                             </button>
                           </td>
@@ -333,21 +332,20 @@ const AdminPanel = ({ onClose }: AdminPanelProps) => {
                 </div>
               )}
 
-              <div className="bg-muted/30 rounded-xl p-4 border border-border">
-                <p className="text-sm font-bold text-foreground mb-3">Adicionar Nova Máquina</p>
+              <div className="bg-surface-2 rounded-lg border p-4">
+                <p className="text-sm font-medium text-foreground mb-3">Adicionar Nova Máquina</p>
                 <div className="grid grid-cols-[2fr_1fr] gap-3 mb-3">
                   <div>
-                    <label className="text-[10px] font-bold text-muted-foreground uppercase mb-1 block">Nome</label>
+                    <label className="mb-1 block text-xs text-muted-foreground">Nome</label>
                     <input value={mName} onChange={e => setMName(e.target.value)} placeholder="Ex: HORIZONTAL 3" className={inputCls} />
                   </div>
                   <div>
-                    <label className="text-[10px] font-bold text-muted-foreground uppercase mb-1 block">Meta Padrão</label>
+                    <label className="mb-1 block text-xs text-muted-foreground">Meta Padrão</label>
                     <input type="number" value={mMeta} onChange={e => setMMeta(e.target.value)} placeholder="0" className={inputCls} />
                   </div>
                 </div>
                 <button onClick={addMachine} disabled={mAdding}
-                  className="px-4 py-2 rounded-lg text-sm font-bold text-white disabled:opacity-60"
-                  style={{ background: 'linear-gradient(135deg,#16a34a,#22C55E)', borderRadius: 8 }}>
+                  className="press inline-flex h-9 items-center justify-center gap-2 rounded-md px-4 text-sm font-medium text-primary-foreground disabled:opacity-60 bg-primary hover:bg-weg-700">
                   {mAdding ? "Adicionando..." : "Adicionar Máquina"}
                 </button>
               </div>
@@ -357,19 +355,18 @@ const AdminPanel = ({ onClose }: AdminPanelProps) => {
           {/* Invites Tab */}
           {tab === "invites" && (
             <div className="space-y-4">
-              <div className="bg-muted/30 rounded-xl p-4 border border-border text-center">
-                <p className="text-sm font-bold text-foreground mb-3">Gerar Código de Convite</p>
+              <div className="bg-surface-2 rounded-lg border p-4 text-center">
+                <p className="text-sm font-medium text-foreground mb-3">Gerar Código de Convite</p>
                 <p className="text-xs text-muted-foreground mb-4">Novos usuários precisam de um código de convite para criar conta.</p>
                 <button onClick={generateInvite} disabled={inviteLoading}
-                  className="px-6 py-2.5 rounded-lg text-sm font-bold text-white disabled:opacity-60 mb-4"
-                  style={{ background: 'linear-gradient(135deg,#003366,#0066B3)', borderRadius: 8 }}>
+                  className="press inline-flex h-9 items-center justify-center gap-2 rounded-md px-6 text-sm font-medium text-primary-foreground disabled:opacity-60 mb-4 bg-primary hover:bg-weg-700">
                   {inviteLoading ? "Gerando..." : "Gerar Código"}
                 </button>
                 {inviteCode && (
                   <div className="bg-card border border-border rounded-lg p-4">
                     <p className="text-xs text-muted-foreground mb-1">Código gerado:</p>
-                    <p className="text-lg font-extrabold text-primary tracking-wider font-mono">{inviteCode}</p>
-                    <p className="text-[10px] text-muted-foreground mt-2">Compartilhe este código com o novo usuário.</p>
+                    <p className="text-lg font-semibold text-primary tracking-wider font-mono">{inviteCode}</p>
+                    <p className="text-caption text-muted-foreground mt-2">Compartilhe este código com o novo usuário.</p>
                   </div>
                 )}
               </div>
@@ -379,8 +376,8 @@ const AdminPanel = ({ onClose }: AdminPanelProps) => {
           {tab === "feriados" && (
             <div className="space-y-4">
               {/* Add form */}
-              <div className="bg-muted/30 rounded-xl p-4 border border-border">
-                <p className="text-sm font-bold text-foreground mb-3">Adicionar Feriado / Dia Anulado</p>
+              <div className="bg-surface-2 rounded-lg border p-4">
+                <p className="text-sm font-medium text-foreground mb-3">Adicionar Feriado / Dia Anulado</p>
                 <div className="flex flex-wrap gap-3 items-end mb-3">
                   <DatePickerInput label="Data" value={hDate} onChange={setHDate} />
                   <SelectDropdown
@@ -394,7 +391,7 @@ const AdminPanel = ({ onClose }: AdminPanelProps) => {
                     className="min-w-[150px]"
                   />
                   <div className="flex-1 min-w-[160px]">
-                    <label className="text-[10px] font-bold text-muted-foreground uppercase mb-1 block">Descrição</label>
+                    <label className="mb-1 block text-xs text-muted-foreground">Descrição</label>
                     <input
                       value={hLabel}
                       onChange={e => setHLabel(e.target.value)}
@@ -405,8 +402,7 @@ const AdminPanel = ({ onClose }: AdminPanelProps) => {
                   <button
                     onClick={addHoliday}
                     disabled={hAdding}
-                    className="px-4 py-2.5 rounded-lg text-sm font-bold text-white disabled:opacity-60 transition-all self-end"
-                    style={{ background: 'linear-gradient(135deg,#003366,#0066B3)', borderRadius: 8 }}
+                    className="press inline-flex h-9 items-center justify-center gap-2 rounded-md px-4 text-sm font-medium text-primary-foreground disabled:opacity-60 transition-colors self-end bg-primary hover:bg-weg-700"
                   >
                     {hAdding ? "Adicionando..." : "Adicionar"}
                   </button>
@@ -417,7 +413,7 @@ const AdminPanel = ({ onClose }: AdminPanelProps) => {
               {holLoading ? (
                 <p className="text-sm text-muted-foreground text-center py-8">Carregando...</p>
               ) : holidays.length === 0 ? (
-                <div className="bg-card rounded-xl border border-border p-8 text-center">
+                <div className="bg-card rounded-lg border border-border p-8 text-center">
                   <p className="text-sm text-muted-foreground">Nenhum feriado cadastrado.</p>
                 </div>
               ) : (
@@ -425,20 +421,19 @@ const AdminPanel = ({ onClose }: AdminPanelProps) => {
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="bg-muted/50">
-                        <th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground">Data</th>
-                        <th className="text-center px-3 py-2 text-xs font-semibold text-muted-foreground">Tipo</th>
-                        <th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground">Descrição</th>
-                        <th className="text-center px-3 py-2 text-xs font-semibold text-muted-foreground">Ação</th>
+                        <th className="text-left px-3 py-2 text-xs font-normal text-muted-foreground">Data</th>
+                        <th className="text-center px-3 py-2 text-xs font-normal text-muted-foreground">Tipo</th>
+                        <th className="text-left px-3 py-2 text-xs font-normal text-muted-foreground">Descrição</th>
+                        <th className="text-center px-3 py-2 text-xs font-normal text-muted-foreground">Ação</th>
                       </tr>
                     </thead>
                     <tbody>
                       {[...holidays].sort((a, b) => b.date.localeCompare(a.date)).map((h, i) => (
-                        <tr key={h.id} className="border-b border-border/50" style={{ background: i % 2 === 0 ? '#F8FAFC' : '#fff' }}>
+                        <tr key={h.id} className="border-b border-border/50">
                           <td className="px-3 py-2 font-semibold text-foreground text-xs">{dispD(h.date)}</td>
                           <td className="px-3 py-2 text-center">
                             <span
-                              className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${h.type === "feriado" ? "bg-blue-100 text-blue-700" : "bg-red-100 text-red-700"}`}
-                              style={{ borderRadius: 20 }}
+                              className={`text-caption font-medium px-1.5 py-px rounded-sm ${h.type === "feriado" ? "bg-info/10 text-info" : "bg-destructive/10 text-destructive"}`}
                             >
                               {h.type === "feriado" ? "Feriado" : "Dia Anulado"}
                             </span>
@@ -447,7 +442,7 @@ const AdminPanel = ({ onClose }: AdminPanelProps) => {
                           <td className="px-3 py-2 text-center">
                             <button
                               onClick={() => removeHoliday(h.id)}
-                              className="text-[10px] font-semibold px-2 py-1 rounded-md bg-red-50 text-red-600 hover:bg-red-100 transition-colors"
+                              className="text-caption font-semibold px-2 py-1 rounded-md bg-destructive/10 text-destructive hover:bg-destructive/10 transition-colors"
                             >
                               Remover
                             </button>
@@ -464,8 +459,9 @@ const AdminPanel = ({ onClose }: AdminPanelProps) => {
           {/* Alertas Tab */}
           {tab === "alertas" && <AlertConfigPanel />}
         </div>
-      </div>
-    </div>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 };
 

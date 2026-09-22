@@ -104,35 +104,35 @@ const ExportModal = ({ open, onClose, format, records, filters, holidays }: Expo
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         transition={{ duration: 0.15 }}
-        className="fixed inset-0 z-50 flex items-center justify-center p-4"
-        style={{ background: "rgba(0,0,0,0.55)" }}
+        className="fixed inset-0 z-50 flex items-center justify-center bg-weg-950/60 p-4"
+        role="presentation"
         onClick={onClose}
       >
         <motion.div
-          initial={{ opacity: 0, scale: 0.95, y: 16 }}
-          animate={{ opacity: 1, scale: 1, y: 0 }}
-          exit={{ opacity: 0, scale: 0.95, y: 16 }}
-          transition={{ duration: 0.2 }}
-          className="bg-card w-full max-w-md rounded-xl border border-border shadow-2xl overflow-hidden"
-          style={{ borderRadius: 14 }}
+          initial={{ opacity: 0, scale: 0.96 }}
+          animate={{ opacity: 1, scale: 1 }}
+          exit={{ opacity: 0, scale: 0.96 }}
+          transition={{ duration: 0.2, ease: [0.23, 1, 0.32, 1] }}
+          className="bg-card w-full max-w-md rounded-xl border border-border shadow-modal overflow-hidden"
           onClick={e => e.stopPropagation()}
         >
           {/* Header */}
-          <div className="px-5 py-4 border-b border-border flex items-center justify-between" style={{ background: "#003366" }}>
+          <div className="flex items-center justify-between border-b px-5 py-4">
             <div className="flex items-center gap-2.5">
-              {format === "pdf" ? <FileText size={16} className="text-blue-300" /> : <Download size={16} className="text-blue-300" />}
+              {format === "pdf" ? <FileText size={16} className="text-info" /> : <Download size={16} className="text-info" />}
               <div>
-                <p className="text-sm font-bold text-white">
+                <p className="text-sm font-medium">
                   Configurar Exportação — {format.toUpperCase()}
                 </p>
-                <p className="text-[11px] text-white/60 mt-0.5">
+                <p className="mt-0.5 text-xs text-muted-foreground">
                   {dispD(filters.dateFrom)} a {dispD(filters.dateTo)} · {records.length} registros
                 </p>
               </div>
             </div>
             <button
               onClick={onClose}
-              className="w-8 h-8 flex items-center justify-center rounded-lg text-white/60 hover:text-white hover:bg-white/10 transition-colors"
+              aria-label="Fechar"
+              className="flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground transition-colors duration-fast hover:bg-accent hover:text-foreground"
             >
               <X size={16} />
             </button>
@@ -140,13 +140,13 @@ const ExportModal = ({ open, onClose, format, records, filters, holidays }: Expo
 
           {/* Section list */}
           <div className="px-5 py-4 space-y-2">
-            <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-3">
+            <p className="text-caption font-semibold text-muted-foreground mb-3">
               Seções a incluir
             </p>
             {sorted.map((section, idx) => (
               <div
                 key={section.id}
-                className={`flex items-center gap-3 px-3 py-3 rounded-xl border transition-all ${section.enabled ? "border-primary/30 bg-primary/5" : "border-border bg-card"}`}
+                className={`flex items-center gap-3 px-3 py-3 rounded-xl border transition-colors ${section.enabled ? "border-primary/30 bg-primary/5" : "border-border bg-card"}`}
               >
                 {/* Checkbox */}
                 <input
@@ -154,7 +154,7 @@ const ExportModal = ({ open, onClose, format, records, filters, holidays }: Expo
                   checked={section.enabled}
                   onChange={() => toggleSection(section.id)}
                   className="w-4 h-4 rounded cursor-pointer"
-                  style={{ accentColor: "#0066B3" }}
+                  style={{ accentColor: "hsl(var(--primary))" }}
                 />
 
                 {/* Label + description */}
@@ -162,7 +162,7 @@ const ExportModal = ({ open, onClose, format, records, filters, holidays }: Expo
                   <p className={`text-sm font-semibold ${section.enabled ? "text-foreground" : "text-muted-foreground"}`}>
                     {section.label}
                   </p>
-                  <p className="text-[11px] text-muted-foreground leading-tight mt-0.5">
+                  <p className="text-caption text-muted-foreground leading-tight mt-0.5">
                     {section.description}
                   </p>
                 </div>
@@ -198,15 +198,14 @@ const ExportModal = ({ open, onClose, format, records, filters, holidays }: Expo
               <button
                 onClick={onClose}
                 disabled={exporting}
-                className="px-4 py-2 text-sm font-semibold rounded-lg border border-border hover:bg-muted transition-colors"
+                className="press h-9 rounded-md border bg-card px-4 text-sm transition-colors duration-fast hover:bg-accent"
               >
                 Cancelar
               </button>
               <button
                 onClick={handleExport}
                 disabled={exporting || enabledCount === 0}
-                className="px-4 py-2 text-sm font-bold rounded-lg text-white transition-all disabled:opacity-50"
-                style={{ background: "#0066B3" }}
+                className="press h-9 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors duration-fast hover:bg-weg-700 disabled:opacity-50"
               >
                 {exporting ? "Exportando..." : `Exportar ${format.toUpperCase()}`}
               </button>

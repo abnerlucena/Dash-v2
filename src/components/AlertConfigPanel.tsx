@@ -89,7 +89,7 @@ const AlertConfigPanel = () => {
   }
 
   const inputCls =
-    "w-full px-3 py-2.5 rounded-md border border-border bg-background text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all";
+    "w-full px-3 py-2.5 rounded-md border border-border bg-background text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/30 transition-colors";
 
   if (loading) {
     return (
@@ -103,22 +103,21 @@ const AlertConfigPanel = () => {
   return (
     <div className="space-y-5">
       {/* Toggle */}
-      <div className="flex items-center justify-between bg-muted/30 rounded-xl p-4 border border-border">
+      <div className="flex items-center justify-between bg-surface-2 rounded-lg border p-4">
         <div className="flex items-center gap-3">
           {config.active
             ? <Bell size={18} className="text-primary" />
             : <BellOff size={18} className="text-muted-foreground" />}
           <div>
-            <p className="text-sm font-bold text-foreground">Alertas por e-mail</p>
-            <p className="text-[11px] text-muted-foreground">
+            <p className="text-sm font-medium text-foreground">Alertas por e-mail</p>
+            <p className="text-caption text-muted-foreground">
               {config.active ? "Alertas ativados" : "Alertas desativados"}
             </p>
           </div>
         </div>
         <button
           onClick={() => setConfig((p) => ({ ...p, active: !p.active }))}
-          className={`relative w-12 h-6 rounded-full transition-colors ${config.active ? "bg-primary" : "bg-muted-foreground/30"}`}
-          style={{ borderRadius: 12 }}>
+          className={`relative w-12 h-6 rounded-full transition-colors ${config.active ? "bg-primary" : "bg-muted-foreground/30"}`}>
           <span
             className="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform"
             style={{ transform: config.active ? "translateX(24px)" : "translateX(0)" }}
@@ -128,7 +127,7 @@ const AlertConfigPanel = () => {
 
       {/* E-mail */}
       <div>
-        <label className="text-[10px] font-bold text-muted-foreground uppercase mb-1.5 block">
+        <label className="text-caption font-medium text-muted-foreground mb-1.5 block">
           E-mail de destino
         </label>
         <input
@@ -143,9 +142,9 @@ const AlertConfigPanel = () => {
 
       {/* Threshold */}
       <div>
-        <label className="text-[10px] font-bold text-muted-foreground uppercase mb-1.5 flex items-center justify-between">
+        <label className="text-caption font-medium text-muted-foreground mb-1.5 flex items-center justify-between">
           <span>Limiar de atenção</span>
-          <span className="text-primary font-extrabold text-sm">{config.thresholdPct}%</span>
+          <span className="text-primary font-semibold text-sm">{config.thresholdPct}%</span>
         </label>
         <input
           type="range"
@@ -157,7 +156,7 @@ const AlertConfigPanel = () => {
           disabled={!config.active}
           className="w-full accent-primary"
         />
-        <div className="flex justify-between text-[10px] text-muted-foreground mt-0.5">
+        <div className="flex justify-between text-caption text-muted-foreground mt-0.5">
           <span>50%</span>
           <span>Alerta quando a produção ficar abaixo deste %</span>
           <span>100%</span>
@@ -166,7 +165,7 @@ const AlertConfigPanel = () => {
 
       {/* Frequency */}
       <div>
-        <label className="text-[10px] font-bold text-muted-foreground uppercase mb-1.5 block">
+        <label className="text-caption font-medium text-muted-foreground mb-1.5 block">
           Frequência
         </label>
         <div className="flex gap-2">
@@ -175,7 +174,7 @@ const AlertConfigPanel = () => {
               key={f.value}
               onClick={() => setConfig((p) => ({ ...p, frequency: f.value }))}
               disabled={!config.active}
-              className={`flex-1 py-2 text-xs font-semibold rounded-lg border transition-all disabled:opacity-50 ${
+              className={`flex-1 py-2 text-xs font-semibold rounded-lg border transition-colors disabled:opacity-50 ${
                 config.frequency === f.value
                   ? "border-primary/30 text-primary"
                   : "border-border text-muted-foreground hover:border-primary/20"
@@ -189,12 +188,12 @@ const AlertConfigPanel = () => {
 
       {/* Machine filter */}
       <div>
-        <label className="text-[10px] font-bold text-muted-foreground uppercase mb-2 flex items-center justify-between">
+        <label className="text-caption font-medium text-muted-foreground mb-2 flex items-center justify-between">
           <span>Máquinas monitoradas</span>
           <button
             onClick={() => setConfig((p) => ({ ...p, machines: p.machines.length === machines.length ? [] : machines.map((m) => m.id) }))}
             disabled={!config.active}
-            className="text-primary font-bold text-[10px] disabled:opacity-40">
+            className="text-primary font-medium text-caption disabled:opacity-40">
             {config.machines.length === machines.length ? "Desmarcar todas" : "Todas"}
           </button>
         </label>
@@ -203,7 +202,7 @@ const AlertConfigPanel = () => {
             const checked = config.machines.length === 0 || config.machines.includes(m.id);
             return (
               <label key={m.id}
-                className={`flex items-center gap-2 px-3 py-2 rounded-lg border cursor-pointer transition-all text-xs font-medium ${
+                className={`flex items-center gap-2 px-3 py-2 rounded-lg border cursor-pointer transition-colors text-xs font-medium ${
                   checked ? "border-primary/30 text-foreground" : "border-border text-muted-foreground"
                 } ${!config.active ? "opacity-40 cursor-not-allowed" : "hover:border-primary/20"}`}
                 style={checked ? { background: "#0066B308" } : {}}>
@@ -218,7 +217,7 @@ const AlertConfigPanel = () => {
             );
           })}
         </div>
-        <p className="text-[10px] text-muted-foreground mt-1.5">
+        <p className="text-caption text-muted-foreground mt-1.5">
           {config.machines.length === 0
             ? "Todas as máquinas monitoradas"
             : `${config.machines.length} máquina${config.machines.length > 1 ? "s" : ""} selecionada${config.machines.length > 1 ? "s" : ""}`}
@@ -230,15 +229,13 @@ const AlertConfigPanel = () => {
         <button
           onClick={handleSave}
           disabled={saving}
-          className="px-5 py-2.5 rounded-lg text-sm font-bold text-white disabled:opacity-60 transition-all"
-          style={{ background: "linear-gradient(135deg,#003366,#0066B3)", borderRadius: 8 }}>
+          className="px-5 py-2.5 rounded-lg text-sm font-medium text-primary-foreground disabled:opacity-60 transition-colors bg-primary hover:bg-weg-700">
           {saving ? "Salvando..." : "Salvar"}
         </button>
         <button
           onClick={handleTest}
           disabled={testing || !config.recipientEmail}
-          className="flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold border border-border text-foreground hover:bg-muted/50 disabled:opacity-40 transition-all"
-          style={{ borderRadius: 8 }}>
+          className="flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold border border-border text-foreground hover:bg-muted/50 disabled:opacity-40 transition-colors">
           {testing ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
           {testing ? "Enviando..." : "Testar e-mail"}
         </button>
