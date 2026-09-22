@@ -1,8 +1,13 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { useState, useEffect, useLayoutEffect, useRef, useCallback, useMemo } from "react";
 import ReactEChartsCore from "echarts-for-react";
 import { X, ChevronLeft, ChevronRight, TrendingUp, TrendingDown, Minus, AlertTriangle, CheckCircle2 } from "lucide-react";
 import WEGLogo from "./WEGLogo";
-import { pctColor } from "@/lib/api";
+import { chartBase, axisStyle, legendStyle } from "@/lib/chart-options";
+import { type ChartTheme, readChartTheme, statusColor } from "@/lib/chart-theme";
+import { getAttainmentStatus, STATUS_LABEL, STATUS_THRESHOLDS, STATUS_TOKEN } from "@/lib/status";
+
+/** Cor CSS (token) do status de atingimento — para estilos inline do DOM. */
+const pctColor = (pct: number) => `hsl(var(${STATUS_TOKEN[getAttainmentStatus(pct)]}))`;
 import type { EChartsOption } from "echarts";
 
 // ─── Constants ─────────────────────────────────────────────────────────────────
@@ -41,238 +46,197 @@ export interface TVModeProps {
   onClose:         () => void;
 }
 
-// ─── Dark ECharts theme helpers ─────────────────────────────────────────────────
-const darkTooltip = {
-  backgroundColor: "rgba(0,15,40,0.95)",
-  borderColor: "#0066B3",
-  borderWidth: 1,
-  borderRadius: 8,
-  textStyle: { color: "#fff", fontSize: 13 },
-  confine: true,
-};
-const darkAxisLabel = { color: "rgba(255,255,255,0.7)", fontSize: 13 };
-const darkSplitLine = { lineStyle: { color: "rgba(255,255,255,0.07)" } };
-const darkAxisLine  = { lineStyle: { color: "rgba(255,255,255,0.12)" } };
+// ─── ECharts no Modo TV ─────────────────────────────────────────────────────────
+// Cores vêm dos tokens do container da TV (sempre .dark) via readChartTheme(scope).
+// Tamanhos de fonte maiores: leitura a 3–5 m.
+const TV_FS = 16;
+const kFmt = (v: number) => (v >= 1000 ? (v / 1000).toFixed(0) + "k" : String(v));
 
-function tvHBarOption(data: HBarPoint[]): EChartsOption {
+function tvBase(t: ChartTheme) {
+  const base = chartBase(t);
   return {
-    animation: true, animationDuration: 700,
+    ...base,
     backgroundColor: "transparent",
+    tooltip: { ...base.tooltip, textStyle: { ...base.tooltip.textStyle, fontSize: 14 } },
+  };
+}
+
+function tvAxis(t: ChartTheme) {
+  return axisStyle(t, TV_FS);
+}
+
+function tvHBarOption(data: HBarPoint[], t: ChartTheme): EChartsOption {
+  const base = tvBase(t);
+  const ax = tvAxis(t);
+  return {
+    ...base,
     tooltip: {
-      ...darkTooltip, trigger: "axis", axisPointer: { type: "shadow" },
-      formatter: (params: any) => `<strong>${params[0].name}</strong><br/>${params[0].value}% da meta`,
+      ...base.tooltip, trigger: "axis", axisPointer: { type: "shadow", shadowStyle: { color: t.grid } },
+      formatter: (params: unknown) => {
+        const p = (params as Array<{ name: string; value: number }>)[0];
+        return `<strong>${p.name}</strong><br/>${p.value}% da meta · ${STATUS_LABEL[getAttainmentStatus(p.value)]}`;
+      },
     },
     grid: { top: 12, right: 90, bottom: 12, left: 12, containLabel: true },
-    xAxis: {
-      type: "value",
-      axisLabel: { ...darkAxisLabel, formatter: "{value}%" },
-      splitLine: darkSplitLine,
-      axisLine: darkAxisLine,
-      max: (v: any) => Math.max(v.max * 1.1, 115),
-    },
-    yAxis: {
-      type: "category",
-      data: data.map(d => d.name),
-      axisLabel: { ...darkAxisLabel, width: 160, overflow: "truncate" },
-      axisLine: darkAxisLine,
-    },
+    xAxis: { type: "value", ...ax, axisLabel: { ...ax.axisLabel, formatter: "{value}%" }, max: (v: { max: number }) => Math.max(v.max * 1.1, 115) },
+    yAxis: { type: "category", data: data.map(d => d.name), ...ax, axisLabel: { ...ax.axisLabel, width: 220, overflow: "truncate" } },
     series: [{
       type: "bar",
-      barMaxWidth: 36,
-      data: data.map(d => ({
-        value: d.pct,
-        itemStyle: {
-          color: d.pct >= 100 ? "#22C55E" : d.pct >= 80 ? "#F59E0B" : "#EF4444",
-          borderRadius: [0, 6, 6, 0],
-        },
-      })),
-      label: {
-        show: true, position: "right",
-        formatter: (p: any) => `${p.value}%`,
-        fontSize: 14, color: "#fff", fontWeight: "bold",
+      barMaxWidth: 32,
+      data: data.map(d => ({ value: d.pct, itemStyle: { color: statusColor(t, d.pct), borderRadius: [0, 4, 4, 0] } })),
+      label: { show: true, position: "right", formatter: (p: { value?: unknown }) => `${p.value}%`, fontSize: 18, color: t.text, fontWeight: 600 },
+      markLine: {
+        silent: true, symbol: "none",
+        lineStyle: { color: t.reference, type: "dashed", width: 1.5 },
+        label: { formatter: "Meta", color: t.muted, fontSize: 14 },
+        data: [{ xAxis: 100 }],
       },
     }],
   };
 }
 
-function tvBarOption(data: BarPoint[]): EChartsOption {
+function tvBarOption(data: BarPoint[], t: ChartTheme): EChartsOption {
+  const base = tvBase(t);
+  const ax = tvAxis(t);
   return {
-    animation: true, animationDuration: 700,
-    backgroundColor: "transparent",
-    tooltip: { ...darkTooltip, trigger: "axis", axisPointer: { type: "shadow" } },
-    legend: { data: ["Meta", "Produção"], top: 4, textStyle: { color: "rgba(255,255,255,0.8)", fontSize: 13 } },
-    grid: { top: 44, right: 24, bottom: 64, left: 72 },
-    xAxis: {
-      type: "category",
-      data: data.map(d => d.name),
-      axisLabel: { ...darkAxisLabel, rotate: 20, interval: 0 },
-      axisLine: darkAxisLine,
-    },
-    yAxis: {
-      type: "value",
-      axisLabel: { ...darkAxisLabel, formatter: (v: number) => v >= 1000 ? (v / 1000).toFixed(0) + "k" : String(v) },
-      splitLine: darkSplitLine,
-      axisLine: darkAxisLine,
-    },
+    ...base,
+    tooltip: { ...base.tooltip, trigger: "axis", axisPointer: { type: "shadow", shadowStyle: { color: t.grid } } },
+    legend: { ...legendStyle(t, TV_FS), data: ["Meta", "Produção"], top: 4, itemWidth: 12, itemHeight: 12 },
+    grid: { top: 48, right: 24, bottom: 8, left: 8, containLabel: true },
+    xAxis: { type: "category", data: data.map(d => d.name), ...ax, axisLabel: { ...ax.axisLabel, interval: 0, width: 140, overflow: "break" } },
+    yAxis: { type: "value", ...ax, axisLabel: { ...ax.axisLabel, formatter: kFmt } },
     series: [
-      {
-        name: "Meta", type: "bar",
-        data: data.map(d => d.meta),
-        itemStyle: { color: "rgba(255,255,255,0.22)", borderRadius: [4, 4, 0, 0] },
-        barMaxWidth: 40,
-      },
-      {
-        name: "Produção", type: "bar",
-        data: data.map(d => d.producao),
-        itemStyle: { color: "#4DB8FF", borderRadius: [4, 4, 0, 0] },
-        barMaxWidth: 40,
-      },
+      { name: "Meta", type: "bar", data: data.map(d => d.meta), itemStyle: { color: t.series[3], borderRadius: [4, 4, 0, 0] }, barMaxWidth: 40 },
+      { name: "Produção", type: "bar", data: data.map(d => d.producao), itemStyle: { color: t.series[0], borderRadius: [4, 4, 0, 0] }, barMaxWidth: 40 },
     ],
   };
 }
 
-function tvAreaOption(data: DayPoint[]): EChartsOption {
+function tvAreaOption(data: DayPoint[], t: ChartTheme): EChartsOption {
+  const base = tvBase(t);
+  const ax = tvAxis(t);
   return {
-    animation: true, animationDuration: 700,
-    backgroundColor: "transparent",
-    tooltip: { ...darkTooltip, trigger: "axis" },
-    legend: { top: 4, textStyle: { color: "rgba(255,255,255,0.8)", fontSize: 13 } },
-    grid: { top: 44, right: 28, bottom: 44, left: 72 },
-    xAxis: {
-      type: "category",
-      data: data.map(d => d.date),
-      axisLabel: { ...darkAxisLabel },
-      axisLine: darkAxisLine,
-    },
-    yAxis: {
-      type: "value",
-      axisLabel: { ...darkAxisLabel, formatter: (v: number) => v >= 1000 ? (v / 1000).toFixed(0) + "k" : String(v) },
-      splitLine: darkSplitLine,
-      axisLine: darkAxisLine,
-    },
+    ...base,
+    tooltip: { ...base.tooltip, trigger: "axis" },
+    legend: { ...legendStyle(t, TV_FS), top: 4, itemWidth: 12, itemHeight: 12 },
+    grid: { top: 48, right: 28, bottom: 8, left: 8, containLabel: true },
+    xAxis: { type: "category", data: data.map(d => d.date), ...ax, boundaryGap: false },
+    yAxis: { type: "value", ...ax, axisLabel: { ...ax.axisLabel, formatter: kFmt } },
     series: [
       {
         name: "Produção Real", type: "line",
         data: data.map(d => d.producao),
-        smooth: true, symbol: "circle", symbolSize: 5,
-        lineStyle: { color: "#4DB8FF", width: 3 },
-        itemStyle: { color: "#4DB8FF" },
-        areaStyle: {
-          color: {
-            type: "linear", x: 0, y: 0, x2: 0, y2: 1,
-            colorStops: [{ offset: 0, color: "#4DB8FF44" }, { offset: 1, color: "#4DB8FF00" }],
-          },
-        },
+        smooth: true, symbol: "none",
+        lineStyle: { color: t.series[0], width: 3 },
+        itemStyle: { color: t.series[0] },
+        areaStyle: { color: t.series[0], opacity: 0.15 },
       },
       {
         name: "Meta", type: "line",
         data: data.map(d => Math.round(d.meta)),
         smooth: false,
-        lineStyle: { color: "#F59E0B", width: 2, type: "dashed" },
-        itemStyle: { color: "#F59E0B" },
+        lineStyle: { color: t.reference, width: 2, type: "dashed" },
+        itemStyle: { color: t.reference },
         symbol: "none",
       },
     ],
   };
 }
 
-function tvPieOption(data: TurnoPoint[]): EChartsOption {
-  const colors = ["#4DB8FF", "#22C55E", "#F59E0B"];
+function tvPieOption(data: TurnoPoint[], t: ChartTheme): EChartsOption {
+  // Turnos são categorias: azuis WEG (verde/amarelo ficam reservados a status)
+  const colors = [t.series[0], t.series[1], t.series[2]];
+  const base = tvBase(t);
   return {
-    animation: true, animationDuration: 700,
-    backgroundColor: "transparent",
-    tooltip: { ...darkTooltip, trigger: "item" },
-    legend: {
-      bottom: 12,
-      textStyle: { color: "rgba(255,255,255,0.8)", fontSize: 15 },
-      itemWidth: 18, itemHeight: 12,
-    },
+    ...base,
+    tooltip: { ...base.tooltip, trigger: "item", formatter: "{b}: {c} pç ({d}%)" },
+    legend: { ...legendStyle(t, 18), bottom: 12, itemWidth: 14, itemHeight: 14 },
     series: [{
       type: "pie",
-      radius: ["38%", "70%"],
+      radius: ["42%", "70%"],
       center: ["50%", "46%"],
       data: data.filter(d => d.value > 0).map((d, i) => ({
         ...d,
         itemStyle: { color: colors[i % colors.length] },
-        label: {
-          show: true,
-          formatter: "{b}\n{d}%",
-          fontSize: 14,
-          color: "#fff",
-          lineHeight: 20,
-        },
-        labelLine: { lineStyle: { color: "rgba(255,255,255,0.4)" } },
+        label: { show: true, formatter: "{b}\n{d}%", fontSize: 18, color: t.text, lineHeight: 24 },
+        labelLine: { lineStyle: { color: t.border } },
       })),
-      padAngle: 4,
-      itemStyle: { borderRadius: 6, borderColor: "rgba(0,29,61,0.6)", borderWidth: 3 },
+      padAngle: 2,
+      itemStyle: { borderRadius: 4, borderColor: t.surface, borderWidth: 2 },
     }],
   };
 }
 
-function tvHeatmapOption(data: HeatmapPoint[], machineNames: string[]): EChartsOption {
+function tvHeatmapOption(data: HeatmapPoint[], machineNames: string[], t: ChartTheme): EChartsOption {
   const WDAYS = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"];
+  const hasWeekend = data.some(d => d.dayIdx >= 5);
+  const base = tvBase(t);
+  const ax = tvAxis(t);
   return {
-    animation: true, animationDuration: 700,
-    backgroundColor: "transparent",
+    ...base,
     tooltip: {
-      ...darkTooltip, trigger: "item",
-      formatter: (params: any) => {
-        const [dIdx, mIdx, pct] = params.data as number[];
-        return `<strong>${machineNames[mIdx]}</strong><br/>${WDAYS[dIdx]}: <strong style="color:#4DB8FF">${pct}%</strong> da meta`;
+      ...base.tooltip, trigger: "item",
+      formatter: (params: unknown) => {
+        const [dIdx, mIdx, pct] = (params as { data: number[] }).data;
+        return `<strong>${machineNames[mIdx]}</strong><br/>${WDAYS[dIdx]}: <strong>${pct}%</strong> da meta · ${STATUS_LABEL[getAttainmentStatus(pct)]}`;
       },
     },
     visualMap: {
-      min: 0, max: 100, show: false, calculable: false,
-      inRange: { color: ["#EF4444", "#F59E0B", "#22C55E"] },
+      type: "piecewise", show: false, dimension: 2,
+      pieces: [
+        { lt: STATUS_THRESHOLDS.attention, color: t.critical },
+        { gte: STATUS_THRESHOLDS.attention, lt: STATUS_THRESHOLDS.near, color: t.attention },
+        { gte: STATUS_THRESHOLDS.near, lt: STATUS_THRESHOLDS.met, color: t.near },
+        { gte: STATUS_THRESHOLDS.met, color: t.met },
+      ],
     },
-    grid: { top: 10, right: 10, bottom: 48, left: 10, containLabel: true },
-    xAxis: { type: "category", data: WDAYS, axisLabel: { ...darkAxisLabel, fontSize: 14 }, axisLine: darkAxisLine, splitArea: { show: true, areaStyle: { color: ["rgba(255,255,255,0.02)", "rgba(255,255,255,0.04)"] } } },
-    yAxis: { type: "category", data: machineNames, axisLabel: { ...darkAxisLabel, fontSize: 12, width: 200, overflow: "truncate" }, axisLine: darkAxisLine, splitArea: { show: true, areaStyle: { color: ["rgba(255,255,255,0.02)", "rgba(255,255,255,0.04)"] } } },
+    grid: { top: 8, right: 8, bottom: 8, left: 8, containLabel: true },
+    xAxis: { type: "category", data: hasWeekend ? WDAYS : WDAYS.slice(0, 5), ...ax, position: "top" },
+    yAxis: { type: "category", data: machineNames, ...ax, axisLabel: { ...ax.axisLabel, width: 240, overflow: "truncate" } },
     series: [{
       type: "heatmap",
-      data: data.map(d => [d.dayIdx, d.machIdx, d.pct]),
-      label: { show: true, fontSize: 12, fontWeight: "bold", formatter: (p: any) => p.value[2] > 0 ? `${p.value[2]}%` : "" },
-      emphasis: { itemStyle: { shadowBlur: 12, shadowColor: "rgba(0,0,0,0.4)" } },
+      data: data.filter(d => hasWeekend || d.dayIdx < 5).map(d => [d.dayIdx, d.machIdx, d.pct]),
+      // Texto na cor da superfície (navy) sobre status claros: contraste ≥ 4.5:1
+      label: { show: true, fontSize: 18, fontWeight: 600, color: t.surface, formatter: (p: { value?: unknown }) => { const v = (p.value as number[])[2]; return v > 0 ? `${v}%` : ""; } },
+      itemStyle: { borderColor: t.surface, borderWidth: 3, borderRadius: 4 },
     }],
   };
 }
 
-function tvParetoOption(data: ParetoPoint[]): EChartsOption {
+function tvParetoOption(data: ParetoPoint[], t: ChartTheme): EChartsOption {
+  const base = tvBase(t);
+  const ax = tvAxis(t);
   return {
-    animation: true, animationDuration: 700,
-    backgroundColor: "transparent",
+    ...base,
     tooltip: {
-      ...darkTooltip, trigger: "axis", axisPointer: { type: "cross" },
-      formatter: (params: any) => {
-        const bar = params.find((p: any) => p.seriesName === "Gap");
-        const line = params.find((p: any) => p.seriesName === "% Acum");
+      ...base.tooltip, trigger: "axis", axisPointer: { type: "shadow", shadowStyle: { color: t.grid } },
+      formatter: (params: unknown) => {
+        const list = params as Array<{ seriesName: string; name: string; value: number }>;
+        const bar = list.find(p => p.seriesName === "Gap");
+        const line = list.find(p => p.seriesName === "% Acum");
         if (!bar) return "";
         return `<strong>${bar.name}</strong><br/>Gap: ${bar.value.toLocaleString("pt-BR")} pç<br/>Acumulado: ${line?.value ?? 0}%`;
       },
     },
-    legend: { data: ["Gap", "% Acum"], top: 4, textStyle: { color: "rgba(255,255,255,0.8)", fontSize: 13 } },
-    grid: { top: 44, right: 70, bottom: 80, left: 72 },
-    xAxis: {
-      type: "category", data: data.map(d => d.name),
-      axisLabel: { ...darkAxisLabel, rotate: 20, interval: 0 },
-      axisLine: darkAxisLine,
-    },
+    legend: { ...legendStyle(t, TV_FS), data: ["Gap", "% Acum"], top: 4, itemWidth: 12, itemHeight: 12 },
+    grid: { top: 48, right: 8, bottom: 8, left: 8, containLabel: true },
+    xAxis: { type: "category", data: data.map(d => d.name), ...ax, axisLabel: { ...ax.axisLabel, interval: 0, width: 140, overflow: "break" } },
     yAxis: [
-      { type: "value", name: "Gap (pç)", nameTextStyle: { color: "rgba(255,255,255,0.5)" }, axisLabel: { ...darkAxisLabel, formatter: (v: number) => v >= 1000 ? (v / 1000).toFixed(0) + "k" : String(v) }, splitLine: darkSplitLine, axisLine: darkAxisLine },
-      { type: "value", name: "% Acum", max: 100, min: 0, nameTextStyle: { color: "rgba(255,255,255,0.5)" }, axisLabel: { ...darkAxisLabel, formatter: "{value}%" }, splitLine: { show: false }, axisLine: darkAxisLine },
+      { type: "value", ...ax, axisLabel: { ...ax.axisLabel, formatter: kFmt } },
+      { type: "value", max: 100, min: 0, ...ax, splitLine: { show: false }, axisLabel: { ...ax.axisLabel, formatter: "{value}%" } },
     ],
     series: [
       {
-        name: "Gap", type: "bar", yAxisIndex: 0, barMaxWidth: 50,
-        data: data.map(d => ({ value: d.gap, itemStyle: { color: d.pct >= 100 ? "#22C55E" : d.pct >= 80 ? "#F59E0B" : "#EF4444", borderRadius: [4, 4, 0, 0] } })),
-        label: { show: false },
+        name: "Gap", type: "bar", yAxisIndex: 0, barMaxWidth: 48,
+        data: data.map(d => d.gap),
+        itemStyle: { color: t.series[0], borderRadius: [4, 4, 0, 0] },
       },
       {
         name: "% Acum", type: "line", yAxisIndex: 1,
         data: data.map(d => d.cumPct),
-        lineStyle: { color: "#4DB8FF", width: 3 }, itemStyle: { color: "#4DB8FF" },
+        lineStyle: { color: t.text, width: 2 }, itemStyle: { color: t.text },
         symbol: "circle", symbolSize: 8,
-        label: { show: true, position: "top", color: "#4DB8FF", fontSize: 12, fontWeight: "bold", formatter: (p: any) => `${p.value}%` },
+        label: { show: true, position: "top", color: t.text, fontSize: 16, fontWeight: 600, formatter: (p: { value?: unknown }) => `${p.value}%` },
       },
     ],
   };
@@ -286,68 +250,60 @@ const KPICard = ({
   label: string; value: string; unit?: string; color: string; sublabel?: string;
 }) => (
   <div style={{
-    background: "rgba(255,255,255,0.05)",
-    border: "1px solid rgba(255,255,255,0.1)",
-    borderRadius: 16,
+    background: "hsl(var(--foreground) / 0.05)",
+    border: "1px solid hsl(var(--foreground) / 0.1)",
+    borderRadius: "var(--radius-xl)",
     padding: "24px 24px 20px",
     display: "flex", flexDirection: "column",
     alignItems: "flex-start", justifyContent: "space-between",
     gap: 8,
   }}>
-    <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 13, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em" }}>
+    <div style={{ color: "hsl(var(--muted-foreground))", fontSize: 16, fontWeight: 600 }}>
       {label}
     </div>
     <div>
-      <div style={{ color, fontSize: 52, fontWeight: 900, lineHeight: 1, fontVariantNumeric: "tabular-nums" }}>
+      <div style={{ color, fontSize: 56, fontWeight: 600, lineHeight: 1, fontVariantNumeric: "tabular-nums" }}>
         {value}
       </div>
       {unit && (
-        <div style={{ color: "rgba(255,255,255,0.35)", fontSize: 14, fontWeight: 600, marginTop: 4 }}>
+        <div style={{ color: "hsl(var(--muted-foreground))", fontSize: 18, fontWeight: 600, marginTop: 4 }}>
           {unit}
         </div>
       )}
     </div>
     {sublabel && (
-      <div style={{ color: "rgba(255,255,255,0.35)", fontSize: 12 }}>{sublabel}</div>
+      <div style={{ color: "hsl(var(--muted-foreground))", fontSize: 16 }}>{sublabel}</div>
     )}
   </div>
 );
 
+/** Linha do ranking na TV: nome grande, barra de status e % + rótulo (cor nunca sozinha). */
 const RankRow = ({
-  rank, name, pct, accent,
+  rank, name, pct,
 }: {
-  rank: number; name: string; pct: number; accent: string;
+  rank: number; name: string; pct: number;
 }) => (
-  <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+  <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
     <div style={{
-      width: 32, height: 32, borderRadius: "50%",
-      background: accent, color: "#fff",
-      fontSize: 14, fontWeight: 800,
+      width: 36, height: 36, borderRadius: "50%",
+      background: "hsl(var(--foreground) / 0.1)", color: "hsl(var(--foreground))",
+      fontSize: 18, fontWeight: 600,
       display: "flex", alignItems: "center", justifyContent: "center",
       flexShrink: 0,
     }}>
       {rank}
     </div>
     <div style={{ flex: 1, minWidth: 0 }}>
-      <div style={{ color: "#fff", fontSize: 16, fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+      <div style={{ color: "hsl(var(--foreground))", fontSize: 24, fontWeight: 500, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
         {name}
       </div>
-      <div style={{ height: 5, background: "rgba(255,255,255,0.1)", borderRadius: 3, marginTop: 6, overflow: "hidden" }}>
-        <div style={{
-          height: "100%", borderRadius: 3,
-          width: `${Math.min(pct, 100)}%`,
-          background: pctColor(pct),
-          transition: "width 0.6s ease",
-        }} />
+      <div style={{ height: 8, background: "hsl(var(--foreground) / 0.1)", borderRadius: "var(--radius-sm)", marginTop: 8, overflow: "hidden" }}>
+        <div style={{ height: "100%", borderRadius: "var(--radius-sm)", width: `${Math.min(pct, 100)}%`, background: pctColor(pct) }} />
       </div>
     </div>
-    <div style={{
-      color: pctColor(pct), fontSize: 18, fontWeight: 800,
-      background: `${pctColor(pct)}18`,
-      borderRadius: 8, padding: "4px 12px",
-      flexShrink: 0,
-    }}>
-      {pct}%
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", flexShrink: 0, minWidth: 96 }}>
+      <span style={{ color: "hsl(var(--foreground))", fontSize: 32, fontWeight: 600, lineHeight: 1, fontVariantNumeric: "tabular-nums" }}>{pct}%</span>
+      <span style={{ color: pctColor(pct), fontSize: 16, marginTop: 4 }}>● {STATUS_LABEL[getAttainmentStatus(pct)]}</span>
     </div>
   </div>
 );
@@ -365,11 +321,9 @@ const SlideKPI = ({
   const sorted = machAgg.filter(m => m.totalMeta > 0).sort((a, b) => b.pct - a.pct);
   const top3 = sorted.slice(0, 3);
   const bot3 = [...sorted].reverse().slice(0, 3);
-  const pctCol = pctGeral >= 100 ? "#22C55E" : pctGeral >= 80 ? "#F59E0B" : "#EF4444";
+  const pctCol = pctGeral >= 100 ? "hsl(var(--success))" : pctGeral >= 80 ? "hsl(var(--warning))" : "hsl(var(--destructive))";
   const TrendIcon = tendency === null ? Minus : tendency > 0 ? TrendingUp : TrendingDown;
-  const trendColor = tendency === null ? "#9CA3AF" : tendency > 0 ? "#22C55E" : "#EF4444";
-  const topAccents = ["#22C55E", "#16A34A", "#15803D"];
-  const botAccents = ["#EF4444", "#F97316", "#F59E0B"];
+  const trendColor = tendency === null ? "hsl(var(--muted-foreground))" : tendency > 0 ? "hsl(var(--success))" : "hsl(var(--destructive))";
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20, height: "100%" }}>
@@ -379,13 +333,13 @@ const SlideKPI = ({
           label="Produção Total"
           value={totalProd.toLocaleString("pt-BR")}
           unit="peças produzidas"
-          color="#4DB8FF"
+          color="hsl(var(--brand-text))"
         />
         <KPICard
           label="Meta Global"
           value={totalMeta.toLocaleString("pt-BR")}
           unit="peças esperadas"
-          color="rgba(255,255,255,0.55)"
+          color="hsl(var(--foreground) / 0.55)"
         />
         <KPICard
           label="% Atingimento"
@@ -395,21 +349,21 @@ const SlideKPI = ({
         />
         {/* Tendency card — manual layout for icon */}
         <div style={{
-          background: "rgba(255,255,255,0.05)",
-          border: "1px solid rgba(255,255,255,0.1)",
-          borderRadius: 16, padding: "24px 24px 20px",
+          background: "hsl(var(--foreground) / 0.05)",
+          border: "1px solid hsl(var(--foreground) / 0.1)",
+          borderRadius: "var(--radius-xl)", padding: "24px 24px 20px",
           display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 8,
         }}>
-          <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 13, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em" }}>
+          <div style={{ color: "hsl(var(--muted-foreground))", fontSize: 16, fontWeight: 600 }}>
             Tendência
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 12, flex: 1 }}>
             <TrendIcon size={44} color={trendColor} strokeWidth={2.5} />
             <div>
-              <div style={{ color: trendColor, fontSize: 48, fontWeight: 900, lineHeight: 1 }}>
+              <div style={{ color: trendColor, fontSize: 48, fontWeight: 600, lineHeight: 1 }}>
                 {tendency !== null ? `${tendency > 0 ? "+" : ""}${tendency}%` : "—"}
               </div>
-              <div style={{ color: "rgba(255,255,255,0.35)", fontSize: 13, marginTop: 4 }}>
+              <div style={{ color: "hsl(var(--muted-foreground))", fontSize: 16, marginTop: 4 }}>
                 vs período anterior
               </div>
             </div>
@@ -420,31 +374,31 @@ const SlideKPI = ({
       {/* Row 2 — Top 3 / Bottom 3 */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, flex: 1 }}>
         <div style={{
-          background: "rgba(34,197,94,0.07)",
-          border: "1px solid rgba(34,197,94,0.2)",
-          borderRadius: 16, padding: "20px 24px",
-          display: "flex", flexDirection: "column", gap: 16,
+          background: "hsl(var(--card))",
+          border: "1px solid hsl(var(--border))",
+          borderRadius: "var(--radius-xl)", padding: "24px 28px",
+          display: "flex", flexDirection: "column", gap: 16, justifyContent: "space-evenly",
         }}>
-          <div style={{ color: "#22C55E", fontSize: 13, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em" }}>
-            ▲ Top 3 Melhores
+          <div style={{ color: "hsl(var(--foreground))", fontSize: 20, fontWeight: 500 }}>
+            Maiores atingimentos
           </div>
           {top3.length > 0
-            ? top3.map((m, i) => <RankRow key={m.id} rank={i + 1} name={m.name} pct={m.pct} accent={topAccents[i]} />)
-            : <p style={{ color: "rgba(255,255,255,0.35)", fontSize: 15 }}>Sem dados suficientes</p>
+            ? top3.map((m, i) => <RankRow key={m.id} rank={i + 1} name={m.name} pct={m.pct} />)
+            : <p style={{ color: "hsl(var(--muted-foreground))", fontSize: 18 }}>Sem dados suficientes</p>
           }
         </div>
         <div style={{
-          background: "rgba(239,68,68,0.07)",
-          border: "1px solid rgba(239,68,68,0.2)",
-          borderRadius: 16, padding: "20px 24px",
-          display: "flex", flexDirection: "column", gap: 16,
+          background: "hsl(var(--card))",
+          border: "1px solid hsl(var(--border))",
+          borderRadius: "var(--radius-xl)", padding: "24px 28px",
+          display: "flex", flexDirection: "column", gap: 16, justifyContent: "space-evenly",
         }}>
-          <div style={{ color: "#EF4444", fontSize: 13, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em" }}>
-            ▼ Precisam de Atenção
+          <div style={{ color: "hsl(var(--foreground))", fontSize: 20, fontWeight: 500 }}>
+            Precisam de atenção
           </div>
           {bot3.length > 0
-            ? bot3.map((m, i) => <RankRow key={m.id} rank={i + 1} name={m.name} pct={m.pct} accent={botAccents[i]} />)
-            : <p style={{ color: "rgba(255,255,255,0.35)", fontSize: 15 }}>Sem dados suficientes</p>
+            ? bot3.map((m, i) => <RankRow key={m.id} rank={i + 1} name={m.name} pct={m.pct} />)
+            : <p style={{ color: "hsl(var(--muted-foreground))", fontSize: 18 }}>Sem dados suficientes</p>
           }
         </div>
       </div>
@@ -457,7 +411,7 @@ const SlideRanking = ({ option, data }: { option: EChartsOption; data: HBarPoint
   const chartH = Math.min(Math.max(400, data.length * 48), window.innerHeight - 220);
   return (
     <div style={{ display: "flex", flexDirection: "column", flex: 1 }}>
-      <p style={{ color: "rgba(255,255,255,0.4)", fontSize: 14, marginBottom: 12 }}>
+      <p style={{ color: "hsl(var(--muted-foreground))", fontSize: 18, marginBottom: 12 }}>
         Ordenado por % de atingimento da meta
       </p>
       <ReactEChartsCore option={option} style={{ height: chartH }} notMerge lazyUpdate />
@@ -467,7 +421,7 @@ const SlideRanking = ({ option, data }: { option: EChartsOption; data: HBarPoint
 
 const SlideProdVsMeta = ({ option }: { option: EChartsOption }) => (
   <div style={{ display: "flex", flexDirection: "column", flex: 1 }}>
-    <p style={{ color: "rgba(255,255,255,0.4)", fontSize: 14, marginBottom: 12 }}>
+    <p style={{ color: "hsl(var(--muted-foreground))", fontSize: 18, marginBottom: 12 }}>
       Produção real acumulada vs meta estabelecida por máquina
     </p>
     <ReactEChartsCore option={option} style={{ height: CHART_H }} notMerge lazyUpdate />
@@ -476,7 +430,7 @@ const SlideProdVsMeta = ({ option }: { option: EChartsOption }) => (
 
 const SlideTendencia = ({ option }: { option: EChartsOption }) => (
   <div style={{ display: "flex", flexDirection: "column", flex: 1 }}>
-    <p style={{ color: "rgba(255,255,255,0.4)", fontSize: 14, marginBottom: 12 }}>
+    <p style={{ color: "hsl(var(--muted-foreground))", fontSize: 18, marginBottom: 12 }}>
       Evolução diária da produção total no período filtrado
     </p>
     <ReactEChartsCore option={option} style={{ height: CHART_H }} notMerge lazyUpdate />
@@ -486,7 +440,7 @@ const SlideTendencia = ({ option }: { option: EChartsOption }) => (
 const SlideTurnos = ({
   option, turnoAgg, totalProd,
 }: { option: EChartsOption; turnoAgg: TurnoPoint[]; totalProd: number }) => {
-  const colors = ["#4DB8FF", "#22C55E", "#F59E0B"];
+  const colors = ["hsl(var(--brand-text))", "hsl(var(--success))", "hsl(var(--warning))"];
   return (
     <div style={{ display: "grid", gridTemplateColumns: "1fr 340px", gap: 24, flex: 1, alignItems: "center" }}>
       <ReactEChartsCore option={option} style={{ height: CHART_H }} notMerge lazyUpdate />
@@ -497,18 +451,18 @@ const SlideTurnos = ({
           const pct = totalProd > 0 ? Math.round(t.value / totalProd * 100) : 0;
           return (
             <div key={t.name} style={{
-              background: "rgba(255,255,255,0.05)",
+              background: "hsl(var(--foreground) / 0.05)",
               border: `1px solid ${colors[i % colors.length]}33`,
               borderLeft: `4px solid ${colors[i % colors.length]}`,
-              borderRadius: 12, padding: "16px 20px",
+              borderRadius: "var(--radius-xl)", padding: "16px 20px",
             }}>
-              <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 12, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em" }}>
+              <div style={{ color: "hsl(var(--muted-foreground))", fontSize: 16, fontWeight: 600 }}>
                 {t.name}
               </div>
-              <div style={{ color: colors[i % colors.length], fontSize: 36, fontWeight: 900, lineHeight: 1.1, marginTop: 4 }}>
+              <div style={{ color: colors[i % colors.length], fontSize: 36, fontWeight: 600, lineHeight: 1.1, marginTop: 4 }}>
                 {t.value.toLocaleString("pt-BR")}
               </div>
-              <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 14, marginTop: 2 }}>
+              <div style={{ color: "hsl(var(--muted-foreground))", fontSize: 18, marginTop: 2 }}>
                 {pct}% do total
               </div>
             </div>
@@ -528,10 +482,10 @@ const SlideAlertas = ({
         flex: 1, display: "flex", flexDirection: "column",
         alignItems: "center", justifyContent: "center", gap: 20,
       }}>
-        <CheckCircle2 size={80} color="#22C55E" strokeWidth={1.5} />
+        <CheckCircle2 size={80} color="hsl(var(--success))" strokeWidth={1.5} />
         <div style={{ textAlign: "center" }}>
-          <div style={{ color: "#22C55E", fontSize: 40, fontWeight: 900 }}>Todas dentro da meta!</div>
-          <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 18, marginTop: 8 }}>
+          <div style={{ color: "hsl(var(--success))", fontSize: 40, fontWeight: 600 }}>Todas dentro da meta!</div>
+          <div style={{ color: "hsl(var(--muted-foreground))", fontSize: 18, marginTop: 8 }}>
             {totalMachines} máquina{totalMachines !== 1 ? "s" : ""} com performance ≥ 80%
           </div>
         </div>
@@ -542,9 +496,9 @@ const SlideAlertas = ({
   return (
     <div style={{ display: "flex", flexDirection: "column", flex: 1, gap: 16 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-        <AlertTriangle size={22} color="#F59E0B" />
-        <p style={{ color: "rgba(255,255,255,0.5)", fontSize: 15 }}>
-          <strong style={{ color: "#F59E0B" }}>{alertMachines.length}</strong> de {totalMachines} máquinas abaixo de 80% da meta
+        <AlertTriangle size={22} color="hsl(var(--warning))" />
+        <p style={{ color: "hsl(var(--muted-foreground))", fontSize: 18 }}>
+          <strong style={{ color: "hsl(var(--warning))" }}>{alertMachines.length}</strong> de {totalMachines} máquinas abaixo de 80% da meta
         </p>
       </div>
       <div style={{
@@ -553,29 +507,29 @@ const SlideAlertas = ({
         gap: 16, flex: 1,
       }}>
         {alertMachines.map(m => {
-          const col = m.pct >= 60 ? "#F59E0B" : "#EF4444";
+          const col = m.pct >= 60 ? "hsl(var(--warning))" : "hsl(var(--destructive))";
           return (
             <div key={m.id} style={{
               background: `${col}0D`,
               border: `1px solid ${col}33`,
               borderTop: `3px solid ${col}`,
-              borderRadius: 14, padding: "22px 24px",
+              borderRadius: "var(--radius-xl)", padding: "22px 24px",
               display: "flex", flexDirection: "column", gap: 10,
             }}>
-              <div style={{ color: "rgba(255,255,255,0.6)", fontSize: 13, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em" }}>
+              <div style={{ color: "hsl(var(--foreground))", fontSize: 16, fontWeight: 600 }}>
                 {m.name}
               </div>
-              <div style={{ color: col, fontSize: 52, fontWeight: 900, lineHeight: 1 }}>
+              <div style={{ color: col, fontSize: 56, fontWeight: 600, lineHeight: 1 }}>
                 {m.pct}%
               </div>
-              <div style={{ height: 6, background: "rgba(255,255,255,0.08)", borderRadius: 4, overflow: "hidden" }}>
+              <div style={{ height: 6, background: "hsl(var(--foreground) / 0.08)", borderRadius: "var(--radius-sm)", overflow: "hidden" }}>
                 <div style={{
                   height: "100%", width: `${Math.min(m.pct, 100)}%`,
-                  background: col, borderRadius: 4,
+                  background: col, borderRadius: "var(--radius-sm)",
                   transition: "width 0.8s ease",
                 }} />
               </div>
-              <div style={{ color: "rgba(255,255,255,0.35)", fontSize: 13 }}>
+              <div style={{ color: "hsl(var(--muted-foreground))", fontSize: 16 }}>
                 {m.totalProd.toLocaleString("pt-BR")} / {m.totalMeta.toLocaleString("pt-BR")} pç
               </div>
             </div>
@@ -590,7 +544,7 @@ const SlideHeatmap = ({ option, machineCount }: { option: EChartsOption; machine
   const chartH = Math.min(Math.max(400, machineCount * 44 + 80), window.innerHeight - 240);
   return (
     <div style={{ display: "flex", flexDirection: "column", flex: 1 }}>
-      <p style={{ color: "rgba(255,255,255,0.4)", fontSize: 14, marginBottom: 12 }}>
+      <p style={{ color: "hsl(var(--muted-foreground))", fontSize: 18, marginBottom: 12 }}>
         % médio de atingimento de meta por máquina e dia da semana — padrões sistemáticos de performance
       </p>
       <ReactEChartsCore option={option} style={{ height: chartH }} notMerge lazyUpdate />
@@ -600,7 +554,7 @@ const SlideHeatmap = ({ option, machineCount }: { option: EChartsOption; machine
 
 const SlidePareto = ({ option }: { option: EChartsOption }) => (
   <div style={{ display: "flex", flexDirection: "column", flex: 1 }}>
-    <p style={{ color: "rgba(255,255,255,0.4)", fontSize: 14, marginBottom: 12 }}>
+    <p style={{ color: "hsl(var(--muted-foreground))", fontSize: 18, marginBottom: 12 }}>
       Onde concentrar atenção para recuperar o resultado global (lei 80/20)
     </p>
     <ReactEChartsCore option={option} style={{ height: CHART_H }} notMerge lazyUpdate />
@@ -636,12 +590,16 @@ const TVMode = ({
   ], []);
 
   // Pre-computed dark chart options — only recomputed when upstream data changes
-  const hbarOpt    = useMemo(() => tvHBarOption(hbarData),                    [hbarData]);
-  const barOpt     = useMemo(() => tvBarOption(barData),                      [barData]);
-  const areaOpt    = useMemo(() => tvAreaOption(dayAgg),                      [dayAgg]);
-  const pieOpt     = useMemo(() => tvPieOption(turnoAgg),                     [turnoAgg]);
-  const heatmapOpt = useMemo(() => tvHeatmapOption(heatmapData, heatmapMachines), [heatmapData, heatmapMachines]);
-  const paretoOpt  = useMemo(() => tvParetoOption(paretoData),                [paretoData]);
+  // Tema dos gráficos lido do próprio container (classe .dark), depois de montar
+  const [ct, setCt] = useState<ChartTheme>(() => readChartTheme());
+  useLayoutEffect(() => { if (containerRef.current) setCt(readChartTheme(containerRef.current)); }, []);
+
+  const hbarOpt    = useMemo(() => tvHBarOption(hbarData, ct),                    [hbarData, ct]);
+  const barOpt     = useMemo(() => tvBarOption(barData, ct),                      [barData, ct]);
+  const areaOpt    = useMemo(() => tvAreaOption(dayAgg, ct),                      [dayAgg, ct]);
+  const pieOpt     = useMemo(() => tvPieOption(turnoAgg, ct),                     [turnoAgg, ct]);
+  const heatmapOpt = useMemo(() => tvHeatmapOption(heatmapData, heatmapMachines, ct), [heatmapData, heatmapMachines, ct]);
+  const paretoOpt  = useMemo(() => tvParetoOption(paretoData, ct),                [paretoData, ct]);
 
   // Machines below 80% meta, sorted worst-first
   const alertMachines = useMemo(() =>
@@ -716,14 +674,14 @@ const TVMode = ({
   const dateStr = clock.toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "long" });
 
   return (
+    // Modo TV é sempre escuro: a classe .dark faz os tokens usarem os valores escuros
     <div
       ref={containerRef}
+      className="dark bg-background font-sans text-foreground"
       style={{
         position: "fixed", inset: 0, zIndex: 9999,
         overflow: "hidden",
-        background: "linear-gradient(145deg, #001D3D 0%, #003366 60%, #004080 100%)",
         display: "flex", flexDirection: "column",
-        fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif",
       }}
     >
       {/* ── HEADER ────────────────────────────────────────────────────────────── */}
@@ -731,20 +689,20 @@ const TVMode = ({
         height: 70, flexShrink: 0,
         display: "flex", alignItems: "center", justifyContent: "space-between",
         padding: "0 28px",
-        borderBottom: "1px solid rgba(255,255,255,0.07)",
-        background: "rgba(0,0,0,0.3)",
+        borderBottom: "1px solid hsl(var(--foreground) / 0.07)",
+        background: "hsl(var(--weg-950) / 0.3)",
         backdropFilter: "blur(8px)",
       }}>
         {/* Left: logo + slide title */}
         <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-          <div style={{ background: "#0066B3", borderRadius: 8, padding: "6px 14px", flexShrink: 0 }}>
-            <WEGLogo height={22} color="#fff" />
+          <div style={{ background: "hsl(var(--primary))", borderRadius: "var(--radius)", padding: "6px 14px", flexShrink: 0 }}>
+            <WEGLogo height={22} color="hsl(var(--foreground))" />
           </div>
           <div>
-            <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 11, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase" }}>
+            <div style={{ color: "hsl(var(--muted-foreground))", fontSize: 16, fontWeight: 600 }}>
               Modo Apresentação · Dashboard de Produção
             </div>
-            <div style={{ color: "#fff", fontSize: 20, fontWeight: 800, lineHeight: 1.15 }}>
+            <div style={{ color: "hsl(var(--foreground))", fontSize: 20, fontWeight: 600, lineHeight: 1.15 }}>
               {slides[slide].label}
             </div>
           </div>
@@ -754,21 +712,20 @@ const TVMode = ({
         <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
           <div style={{ textAlign: "right" }}>
             <div style={{
-              color: "#4DB8FF", fontSize: 30, fontWeight: 800,
-              letterSpacing: "0.06em", fontVariantNumeric: "tabular-nums",
+              color: "hsl(var(--brand-text))", fontSize: 30, fontWeight: 600, fontVariantNumeric: "tabular-nums",
               lineHeight: 1,
             }}>
               {timeStr}
             </div>
-            <div style={{ color: "rgba(255,255,255,0.38)", fontSize: 11, fontWeight: 600, textTransform: "capitalize", marginTop: 3 }}>
+            <div style={{ color: "hsl(var(--muted-foreground))", fontSize: 16, fontWeight: 600, textTransform: "capitalize", marginTop: 3 }}>
               {dateStr}
             </div>
           </div>
           {/* Slide indicator pill */}
           <div style={{
-            background: "rgba(0,102,179,0.35)",
-            border: "1px solid rgba(77,184,255,0.3)",
-            borderRadius: 10, padding: "8px 18px",
+            background: "hsl(var(--primary) / 0.35)",
+            border: "1px solid hsl(var(--brand-text) / 0.3)",
+            borderRadius: "var(--radius)", padding: "8px 18px",
             display: "flex", alignItems: "center", gap: 6,
           }}>
             {slides.map((_, i) => (
@@ -777,15 +734,15 @@ const TVMode = ({
                 onClick={() => goTo(i)}
                 style={{
                   width: i === slide ? 20 : 7,
-                  height: 7, borderRadius: 4,
-                  background: i === slide ? "#4DB8FF" : "rgba(255,255,255,0.25)",
+                  height: 7, borderRadius: "var(--radius-sm)",
+                  background: i === slide ? "hsl(var(--brand-text))" : "hsl(var(--foreground) / 0.25)",
                   border: "none", cursor: "pointer",
                   transition: "all 0.3s ease",
                   padding: 0,
                 }}
               />
             ))}
-            <span style={{ color: "rgba(255,255,255,0.5)", fontSize: 13, marginLeft: 6 }}>
+            <span style={{ color: "hsl(var(--muted-foreground))", fontSize: 16, marginLeft: 6 }}>
               {slide + 1}/{slides.length}
             </span>
           </div>
@@ -822,12 +779,12 @@ const TVMode = ({
         {slides[slide].id === "heatmap" && (
           heatmapData.length > 0
             ? <SlideHeatmap option={heatmapOpt} machineCount={heatmapMachines.length} />
-            : <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 18, margin: "auto" }}>Sem dados de meta no período filtrado</div>
+            : <div style={{ color: "hsl(var(--muted-foreground))", fontSize: 18, margin: "auto" }}>Sem dados de meta no período filtrado</div>
         )}
         {slides[slide].id === "pareto" && (
           paretoData.length > 0
             ? <SlidePareto option={paretoOpt} />
-            : <div style={{ color: "#22C55E", fontSize: 28, fontWeight: 800, margin: "auto", textAlign: "center" }}>
+            : <div style={{ color: "hsl(var(--success))", fontSize: 28, fontWeight: 600, margin: "auto", textAlign: "center" }}>
                 Parabéns! Todas as máquinas atingiram a meta no período.
               </div>
         )}
@@ -836,8 +793,8 @@ const TVMode = ({
       {/* ── FOOTER ─────────────────────────────────────────────────────────────── */}
       <footer style={{
         height: 60, flexShrink: 0,
-        borderTop: "1px solid rgba(255,255,255,0.07)",
-        background: "rgba(0,0,0,0.3)",
+        borderTop: "1px solid hsl(var(--foreground) / 0.07)",
+        background: "hsl(var(--weg-950) / 0.3)",
         backdropFilter: "blur(8px)",
         display: "flex", alignItems: "center",
         gap: 14, padding: "0 28px",
@@ -845,14 +802,14 @@ const TVMode = ({
         {/* Animated progress bar — key={slide} forces re-mount on every slide change, restarting animation */}
         <div style={{
           flex: 1, height: 4,
-          background: "rgba(255,255,255,0.1)",
-          borderRadius: 4, overflow: "hidden",
+          background: "hsl(var(--foreground) / 0.1)",
+          borderRadius: "var(--radius-sm)", overflow: "hidden",
         }}>
           <div
             key={slide}
             style={{
-              height: "100%", borderRadius: 4,
-              background: "linear-gradient(90deg, #4DB8FF, #0095FF)",
+              height: "100%", width: "100%", transformOrigin: "left", borderRadius: "var(--radius-sm)",
+              background: "hsl(var(--brand-text))",
               animation: `tvSlideProgress ${SLIDE_DURATION_MS}ms linear forwards`,
             }}
           />
@@ -863,10 +820,10 @@ const TVMode = ({
           onClick={() => goTo(slide - 1)}
           title="Slide anterior"
           style={{
-            width: 48, height: 48, borderRadius: 10,
-            background: "rgba(255,255,255,0.07)",
-            border: "1px solid rgba(255,255,255,0.14)",
-            color: "#fff", display: "flex", alignItems: "center", justifyContent: "center",
+            width: 48, height: 48, borderRadius: "var(--radius)",
+            background: "hsl(var(--foreground) / 0.07)",
+            border: "1px solid hsl(var(--foreground) / 0.14)",
+            color: "hsl(var(--foreground))", display: "flex", alignItems: "center", justifyContent: "center",
             cursor: "pointer", flexShrink: 0,
           }}
         >
@@ -878,10 +835,10 @@ const TVMode = ({
           onClick={() => goTo(slide + 1)}
           title="Próximo slide"
           style={{
-            width: 48, height: 48, borderRadius: 10,
-            background: "rgba(255,255,255,0.07)",
-            border: "1px solid rgba(255,255,255,0.14)",
-            color: "#fff", display: "flex", alignItems: "center", justifyContent: "center",
+            width: 48, height: 48, borderRadius: "var(--radius)",
+            background: "hsl(var(--foreground) / 0.07)",
+            border: "1px solid hsl(var(--foreground) / 0.14)",
+            color: "hsl(var(--foreground))", display: "flex", alignItems: "center", justifyContent: "center",
             cursor: "pointer", flexShrink: 0,
           }}
         >
@@ -894,9 +851,9 @@ const TVMode = ({
           title="Sair do Modo TV"
           style={{
             height: 48, paddingInline: 22,
-            borderRadius: 10, border: "none",
-            background: "#EF4444", color: "#fff",
-            fontSize: 15, fontWeight: 800,
+            borderRadius: "var(--radius)", border: "none",
+            background: "hsl(var(--destructive))", color: "hsl(var(--foreground))",
+            fontSize: 18, fontWeight: 600,
             display: "flex", alignItems: "center", gap: 8,
             cursor: "pointer", flexShrink: 0,
           }}

@@ -22,15 +22,16 @@ export interface ChartTheme {
   reducedMotion: boolean;
 }
 
-const readVar = (name: string) =>
-  getComputedStyle(document.documentElement).getPropertyValue(name).trim();
-
-const hsl = (name: string, alpha = 1) => {
-  const v = readVar(name);
-  return v ? `hsl(${v} / ${alpha})` : "gray";
-};
-
-export function readChartTheme(): ChartTheme {
+/**
+ * Lê os tokens já resolvidos. `scope` permite ler de um container com tema
+ * próprio (ex: Modo TV, sempre .dark) em vez do <html>.
+ */
+export function readChartTheme(scope: Element = document.documentElement): ChartTheme {
+  const css = getComputedStyle(scope);
+  const hsl = (name: string, alpha = 1) => {
+    const v = css.getPropertyValue(name).trim();
+    return v ? `hsl(${v} / ${alpha})` : "gray";
+  };
   const reducedMotion =
     typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
   return {
