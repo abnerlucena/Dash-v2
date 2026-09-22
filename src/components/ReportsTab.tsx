@@ -5,7 +5,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useIsMobile } from "@/hooks/use-mobile";
 import FilterBar from "@/components/FilterBar";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
-import { today, fmt, dispD, pctColor, saveCachedRecords, TURNOS, api } from "@/lib/api";
+import { today, fmt, dispD, saveCachedRecords, TURNOS, api } from "@/lib/api";
+import { statusStyle } from "@/lib/status";
 import { toast } from "sonner";
 import ExportModal from "@/components/ExportModal";
 
@@ -502,7 +503,7 @@ const ReportsTab = () => {
                             <td className="px-3 py-2.5 text-center">
                               {pct !== null ? (
                                 <span className="text-caption font-semibold px-1.5 py-px rounded-sm"
-                                  style={{ color: pctColor(pct), backgroundColor: `${pctColor(pct)}15` }}>
+                                  style={statusStyle(pct)}>
                                   {pct}%
                                 </span>
                               ) : "—"}
@@ -758,7 +759,7 @@ const ReportsTab = () => {
                   </div>
                   <div>
                     <span className="text-caption font-medium text-muted-foreground uppercase">Atingimento</span>
-                    <p className="text-lg font-semibold" style={{ color: pctColor(pctDay) }}>{pctDay}%</p>
+                    <p className="text-lg font-semibold" style={{ color: statusStyle(pctDay).color }}>{pctDay}%</p>
                   </div>
                 </div>
 
@@ -793,7 +794,7 @@ const ReportsTab = () => {
                               <td className="px-3 py-2.5 text-center">
                                 {pct !== null ? (
                                   <span className="text-caption font-semibold px-1.5 py-px rounded-sm"
-                                    style={{ color: pctColor(pct), backgroundColor: `${pctColor(pct)}15` }}>
+                                    style={statusStyle(pct)}>
                                     {pct}%
                                   </span>
                                 ) : "—"}

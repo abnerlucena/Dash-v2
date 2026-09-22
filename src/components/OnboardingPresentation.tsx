@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useMemo } from "react";
+import { withAlpha } from "@/lib/status";
 import {
   motion,
   useScroll,
@@ -34,15 +35,15 @@ interface OnboardingPresentationProps {
 
 // ── Paleta-tema por ato (todas derivam do navy/blue institucional) ─────────
 const PALETTES = [
-  { from: "#001022", to: "#001D3D", accent: "#3B82F6" }, // 0 cold
-  { from: "#0B1230", to: "#1E2A5E", accent: "#60A5FA" }, // 1 apontamento
-  { from: "#062046", to: "#0A3A78", accent: "#3B82F6" }, // 2 dashboard
-  { from: "#082B5C", to: "#0066B3", accent: "#22D3EE" }, // 3 filtros
-  { from: "#1E1B4B", to: "#312E81", accent: "#A78BFA" }, // 4 metas
-  { from: "#0F172A", to: "#1E293B", accent: "#94A3B8" }, // 5 historico
-  { from: "#083344", to: "#155E75", accent: "#22D3EE" }, // 6 feedbacks
-  { from: "#1E293B", to: "#334155", accent: "#94A3B8" }, // 7 cantos
-  { from: "#001D3D", to: "#0066B3", accent: "#FFFFFF" }, // 8 outro
+  { from: "hsl(var(--weg-950))", to: "hsl(var(--weg-950))", accent: "hsl(var(--info))" }, // 0 cold
+  { from: "hsl(var(--weg-950))", to: "hsl(var(--weg-800))", accent: "hsl(var(--weg-400))" }, // 1 apontamento
+  { from: "hsl(var(--weg-900))", to: "hsl(var(--weg-700))", accent: "hsl(var(--info))" }, // 2 dashboard
+  { from: "hsl(var(--weg-800))", to: "hsl(var(--primary))", accent: "hsl(var(--weg-200))" }, // 3 filtros
+  { from: "hsl(var(--weg-900))", to: "hsl(var(--weg-800))", accent: "hsl(var(--weg-300))" }, // 4 metas
+  { from: "hsl(var(--foreground))", to: "hsl(var(--foreground))", accent: "hsl(var(--muted-foreground))" }, // 5 historico
+  { from: "hsl(var(--weg-900))", to: "hsl(var(--weg-700))", accent: "hsl(var(--weg-200))" }, // 6 feedbacks
+  { from: "hsl(var(--foreground))", to: "hsl(var(--border))", accent: "hsl(var(--muted-foreground))" }, // 7 cantos
+  { from: "hsl(var(--weg-950))", to: "hsl(var(--primary))", accent: "hsl(var(--foreground))" }, // 8 outro
 ];
 
 // ── Hook: scrollProgress local de uma seção sticky ─────────────────────────
@@ -65,12 +66,12 @@ function MotionNumber({ value, format = (n: number) => Math.round(n).toLocaleStr
 // ── Atom: chrome de janela (browser-like) ───────────────────────────────────
 function WindowChrome({ children, label }: { children: React.ReactNode; label?: string }) {
   return (
-    <div className="rounded-2xl overflow-hidden border border-white/10 bg-white/[0.02] backdrop-blur-xl shadow-[0_30px_80px_-20px_rgba(0,0,0,0.5)]">
-      <div className="flex items-center gap-1.5 px-3 py-2 border-b border-white/5 bg-white/[0.03]">
-        <span className="w-2.5 h-2.5 rounded-full bg-white/15" />
-        <span className="w-2.5 h-2.5 rounded-full bg-white/15" />
-        <span className="w-2.5 h-2.5 rounded-full bg-white/15" />
-        {label && <span className="ml-3 text-[10px] font-mono text-white/40 tracking-wider">{label}</span>}
+    <div className="rounded-xl overflow-hidden border border-foreground/10 bg-foreground/[0.02] backdrop-blur-xl shadow-[0_30px_80px_-20px_hsl(var(--weg-950) / 0.5)]">
+      <div className="flex items-center gap-1.5 px-3 py-2 border-b border-foreground/5 bg-foreground/[0.03]">
+        <span className="w-2.5 h-2.5 rounded-full bg-foreground/15" />
+        <span className="w-2.5 h-2.5 rounded-full bg-foreground/15" />
+        <span className="w-2.5 h-2.5 rounded-full bg-foreground/15" />
+        {label && <span className="ml-3 text-caption font-mono text-muted-foreground tracking-wider">{label}</span>}
       </div>
       {children}
     </div>
@@ -81,9 +82,9 @@ function WindowChrome({ children, label }: { children: React.ReactNode; label?: 
 function Eyebrow({ index, verb }: { index: string; verb: string }) {
   return (
     <div className="flex items-center gap-3 mb-5">
-      <span className="font-mono text-[11px] tracking-[0.25em] text-white/40">{index}</span>
-      <span className="h-px w-8 bg-white/20" />
-      <span className="font-mono text-[11px] tracking-[0.25em] uppercase text-white/60">{verb}</span>
+      <span className="font-mono text-caption tracking-[0.25em] text-muted-foreground">{index}</span>
+      <span className="h-px w-8 bg-foreground/20" />
+      <span className="font-mono text-caption tracking-[0.25em] uppercase text-foreground">{verb}</span>
     </div>
   );
 }
@@ -91,7 +92,7 @@ function Eyebrow({ index, verb }: { index: string; verb: string }) {
 // ── Atom: display headline ─────────────────────────────────────────────────
 function Display({ children, className = "" }: { children: React.ReactNode; className?: string }) {
   return (
-    <h2 className={`text-white font-extrabold leading-[0.95] tracking-tight text-4xl sm:text-5xl md:text-6xl ${className}`}>
+    <h2 className={`text-foreground font-semibold leading-[0.95] tracking-tight text-4xl sm:text-5xl md:text-6xl ${className}`}>
       {children}
     </h2>
   );
@@ -99,13 +100,13 @@ function Display({ children, className = "" }: { children: React.ReactNode; clas
 
 // ── Atom: parágrafo curto ──────────────────────────────────────────────────
 function Lede({ children }: { children: React.ReactNode }) {
-  return <p className="text-white/60 text-base sm:text-lg leading-relaxed mt-5 max-w-md">{children}</p>;
+  return <p className="text-foreground text-base sm:text-lg leading-relaxed mt-5 max-w-md">{children}</p>;
 }
 
 // ── Atom: frase-eco (cita o aprendizado em destaque) ───────────────────────
 function Echo({ children }: { children: React.ReactNode }) {
   return (
-    <p className="text-white/30 font-mono text-[11px] tracking-[0.2em] uppercase mt-8">
+    <p className="text-muted-foreground font-mono text-caption tracking-[0.2em] uppercase mt-8">
       → {children}
     </p>
   );
@@ -124,13 +125,13 @@ function OrderRow({ index, id, qtd }: { index: number; id: string; qtd: number }
       transition={{ delay: index * 0.12, duration: 0.5, ease: "easeOut" }}
       className="flex items-center gap-2"
     >
-      <div className="flex-1 h-9 rounded-md border border-white/10 bg-white/[0.02] flex items-center px-3 text-xs font-mono text-white/50">
+      <div className="flex-1 h-9 rounded-md border border-foreground/10 bg-foreground/[0.02] flex items-center px-3 text-xs font-mono text-muted-foreground">
         #{id}
       </div>
-      <div className="w-20 h-9 rounded-md border border-blue-400/40 bg-blue-500/10 flex items-center justify-center text-sm font-bold text-blue-300">
+      <div className="w-20 h-9 rounded-md border border-weg-400/40 bg-info/100/10 flex items-center justify-center text-sm font-medium text-weg-300">
         {qtd}
       </div>
-      <button className="w-9 h-9 rounded-md bg-white/[0.03] border border-white/5 flex items-center justify-center text-white/30">
+      <button className="w-9 h-9 rounded-md bg-foreground/[0.03] border border-foreground/5 flex items-center justify-center text-muted-foreground">
         <X size={12} />
       </button>
     </motion.div>
@@ -149,13 +150,13 @@ function ApontamentoDemo({ progress }: { progress: MotionValue<number> }) {
 
   return (
     <WindowChrome label="dash · apontamento">
-      <div className="p-5 bg-[#0a0f1f]/40">
+      <div className="p-5 bg-[hsl(var(--weg-950))]/40">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <p className="text-[10px] font-mono tracking-wider text-white/30 uppercase">26 abr · turno 1</p>
-            <p className="text-sm font-bold text-white mt-0.5">HORIZONTAL 1 · meta 600 pç</p>
+            <p className="text-caption font-mono tracking-wider text-muted-foreground uppercase">26 abr · turno 1</p>
+            <p className="text-sm font-medium text-foreground mt-0.5">HORIZONTAL 1 · meta 600 pç</p>
           </div>
-          <span className="text-[10px] font-mono text-white/40">3 / 18</span>
+          <span className="text-caption font-mono text-muted-foreground">3 / 18</span>
         </div>
 
         <div className="space-y-2">
@@ -167,31 +168,31 @@ function ApontamentoDemo({ progress }: { progress: MotionValue<number> }) {
             style={{ opacity: useTransform(progress, [0.3, 0.5], [0.5, 1]) }}
             className="flex items-center justify-between pt-2"
           >
-            <span className="text-[11px] font-semibold text-blue-300/80 border border-dashed border-blue-400/30 rounded-md px-3 py-1.5 flex items-center gap-1">
+            <span className="text-caption font-semibold text-weg-300/80 border border-dashed border-weg-400/30 rounded-md px-3 py-1.5 flex items-center gap-1">
               <Plus size={11} /> Adicionar Ordem
             </span>
-            <span className="text-[11px] text-white/50">
-              Total: <strong className="text-white"><MotionNumber value={total} /></strong> pç
+            <span className="text-caption text-muted-foreground">
+              Total: <strong className="text-foreground"><MotionNumber value={total} /></strong> pç
             </span>
           </motion.div>
 
-          <div className="h-1 bg-white/5 rounded-full overflow-hidden mt-2">
+          <div className="h-1 bg-foreground/5 rounded-full overflow-hidden mt-2">
             <motion.div
               className="h-full rounded-full"
-              style={{ width: barWidth, background: "linear-gradient(90deg,#3B82F6,#22D3EE)" }}
+              style={{ width: barWidth, background: "linear-gradient(90deg,hsl(var(--weg-500)),hsl(var(--weg-200)))" }}
             />
           </div>
-          <p className="text-right text-[10px] font-mono text-white/40 mt-1">
+          <p className="text-right text-caption font-mono text-muted-foreground mt-1">
             <MotionNumber value={pct} format={(n) => `${Math.round(n)}% da meta`} />
           </p>
         </div>
 
         <motion.div
           style={{ opacity: useTransform(progress, [0.45, 0.65], [0, 1]) }}
-          className="mt-4 flex items-center gap-2 px-3 py-2.5 rounded-lg bg-blue-500/10 border border-blue-400/20"
+          className="mt-4 flex items-center gap-2 px-3 py-2.5 rounded-lg bg-info/100/10 border border-weg-400/20"
         >
-          <Save size={14} className="text-blue-300" />
-          <span className="text-xs font-bold text-white">Salvar apontamento</span>
+          <Save size={14} className="text-weg-300" />
+          <span className="text-xs font-medium text-foreground">Salvar apontamento</span>
         </motion.div>
       </div>
     </WindowChrome>
@@ -211,7 +212,7 @@ function MiniBars({ data, color }: { data: number[]; color: string }) {
         <div
           key={i}
           className="flex-1 rounded-t-sm"
-          style={{ height: `${(v / max) * 100}%`, background: `linear-gradient(180deg,${color},${color}55)` }}
+          style={{ height: `${(v / max) * 100}%`, background: `linear-gradient(180deg,${color},${withAlpha(color, 0.33)})` }}
         />
       ))}
     </div>
@@ -222,19 +223,19 @@ function SubResumo() {
   return (
     <div className="grid grid-cols-3 gap-3">
       {[
-        { k: "Produção", v: "12.480", sub: "peças", c: "#3B82F6" },
-        { k: "Meta", v: "13.200", sub: "peças", c: "#A78BFA" },
-        { k: "OEE", v: "94%", sub: "atingimento", c: "#22D3EE" },
+        { k: "Produção", v: "12.480", sub: "peças", c: "hsl(var(--info))" },
+        { k: "Meta", v: "13.200", sub: "peças", c: "hsl(var(--weg-300))" },
+        { k: "OEE", v: "94%", sub: "atingimento", c: "hsl(var(--weg-200))" },
       ].map((kpi) => (
-        <div key={kpi.k} className="rounded-lg p-3 bg-white/[0.03] border border-white/5">
-          <p className="text-[9px] font-mono uppercase tracking-wider text-white/40">{kpi.k}</p>
-          <p className="text-2xl font-extrabold mt-1" style={{ color: kpi.c }}>{kpi.v}</p>
-          <p className="text-[9px] text-white/40 mt-0.5">{kpi.sub}</p>
+        <div key={kpi.k} className="rounded-lg p-3 bg-foreground/[0.03] border border-foreground/5">
+          <p className="text-caption font-mono text-muted-foreground">{kpi.k}</p>
+          <p className="text-2xl font-semibold mt-1" style={{ color: kpi.c }}>{kpi.v}</p>
+          <p className="text-caption text-muted-foreground mt-0.5">{kpi.sub}</p>
         </div>
       ))}
-      <div className="col-span-3 rounded-lg p-3 bg-white/[0.03] border border-white/5">
-        <p className="text-[9px] font-mono uppercase tracking-wider text-white/40 mb-2">Produção semanal</p>
-        <MiniBars data={[820, 1020, 940, 1180, 1080, 760, 0]} color="#3B82F6" />
+      <div className="col-span-3 rounded-lg p-3 bg-foreground/[0.03] border border-foreground/5">
+        <p className="text-caption font-mono text-muted-foreground mb-2">Produção semanal</p>
+        <MiniBars data={[820, 1020, 940, 1180, 1080, 760, 0]} color="hsl(var(--info))" />
       </div>
     </div>
   );
@@ -248,14 +249,14 @@ function SubDetalhado() {
     { m: "VERTICAL 2", p: 1640, meta: 2000, pct: 82 },
   ];
   return (
-    <div className="rounded-lg overflow-hidden border border-white/5">
+    <div className="rounded-lg overflow-hidden border border-foreground/5">
       {rows.map((r, i) => {
-        const color = r.pct >= 100 ? "#22C55E" : r.pct >= 85 ? "#F59E0B" : "#EF4444";
+        const color = r.pct >= 100 ? "hsl(var(--success))" : r.pct >= 85 ? "hsl(var(--warning))" : "hsl(var(--destructive))";
         return (
-          <div key={r.m} className={`grid grid-cols-[1fr_auto_auto] gap-3 items-center px-3 py-2.5 text-xs ${i % 2 ? "bg-white/[0.02]" : ""}`}>
-            <span className="font-semibold text-white/80 truncate">{r.m}</span>
-            <span className="font-mono text-white/50">{r.p.toLocaleString("pt-BR")} / {r.meta.toLocaleString("pt-BR")}</span>
-            <span className="font-bold px-2 py-0.5 rounded-full text-[10px]" style={{ color, background: `${color}22` }}>
+          <div key={r.m} className={`grid grid-cols-[1fr_auto_auto] gap-3 items-center px-3 py-2.5 text-xs ${i % 2 ? "bg-foreground/[0.02]" : ""}`}>
+            <span className="font-semibold text-foreground truncate">{r.m}</span>
+            <span className="font-mono text-muted-foreground">{r.p.toLocaleString("pt-BR")} / {r.meta.toLocaleString("pt-BR")}</span>
+            <span className="font-medium px-1.5 py-px rounded-sm border border-current/20 text-caption" style={{ color, background: withAlpha(color, 0.14) }}>
               {r.pct}%
             </span>
           </div>
@@ -267,9 +268,9 @@ function SubDetalhado() {
 
 function SubTurnos() {
   const turnos = [
-    { t: "TURNO 1", p: 5240, c: "#3B82F6" },
-    { t: "TURNO 2", p: 4180, c: "#A78BFA" },
-    { t: "TURNO 3", p: 3060, c: "#22D3EE" },
+    { t: "TURNO 1", p: 5240, c: "hsl(var(--info))" },
+    { t: "TURNO 2", p: 4180, c: "hsl(var(--weg-300))" },
+    { t: "TURNO 3", p: 3060, c: "hsl(var(--weg-200))" },
   ];
   const total = turnos.reduce((s, t) => s + t.p, 0);
   return (
@@ -278,11 +279,11 @@ function SubTurnos() {
         const pct = (t.p / total) * 100;
         return (
           <div key={t.t}>
-            <div className="flex items-center justify-between text-[11px] mb-1">
-              <span className="font-mono text-white/50">{t.t}</span>
-              <span className="font-bold text-white">{t.p.toLocaleString("pt-BR")} <span className="text-white/40 font-mono text-[10px]">({pct.toFixed(0)}%)</span></span>
+            <div className="flex items-center justify-between text-caption mb-1">
+              <span className="font-mono text-muted-foreground">{t.t}</span>
+              <span className="font-medium text-foreground">{t.p.toLocaleString("pt-BR")} <span className="text-muted-foreground font-mono text-caption">({pct.toFixed(0)}%)</span></span>
             </div>
-            <div className="h-2 rounded-full overflow-hidden bg-white/5">
+            <div className="h-2 rounded-full overflow-hidden bg-foreground/5">
               <div className="h-full rounded-full" style={{ width: `${pct}%`, background: t.c }} />
             </div>
           </div>
@@ -296,33 +297,33 @@ function SubGraficos() {
   const option = useMemo(() => ({
     backgroundColor: "transparent",
     grid: { left: 30, right: 10, top: 10, bottom: 20 },
-    xAxis: { type: "category", data: ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"], axisLine: { show: false }, axisTick: { show: false }, axisLabel: { color: "rgba(255,255,255,0.4)", fontSize: 10 } },
-    yAxis: { type: "value", axisLine: { show: false }, axisTick: { show: false }, axisLabel: { color: "rgba(255,255,255,0.3)", fontSize: 9 }, splitLine: { lineStyle: { color: "rgba(255,255,255,0.05)" } } },
+    xAxis: { type: "category", data: ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"], axisLine: { show: false }, axisTick: { show: false }, axisLabel: { color: "hsl(var(--foreground) / 0.4)", fontSize: 10 } },
+    yAxis: { type: "value", axisLine: { show: false }, axisTick: { show: false }, axisLabel: { color: "hsl(var(--foreground) / 0.3)", fontSize: 9 }, splitLine: { lineStyle: { color: "hsl(var(--foreground) / 0.05)" } } },
     series: [
       {
         type: "line", smooth: true, symbol: "circle", symbolSize: 6,
         data: [1820, 2100, 1950, 2300, 2080, 1640],
-        lineStyle: { color: "#3B82F6", width: 2.5 },
-        itemStyle: { color: "#3B82F6", borderColor: "#0A1428", borderWidth: 2 },
-        areaStyle: { color: { type: "linear", x: 0, y: 0, x2: 0, y2: 1, colorStops: [{ offset: 0, color: "rgba(59,130,246,0.4)" }, { offset: 1, color: "rgba(59,130,246,0)" }] } },
+        lineStyle: { color: "hsl(var(--info))", width: 2.5 },
+        itemStyle: { color: "hsl(var(--info))", borderColor: "hsl(var(--weg-950))", borderWidth: 2 },
+        areaStyle: { color: { type: "linear", x: 0, y: 0, x2: 0, y2: 1, colorStops: [{ offset: 0, color: "hsl(var(--weg-500) / 0.4)" }, { offset: 1, color: "hsl(var(--weg-500) / 0)" }] } },
       },
       {
         type: "line", smooth: true, symbol: "none",
         data: [2000, 2000, 2000, 2000, 2000, 2000],
-        lineStyle: { color: "#A78BFA", width: 1.5, type: "dashed" },
+        lineStyle: { color: "hsl(var(--weg-300))", width: 1.5, type: "dashed" },
       },
     ],
   }), []);
-  return <div className="bg-white/[0.02] rounded-lg p-2 border border-white/5"><ReactECharts option={option} style={{ height: 180 }} /></div>;
+  return <div className="bg-foreground/[0.02] rounded-lg p-2 border border-foreground/5"><ReactECharts option={option} style={{ height: 180 }} /></div>;
 }
 
 function SubAnalytics() {
   const option = useMemo(() => ({
     backgroundColor: "transparent",
     grid: { left: 50, right: 10, top: 10, bottom: 20 },
-    xAxis: { type: "category", data: ["Seg", "Ter", "Qua", "Qui", "Sex"], axisLine: { show: false }, axisTick: { show: false }, axisLabel: { color: "rgba(255,255,255,0.4)", fontSize: 10 }, splitArea: { show: false } },
-    yAxis: { type: "category", data: ["S1", "S2", "S3", "S4"], axisLine: { show: false }, axisTick: { show: false }, axisLabel: { color: "rgba(255,255,255,0.4)", fontSize: 10 }, splitArea: { show: false } },
-    visualMap: { show: false, min: 60, max: 120, inRange: { color: ["#EF4444", "#F59E0B", "#22C55E"] } },
+    xAxis: { type: "category", data: ["Seg", "Ter", "Qua", "Qui", "Sex"], axisLine: { show: false }, axisTick: { show: false }, axisLabel: { color: "hsl(var(--foreground) / 0.4)", fontSize: 10 }, splitArea: { show: false } },
+    yAxis: { type: "category", data: ["S1", "S2", "S3", "S4"], axisLine: { show: false }, axisTick: { show: false }, axisLabel: { color: "hsl(var(--foreground) / 0.4)", fontSize: 10 }, splitArea: { show: false } },
+    visualMap: { show: false, min: 60, max: 120, inRange: { color: ["hsl(var(--destructive))", "hsl(var(--warning))", "hsl(var(--success))"] } },
     series: [{
       type: "heatmap",
       data: [
@@ -331,11 +332,11 @@ function SubAnalytics() {
         [0,2,115],[1,2,80],[2,2,102],[3,2,91],[4,2,76],
         [0,3,96],[1,3,108],[2,3,85],[3,3,119],[4,3,93],
       ],
-      itemStyle: { borderColor: "#0A1428", borderWidth: 2, borderRadius: 3 },
-      label: { show: true, formatter: (p: { data: [number, number, number] }) => p.data[2] + "%", fontSize: 9, color: "#fff", fontWeight: "bold" },
+      itemStyle: { borderColor: "hsl(var(--weg-950))", borderWidth: 2, borderRadius: 3 },
+      label: { show: true, formatter: (p: { data: [number, number, number] }) => p.data[2] + "%", fontSize: 9, color: "hsl(var(--primary-foreground))", fontWeight: "bold" },
     }],
   }), []);
-  return <div className="bg-white/[0.02] rounded-lg p-2 border border-white/5"><ReactECharts option={option} style={{ height: 180 }} /></div>;
+  return <div className="bg-foreground/[0.02] rounded-lg p-2 border border-foreground/5"><ReactECharts option={option} style={{ height: 180 }} /></div>;
 }
 
 function DashboardDemo({ progress }: { progress: MotionValue<number> }) {
@@ -350,12 +351,12 @@ function DashboardDemo({ progress }: { progress: MotionValue<number> }) {
 
   return (
     <WindowChrome label="dash · dashboard">
-      <div className="bg-[#0a0f1f]/40">
-        <div className="flex items-center gap-1 px-3 py-2 border-b border-white/5 overflow-x-auto">
+      <div className="bg-[hsl(var(--weg-950))]/40">
+        <div className="flex items-center gap-1 px-3 py-2 border-b border-foreground/5 overflow-x-auto">
           {SUB_TABS.map((t, i) => (
             <button
               key={t}
-              className={`text-[11px] font-bold px-3 py-1.5 rounded-md transition-colors whitespace-nowrap ${i === activeIdx ? "bg-blue-500/20 text-blue-300" : "text-white/40"}`}
+              className={`text-caption font-medium px-3 py-1.5 rounded-md transition-colors whitespace-nowrap ${i === activeIdx ? "bg-info/100/20 text-weg-300" : "text-muted-foreground"}`}
             >
               {t}
             </button>
@@ -398,16 +399,16 @@ function FiltrosDemo({ progress }: { progress: MotionValue<number> }) {
   return (
     <div className="space-y-3">
       <WindowChrome label="filtros">
-        <div className="bg-[#0a0f1f]/40 p-3 flex flex-wrap gap-2">
+        <div className="bg-[hsl(var(--weg-950))]/40 p-3 flex flex-wrap gap-2">
           {[
             { k: "De", v: "01/04" },
             { k: "Até", v: "25/04" },
             { k: "Máquina", v: machine, hot: machine !== "TODAS" },
             { k: "Turno", v: "Todos" },
           ].map((f) => (
-            <div key={f.k} className={`flex-1 min-w-[80px] rounded-md px-3 py-2 border transition-colors ${f.hot ? "border-cyan-400/40 bg-cyan-500/10" : "border-white/10 bg-white/[0.02]"}`}>
-              <p className="text-[9px] font-mono uppercase tracking-wider text-white/40">{f.k}</p>
-              <p className="text-xs font-bold text-white mt-0.5 truncate">{f.v}</p>
+            <div key={f.k} className={`flex-1 min-w-[80px] rounded-md px-3 py-2 border transition-colors ${f.hot ? "border-weg-300/40 bg-weg-500/10" : "border-foreground/10 bg-foreground/[0.02]"}`}>
+              <p className="text-caption font-mono text-muted-foreground">{f.k}</p>
+              <p className="text-xs font-medium text-foreground mt-0.5 truncate">{f.v}</p>
             </div>
           ))}
         </div>
@@ -415,15 +416,15 @@ function FiltrosDemo({ progress }: { progress: MotionValue<number> }) {
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
         {[
-          { k: "Produção", v: prod, c: "#3B82F6" },
-          { k: "Meta", v: meta, c: "#A78BFA" },
-          { k: "OEE", v: oee, c: "#22D3EE", suffix: "%" },
-          { k: "Registros", v: reg, c: "#F59E0B" },
+          { k: "Produção", v: prod, c: "hsl(var(--info))" },
+          { k: "Meta", v: meta, c: "hsl(var(--weg-300))" },
+          { k: "OEE", v: oee, c: "hsl(var(--weg-200))", suffix: "%" },
+          { k: "Registros", v: reg, c: "hsl(var(--warning))" },
         ].map((kpi) => (
-          <div key={kpi.k} className="rounded-lg p-3 bg-white/[0.03] border border-white/5 relative overflow-hidden">
+          <div key={kpi.k} className="rounded-lg p-3 bg-foreground/[0.03] border border-foreground/5 relative overflow-hidden">
             <div className="absolute left-0 top-2 bottom-2 w-[3px] rounded-r-full" style={{ background: kpi.c }} />
-            <p className="text-[9px] font-mono uppercase tracking-wider text-white/40 pl-2">{kpi.k}</p>
-            <p className="text-xl font-extrabold mt-1 pl-2" style={{ color: kpi.c }}>
+            <p className="text-caption font-mono text-muted-foreground pl-2">{kpi.k}</p>
+            <p className="text-xl font-semibold mt-1 pl-2" style={{ color: kpi.c }}>
               <MotionNumber value={kpi.v} format={(n) => `${Math.round(n).toLocaleString("pt-BR")}${kpi.suffix || ""}`} />
             </p>
           </div>
@@ -444,45 +445,45 @@ function MetasDemo({ progress }: { progress: MotionValue<number> }) {
   const sliderPct = useTransform(progress, [0.1, 0.9], [0, 100]);
   const sliderLeft = useTransform(sliderPct, (v) => `${Math.min(Math.max(v, 0), 100)}%`);
   const barWidth = useTransform(pct, (v) => `${Math.min(v, 100)}%`);
-  const barColor = useTransform(pct, (v) => v >= 100 ? "#22C55E" : v >= 85 ? "#F59E0B" : "#EF4444");
+  const barColor = useTransform(pct, (v) => v >= 100 ? "hsl(var(--success))" : v >= 85 ? "hsl(var(--warning))" : "hsl(var(--destructive))");
 
   return (
     <WindowChrome label="dash · metas">
-      <div className="bg-[#0a0f1f]/40 p-5">
+      <div className="bg-[hsl(var(--weg-950))]/40 p-5">
         <div className="flex items-center justify-between mb-4">
-          <p className="text-xs font-bold text-white">HORIZONTAL 1</p>
-          <span className="text-[10px] font-mono text-white/40">vigência: 25 abr</span>
+          <p className="text-xs font-medium text-foreground">HORIZONTAL 1</p>
+          <span className="text-caption font-mono text-muted-foreground">vigência: 25 abr</span>
         </div>
 
         <div className="mb-4">
-          <p className="text-[10px] font-mono uppercase tracking-wider text-white/40 mb-2">Meta por turno</p>
+          <p className="text-caption font-mono text-muted-foreground mb-2">Meta por turno</p>
           <div className="flex items-baseline gap-2">
-            <p className="text-3xl font-extrabold text-violet-300">
+            <p className="text-3xl font-semibold text-weg-300">
               <MotionNumber value={meta} />
             </p>
-            <span className="text-xs text-white/40">peças</span>
+            <span className="text-xs text-muted-foreground">peças</span>
           </div>
           {/* Slider track */}
-          <div className="relative h-2 bg-white/5 rounded-full mt-3">
-            <motion.div className="absolute inset-y-0 left-0 rounded-full" style={{ width: sliderLeft, background: "linear-gradient(90deg,#312E81,#A78BFA)" }} />
+          <div className="relative h-2 bg-foreground/5 rounded-full mt-3">
+            <motion.div className="absolute inset-y-0 left-0 rounded-full" style={{ width: sliderLeft, background: "linear-gradient(90deg,hsl(var(--weg-800)),hsl(var(--weg-300)))" }} />
             <motion.div
-              className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-4 h-4 rounded-full bg-violet-300 shadow-[0_0_20px_rgba(167,139,250,0.6)] border-2 border-[#0a0f1f]"
+              className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-4 h-4 rounded-full bg-weg-300 shadow-[0_0_20px_hsl(var(--weg-300) / 0.6)] border-2 border-[hsl(var(--weg-950))]"
               style={{ left: sliderLeft }}
             />
           </div>
         </div>
 
-        <div className="rounded-lg bg-white/[0.02] border border-white/5 p-3">
-          <div className="flex items-center justify-between text-[11px] mb-1.5">
-            <span className="font-mono text-white/40">Atingimento real</span>
-            <span className="font-bold text-white">{prod} / <MotionNumber value={meta} /></span>
+        <div className="rounded-lg bg-foreground/[0.02] border border-foreground/5 p-3">
+          <div className="flex items-center justify-between text-caption mb-1.5">
+            <span className="font-mono text-muted-foreground">Atingimento real</span>
+            <span className="font-medium text-foreground">{prod} / <MotionNumber value={meta} /></span>
           </div>
-          <div className="h-2 bg-white/5 rounded-full overflow-hidden">
+          <div className="h-2 bg-foreground/5 rounded-full overflow-hidden">
             <motion.div className="h-full rounded-full" style={{ width: barWidth, background: barColor }} />
           </div>
           <div className="flex items-center justify-between mt-1.5">
-            <span className="text-[10px] font-mono text-white/30">% da meta</span>
-            <motion.span className="text-sm font-extrabold" style={{ color: barColor }}>
+            <span className="text-caption font-mono text-muted-foreground">% da meta</span>
+            <motion.span className="text-sm font-semibold" style={{ color: barColor }}>
               <MotionNumber value={pct} format={(n) => `${Math.round(n)}%`} />
             </motion.span>
           </div>
@@ -512,14 +513,14 @@ function HistoricoDemo({ progress }: { progress: MotionValue<number> }) {
   return (
     <div className="space-y-4">
       <WindowChrome label="dash · histórico">
-        <div className="bg-[#0a0f1f]/40 p-4">
+        <div className="bg-[hsl(var(--weg-950))]/40 p-4">
           <div className="flex items-center justify-between mb-3">
-            <p className="text-xs font-bold text-white">Abril 2026</p>
-            <span className="text-[10px] font-mono text-white/40">30 dias</span>
+            <p className="text-xs font-medium text-foreground">Abril 2026</p>
+            <span className="text-caption font-mono text-muted-foreground">30 dias</span>
           </div>
           <div className="grid grid-cols-7 gap-1 mb-1">
             {["D", "S", "T", "Q", "Q", "S", "S"].map((d, i) => (
-              <span key={i} className="text-[9px] font-bold text-center text-white/30">{d}</span>
+              <span key={i} className="text-caption font-medium text-center text-muted-foreground">{d}</span>
             ))}
           </div>
           <div className="grid grid-cols-7 gap-1">
@@ -527,14 +528,14 @@ function HistoricoDemo({ progress }: { progress: MotionValue<number> }) {
               if (d === null) return <div key={`p-${i}`} className="aspect-square" />;
               // intensidade pseudo-aleatória estável
               const intensity = (d * 37) % 100;
-              const bg = intensity > 70 ? "#22C55E" : intensity > 40 ? "#F59E0B" : "#3B82F6";
+              const bg = intensity > 70 ? "hsl(var(--success))" : intensity > 40 ? "hsl(var(--warning))" : "hsl(var(--info))";
               const opacity = intensity > 70 ? 0.65 : intensity > 40 ? 0.5 : 0.3;
               const isToday = d === 26;
               const isHl = d === highlightDay;
               return (
                 <div
                   key={d}
-                  className={`aspect-square rounded flex items-center justify-center text-[10px] font-bold text-white/85 relative ${isToday ? "ring-1 ring-white/60" : ""} ${isHl ? "ring-1 ring-blue-300/80" : ""}`}
+                  className={`aspect-square rounded flex items-center justify-center text-caption font-medium text-foreground relative ${isToday ? "ring-1 ring-foreground/60" : ""} ${isHl ? "ring-1 ring-weg-300/80" : ""}`}
                   style={{ background: `${bg}${Math.round(opacity * 255).toString(16).padStart(2, "0")}` }}
                 >
                   {d}
@@ -547,23 +548,23 @@ function HistoricoDemo({ progress }: { progress: MotionValue<number> }) {
 
       <motion.div
         style={{ opacity: modalOpacity, y: modalY, scale: modalScale }}
-        className="rounded-2xl bg-gradient-to-br from-slate-900/95 to-slate-800/95 backdrop-blur-md border border-white/10 p-4 shadow-[0_30px_80px_-20px_rgba(0,0,0,0.8)]"
+        className="rounded-xl bg-gradient-to-br from-weg-950/95 to-weg-900/95 backdrop-blur-md border border-foreground/10 p-4 shadow-[0_30px_80px_-20px_hsl(var(--weg-950) / 0.8)]"
       >
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
-            <Download size={14} className="text-blue-300" />
-            <span className="text-xs font-bold text-white">Exportar relatório</span>
+            <Download size={14} className="text-weg-300" />
+            <span className="text-xs font-medium text-foreground">Exportar relatório</span>
           </div>
-          <span className="text-[9px] font-mono text-white/40">15 abr · selecionado</span>
+          <span className="text-caption font-mono text-muted-foreground">15 abr · selecionado</span>
         </div>
         <div className="grid grid-cols-2 gap-2">
-          <div className="rounded-lg bg-blue-500/15 border border-blue-400/30 p-3 text-center">
-            <p className="text-sm font-extrabold text-blue-200">CSV</p>
-            <p className="text-[9px] text-white/50 mt-1">Editável no Excel</p>
+          <div className="rounded-lg bg-info/100/15 border border-weg-400/30 p-3 text-center">
+            <p className="text-sm font-semibold text-weg-200">CSV</p>
+            <p className="text-caption text-muted-foreground mt-1">Editável no Excel</p>
           </div>
-          <div className="rounded-lg bg-violet-500/15 border border-violet-400/30 p-3 text-center">
-            <p className="text-sm font-extrabold text-violet-200">PDF</p>
-            <p className="text-[9px] text-white/50 mt-1">Relatório formatado</p>
+          <div className="rounded-lg bg-weg-500/15 border border-weg-400/30 p-3 text-center">
+            <p className="text-sm font-semibold text-weg-200">PDF</p>
+            <p className="text-caption text-muted-foreground mt-1">Relatório formatado</p>
           </div>
         </div>
       </motion.div>
@@ -584,15 +585,15 @@ function FeedbackBubble({ index, who, date, text }: { index: number; who: string
       transition={{ delay: index * 0.15, duration: 0.55, ease: "easeOut" }}
       className="flex gap-3"
     >
-      <div className="shrink-0 w-9 h-9 rounded-full bg-gradient-to-br from-cyan-400/30 to-cyan-600/30 border border-cyan-300/30 flex items-center justify-center">
-        <MessageSquare size={14} className="text-cyan-200" />
+      <div className="shrink-0 w-9 h-9 rounded-full bg-gradient-to-br from-weg-300/30 to-weg-500/30 border border-weg-200/30 flex items-center justify-center">
+        <MessageSquare size={14} className="text-weg-200" />
       </div>
-      <div className="flex-1 rounded-2xl rounded-tl-sm bg-white/[0.04] border border-white/10 p-3">
+      <div className="flex-1 rounded-xl rounded-tl-sm bg-foreground/[0.04] border border-foreground/10 p-3">
         <div className="flex items-center justify-between mb-1.5">
-          <span className="text-[10px] font-bold text-cyan-200">{who}</span>
-          <span className="text-[9px] font-mono text-white/30">{date}</span>
+          <span className="text-caption font-medium text-weg-200">{who}</span>
+          <span className="text-caption font-mono text-muted-foreground">{date}</span>
         </div>
-        <p className="text-xs text-white/70 leading-relaxed">{text}</p>
+        <p className="text-xs text-foreground leading-relaxed">{text}</p>
       </div>
     </motion.div>
   );
@@ -624,22 +625,22 @@ function CornerCard({ index, Icon, title, body, c }: { index: number; Icon: Luci
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, margin: "-15%" }}
       transition={{ delay: index * 0.12, duration: 0.55, ease: "easeOut" }}
-      className="rounded-2xl border border-white/10 bg-white/[0.03] backdrop-blur-xl p-5 shadow-[0_20px_60px_-20px_rgba(0,0,0,0.5)]"
+      className="rounded-xl border border-foreground/10 bg-foreground/[0.03] backdrop-blur-xl p-5 shadow-[0_20px_60px_-20px_hsl(var(--weg-950) / 0.5)]"
     >
-      <div className="w-10 h-10 rounded-xl flex items-center justify-center mb-3" style={{ background: `${c}22`, border: `1px solid ${c}44` }}>
+      <div className="w-10 h-10 rounded-xl flex items-center justify-center mb-3" style={{ background: withAlpha(c, 0.14), border: `1px solid ${withAlpha(c, 0.28)}` }}>
         <Icon size={18} style={{ color: c }} />
       </div>
-      <p className="text-base font-extrabold text-white mb-1">{title}</p>
-      <p className="text-xs text-white/50 leading-relaxed">{body}</p>
+      <p className="text-base font-semibold text-foreground mb-1">{title}</p>
+      <p className="text-xs text-muted-foreground leading-relaxed">{body}</p>
     </motion.div>
   );
 }
 
 function CantosDemo() {
   const cards = [
-    { Icon: Tv, title: "Modo TV", body: "Ative o painel para a fábrica. Atualização automática, fonte gigante.", c: "#3B82F6" },
-    { Icon: Smartphone, title: "Mobile", body: "BottomNav com os 5 menus sempre à mão no celular.", c: "#A78BFA" },
-    { Icon: Bell, title: "Alertas", body: "Configure avisos quando uma máquina ficar abaixo da meta.", c: "#22D3EE" },
+    { Icon: Tv, title: "Modo TV", body: "Ative o painel para a fábrica. Atualização automática, fonte gigante.", c: "hsl(var(--info))" },
+    { Icon: Smartphone, title: "Mobile", body: "BottomNav com os 5 menus sempre à mão no celular.", c: "hsl(var(--weg-300))" },
+    { Icon: Bell, title: "Alertas", body: "Configure avisos quando uma máquina ficar abaixo da meta.", c: "hsl(var(--weg-200))" },
   ];
   return (
     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -701,14 +702,14 @@ function ColdOpenScene({ progress }: { progress: MotionValue<number> }) {
   return (
     <div className="text-center max-w-2xl mx-auto">
       <motion.div style={{ scale: logoScale, opacity: logoOpacity }} className="flex justify-center mb-10">
-        <WEGLogo height={64} color="#fff" />
+        <WEGLogo height={64} className="text-foreground" />
       </motion.div>
       <motion.div style={{ opacity: taglineOpacity, y: taglineY }}>
         <Display className="text-5xl sm:text-6xl md:text-7xl">
           Onde a sua linha<br />
-          <span className="bg-gradient-to-r from-blue-300 via-cyan-200 to-violet-300 bg-clip-text text-transparent">vira número.</span>
+          <span className="bg-gradient-to-r from-weg-300 via-weg-200 to-weg-300 bg-clip-text text-transparent">vira número.</span>
         </Display>
-        <p className="text-white/50 text-base sm:text-lg mt-6 max-w-md mx-auto">
+        <p className="text-muted-foreground text-base sm:text-lg mt-6 max-w-md mx-auto">
           Um tour rápido de 90 segundos pelo seu novo painel de produção.
         </p>
       </motion.div>
@@ -716,9 +717,9 @@ function ColdOpenScene({ progress }: { progress: MotionValue<number> }) {
         style={{ opacity: hintOpacity }}
         animate={reduce ? undefined : { y: [0, 8, 0] }}
         transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
-        className="mt-16 inline-flex flex-col items-center gap-2 text-white/40"
+        className="mt-16 inline-flex flex-col items-center gap-2 text-muted-foreground"
       >
-        <span className="text-[10px] font-mono uppercase tracking-[0.3em]">Role para começar</span>
+        <span className="text-caption font-mono uppercase tracking-[0.3em]">Role para começar</span>
         <ArrowDown size={16} />
       </motion.div>
     </div>
@@ -737,7 +738,7 @@ function CantosScene({ progress }: { progress: MotionValue<number> }) {
       <motion.div style={{ opacity: headerOpacity, y: headerY }} className="text-center mb-12">
         <Eyebrow index="07 / 07" verb="E mais" />
         <Display className="text-center mx-auto">Detalhes que importam<br />nos cantos.</Display>
-        <p className="text-white/60 text-base mt-5 max-w-md mx-auto">
+        <p className="text-foreground text-base mt-5 max-w-md mx-auto">
           Três recursos discretos que mudam como você vive o dashboard no dia a dia.
         </p>
       </motion.div>
@@ -802,26 +803,26 @@ const OnboardingPresentation = ({ onComplete }: OnboardingPresentationProps) => 
   const progressWidth = useTransform(smoothProgress, (v) => `${v * 100}%`);
 
   return (
-    <div className="fixed inset-0 z-[200] overflow-hidden">
+    <div className="dark fixed inset-0 z-[200] overflow-hidden text-foreground">
       {/* Animated background */}
       <motion.div className="absolute inset-0 -z-10" style={{ background: bgGradient }} />
       {/* Aura blobs (decorative) */}
       {!reduce && (
         <>
-          <div className="absolute -top-1/4 -right-1/4 w-[60vw] h-[60vw] rounded-full opacity-30 blur-[120px] -z-10" style={{ background: "radial-gradient(circle, rgba(59,130,246,0.6), transparent 60%)" }} />
-          <div className="absolute -bottom-1/4 -left-1/4 w-[60vw] h-[60vw] rounded-full opacity-20 blur-[120px] -z-10" style={{ background: "radial-gradient(circle, rgba(167,139,250,0.6), transparent 60%)" }} />
+          <div className="absolute -top-1/4 -right-1/4 w-[60vw] h-[60vw] rounded-full opacity-30 blur-[120px] -z-10" style={{ background: "radial-gradient(circle, hsl(var(--weg-500) / 0.6), transparent 60%)" }} />
+          <div className="absolute -bottom-1/4 -left-1/4 w-[60vw] h-[60vw] rounded-full opacity-20 blur-[120px] -z-10" style={{ background: "radial-gradient(circle, hsl(var(--weg-300) / 0.6), transparent 60%)" }} />
         </>
       )}
 
       {/* Top progress bar */}
-      <div className="fixed top-0 left-0 right-0 h-[2px] z-[201] bg-white/5">
-        <motion.div className="h-full bg-gradient-to-r from-blue-400 via-cyan-300 to-violet-300" style={{ width: progressWidth }} />
+      <div className="fixed top-0 left-0 right-0 h-[2px] z-[201] bg-foreground/5">
+        <motion.div className="h-full bg-gradient-to-r from-weg-400 via-weg-200 to-weg-300" style={{ width: progressWidth }} />
       </div>
 
       {/* Skip */}
       <button
         onClick={onComplete}
-        className="fixed top-4 right-4 z-[201] flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-mono uppercase tracking-wider text-white/60 hover:text-white border border-white/10 bg-white/[0.03] backdrop-blur-md transition-colors"
+        className="fixed top-4 right-4 z-[201] flex items-center gap-1.5 px-3 py-1.5 rounded-full text-caption font-mono text-foreground hover:text-foreground border border-foreground/10 bg-foreground/[0.03] backdrop-blur-md transition-colors"
       >
         <X size={11} />
         Pular
@@ -955,10 +956,10 @@ const OnboardingPresentation = ({ onComplete }: OnboardingPresentationProps) => 
                   transition={{ delay: 0.1 + i * 0.08, duration: 0.5, ease: "easeOut" }}
                   className="flex flex-col items-center gap-2"
                 >
-                  <div className="w-12 h-12 rounded-2xl bg-white/[0.06] border border-white/10 backdrop-blur-md flex items-center justify-center">
-                    <m.Icon size={20} className="text-white/80" />
+                  <div className="w-12 h-12 rounded-xl bg-foreground/[0.06] border border-foreground/10 backdrop-blur-md flex items-center justify-center">
+                    <m.Icon size={20} className="text-foreground" />
                   </div>
-                  <span className="text-[9px] font-mono uppercase tracking-wider text-white/40">{m.label}</span>
+                  <span className="text-caption font-mono text-muted-foreground">{m.label}</span>
                 </motion.div>
               ))}
             </div>
@@ -969,7 +970,7 @@ const OnboardingPresentation = ({ onComplete }: OnboardingPresentationProps) => 
               transition={{ delay: 0.6, duration: 0.6 }}
             >
               <Display className="text-5xl sm:text-6xl md:text-7xl">Tudo pronto.</Display>
-              <p className="text-white/60 text-base sm:text-lg mt-5 max-w-md mx-auto">
+              <p className="text-foreground text-base sm:text-lg mt-5 max-w-md mx-auto">
                 Lance, analise, calibre, leve e comente. O ciclo é seu.
               </p>
             </motion.div>
@@ -979,10 +980,10 @@ const OnboardingPresentation = ({ onComplete }: OnboardingPresentationProps) => 
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.9, duration: 0.6 }}
               onClick={onComplete}
-              className="mt-12 group inline-flex items-center gap-3 pl-7 pr-5 py-4 rounded-full font-bold text-sm bg-white text-slate-900 hover:bg-white/95 transition-all hover:scale-[1.02] active:scale-[0.98] shadow-[0_20px_60px_-10px_rgba(255,255,255,0.4)]"
+              className="mt-12 group inline-flex items-center gap-3 pl-7 pr-5 py-4 rounded-full font-medium text-sm bg-foreground text-foreground hover:bg-foreground/95 transition-colors hover:scale-[1.02] active:scale-[0.98] shadow-[0_20px_60px_-10px_hsl(var(--foreground) / 0.4)]"
             >
               Começar a usar
-              <span className="w-7 h-7 rounded-full bg-slate-900 text-white flex items-center justify-center transition-transform group-hover:translate-x-0.5">
+              <span className="w-7 h-7 rounded-full bg-weg-950 text-foreground flex items-center justify-center transition-transform group-hover:translate-x-0.5">
                 <ArrowRight size={14} />
               </span>
             </motion.button>

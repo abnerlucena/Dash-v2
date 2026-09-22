@@ -2,7 +2,8 @@ import { useState, useMemo, useRef } from "react";
 import { Save, Check, MessageSquare, X, Search, ChevronDown, ChevronUp, Plus } from "lucide-react";
 import { useAuth, type OrdemProducao } from "@/contexts/AuthContext";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { TURNOS, today, api, pctColor } from "@/lib/api";
+import { TURNOS, today, api } from "@/lib/api";
+import { statusStyle } from "@/lib/status";
 import { toast } from "sonner";
 import { DatePickerInput } from "@/components/DatePickerInput";
 import { SelectDropdown } from "@/components/SelectDropdown";
@@ -310,7 +311,7 @@ const ProductionEntry = () => {
                                 </h4>
                                 {pct !== null && (
                                   <span className="shrink-0 text-xs font-semibold px-2.5 py-1 rounded-full"
-                                    style={{ color: pctColor(pct), backgroundColor: `${pctColor(pct)}15` }}>
+                                    style={statusStyle(pct)}>
                                     {pct}%
                                   </span>
                                 )}
@@ -337,7 +338,7 @@ const ProductionEntry = () => {
                                 </p>
                                 {pct !== null && (
                                   <span className="mt-1.5 self-start text-xs font-semibold px-1.5 py-px rounded-sm"
-                                    style={{ color: pctColor(pct), backgroundColor: `${pctColor(pct)}15` }}>
+                                    style={statusStyle(pct)}>
                                     {pct}%
                                   </span>
                                 )}
@@ -377,7 +378,7 @@ const ProductionEntry = () => {
                           {pct !== null && (
                             <div className="h-1 bg-muted rounded-full overflow-hidden mt-2.5">
                               <div className="h-full rounded-full transition-colors duration-400"
-                                style={{ width: `${Math.min(pct, 100)}%`, backgroundColor: pctColor(pct) }} />
+                                style={{ width: `${Math.min(pct, 100)}%`, backgroundColor: statusStyle(pct).color }} />
                             </div>
                           )}
                         </div>

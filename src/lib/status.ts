@@ -49,3 +49,14 @@ export const STATUS_BG_CLASS: Record<AttainmentStatus, string> = {
   met: "bg-success",
   none: "bg-muted-foreground",
 };
+
+/** Estilo inline (cor + fundo translúcido) do status — para chips que usam `style`. */
+export function statusStyle(pct: number | null | undefined): { color: string; backgroundColor: string } {
+  const token = STATUS_TOKEN[getAttainmentStatus(pct)];
+  return { color: `hsl(var(${token}))`, backgroundColor: `hsl(var(${token}) / 0.1)` };
+}
+
+/** Aplica transparência a qualquer cor CSS (inclusive hsl(var(--x))). */
+export function withAlpha(color: string, alpha: number): string {
+  return `color-mix(in srgb, ${color} ${Math.round(alpha * 100)}%, transparent)`;
+}

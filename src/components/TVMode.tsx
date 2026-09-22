@@ -4,7 +4,7 @@ import { X, ChevronLeft, ChevronRight, TrendingUp, TrendingDown, Minus, AlertTri
 import WEGLogo from "./WEGLogo";
 import { chartBase, axisStyle, legendStyle } from "@/lib/chart-options";
 import { type ChartTheme, readChartTheme, statusColor } from "@/lib/chart-theme";
-import { getAttainmentStatus, STATUS_LABEL, STATUS_THRESHOLDS, STATUS_TOKEN } from "@/lib/status";
+import { getAttainmentStatus, STATUS_LABEL, STATUS_THRESHOLDS, STATUS_TOKEN, withAlpha } from "@/lib/status";
 
 /** Cor CSS (token) do status de atingimento — para estilos inline do DOM. */
 const pctColor = (pct: number) => `hsl(var(${STATUS_TOKEN[getAttainmentStatus(pct)]}))`;
@@ -452,7 +452,7 @@ const SlideTurnos = ({
           return (
             <div key={t.name} style={{
               background: "hsl(var(--foreground) / 0.05)",
-              border: `1px solid ${colors[i % colors.length]}33`,
+              border: `1px solid ${withAlpha(colors[i % colors.length], 0.2)}`,
               borderLeft: `4px solid ${colors[i % colors.length]}`,
               borderRadius: "var(--radius-xl)", padding: "16px 20px",
             }}>
@@ -510,8 +510,8 @@ const SlideAlertas = ({
           const col = m.pct >= 60 ? "hsl(var(--warning))" : "hsl(var(--destructive))";
           return (
             <div key={m.id} style={{
-              background: `${col}0D`,
-              border: `1px solid ${col}33`,
+              background: withAlpha(col, 0.05),
+              border: `1px solid ${withAlpha(col, 0.2)}`,
               borderTop: `3px solid ${col}`,
               borderRadius: "var(--radius-xl)", padding: "22px 24px",
               display: "flex", flexDirection: "column", gap: 10,
@@ -696,7 +696,7 @@ const TVMode = ({
         {/* Left: logo + slide title */}
         <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
           <div style={{ background: "hsl(var(--primary))", borderRadius: "var(--radius)", padding: "6px 14px", flexShrink: 0 }}>
-            <WEGLogo height={22} color="hsl(var(--foreground))" />
+            <WEGLogo height={22} className="text-white" />
           </div>
           <div>
             <div style={{ color: "hsl(var(--muted-foreground))", fontSize: 16, fontWeight: 600 }}>

@@ -3,7 +3,8 @@ import { Pencil, Trash2, Check, X, Loader, ChevronDown, ChevronUp, ClipboardList
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { pctColor, fmt, dispD, today, api, type ProdRecord } from "@/lib/api";
+import { fmt, dispD, today, api, type ProdRecord } from "@/lib/api";
+import { statusStyle } from "@/lib/status";
 import { DatePickerInput } from "@/components/DatePickerInput";
 import { SelectDropdown } from "@/components/SelectDropdown";
 
@@ -175,11 +176,7 @@ const FeedbacksTab = () => {
                     </div>
                     <span
                       className="text-xs font-semibold px-1.5 py-px rounded-sm"
-                      style={{
-                        color: pctColor(pct),
-                        backgroundColor: `${pctColor(pct)}15`,
-                        borderRadius: 20,
-                      }}
+                      style={statusStyle(pct)}
                     >
                       {pct}%
                     </span>
