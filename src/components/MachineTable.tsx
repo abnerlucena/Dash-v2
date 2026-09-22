@@ -50,7 +50,7 @@ const MachineTable = ({ machines, totalProd, totalMeta, pctGeral, trend = {}, re
                     <StatusChip pct={m.pct} />
                   </div>
                 ) : (
-                  <StatusChip pct={null} />
+                  <StatusChip pct={null} emptyLabel={m.days === 0 ? "Sem apontamento" : undefined} />
                 )}
               </TableCell>
               <TableCell className="pr-4">

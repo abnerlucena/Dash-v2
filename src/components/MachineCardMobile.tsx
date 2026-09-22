@@ -35,7 +35,7 @@ const MachineCardMobile = ({ machine }: MachineCardMobileProps) => {
         <div className="min-w-0 flex-1">
           <div className="flex items-center justify-between gap-2">
             <h3 className="line-clamp-1 text-sm font-medium">{machine.name}</h3>
-            <StatusChip pct={hasMeta ? machine.pct : null} />
+            <StatusChip pct={hasMeta ? machine.pct : null} emptyLabel={machine.days === 0 ? "Sem apontamento" : undefined} />
           </div>
           <div className="mt-2 flex items-center gap-2">
             <SegmentedBar pct={machine.pct} className="flex-1" />

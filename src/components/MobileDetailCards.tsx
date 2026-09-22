@@ -40,7 +40,7 @@ const MobileDetailCards = ({ machines, totalProd, totalMeta, pctGeral }: MobileD
           <li key={m.id} className="px-4 py-3">
             <div className="flex items-center justify-between gap-2">
               <h4 className="line-clamp-1 flex-1 text-sm font-medium">{m.name}</h4>
-              <StatusChip pct={m.totalMeta > 0 ? m.pct : null} />
+              <StatusChip pct={m.totalMeta > 0 ? m.pct : null} emptyLabel={m.days === 0 ? "Sem apontamento" : undefined} />
             </div>
             <div className="mt-2 flex items-center gap-2">
               <SegmentedBar pct={m.pct} className="flex-1" />

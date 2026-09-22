@@ -11,12 +11,12 @@ const VARIANT: Record<AttainmentStatus, "destructive" | "warning" | "info" | "su
 };
 
 /** Chip de status de atingimento: cor + bolinha + rótulo (cor nunca sozinha). */
-export function StatusChip({ pct, className }: { pct: number | null | undefined; className?: string }) {
+export function StatusChip({ pct, className, emptyLabel }: { pct: number | null | undefined; className?: string; emptyLabel?: string }) {
   const status = getAttainmentStatus(pct);
   return (
     <Badge variant={VARIANT[status]} className={cn("gap-1", className)}>
       <span className="size-1.5 rounded-full bg-current" aria-hidden="true" />
-      {STATUS_LABEL[status]}
+      {status === "none" && emptyLabel ? emptyLabel : STATUS_LABEL[status]}
     </Badge>
   );
 }
