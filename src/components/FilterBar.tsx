@@ -4,6 +4,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { type Machine, TURNOS, dispD } from "@/lib/api";
 import { DatePickerInput } from "@/components/DatePickerInput";
 import { SelectDropdown } from "@/components/SelectDropdown";
+import { cn } from "@/lib/utils";
 
 interface FilterBarProps {
   dateFrom: string;
@@ -19,6 +20,7 @@ interface FilterBarProps {
   extra?: React.ReactNode;
 }
 
+/** Barra de filtros em pílulas: rótulo apagado + valor em destaque ("Máquina · Todas"). */
 const FilterBar = ({
   dateFrom, setDateFrom, dateTo, setDateTo,
   machine, setMachine, turno, setTurno,
@@ -34,36 +36,42 @@ const FilterBar = ({
   ].join(" · ");
 
   return (
-    <div className="bg-card rounded-xl p-3 border border-border shadow-sm" style={{ borderRadius: 12 }}>
+    <div className={cn(isMobile && "rounded-lg border bg-card p-3")}>
       {isMobile && (
-        <button onClick={() => setOpen(!open)} className="flex items-center gap-2 w-full text-left">
-          <SlidersHorizontal size={14} className="text-primary shrink-0" />
-          <span className="text-xs font-bold text-foreground flex-1">Filtros</span>
-          <span className="text-[10px] text-muted-foreground truncate max-w-[200px]">{summary}</span>
-          <ChevronDown size={14} className={`text-muted-foreground transition-transform ${open ? 'rotate-180' : ''}`} />
+        <button
+          onClick={() => setOpen(!open)}
+          aria-expanded={open}
+          className="flex min-h-11 w-full items-center gap-2 text-left"
+        >
+          <SlidersHorizontal size={14} className="shrink-0 text-muted-foreground" aria-hidden="true" />
+          <span className="text-sm font-medium">Filtros</span>
+          <span className="flex-1 truncate text-right text-xs text-muted-foreground">{summary}</span>
+          <ChevronDown size={14} aria-hidden="true" className={cn("shrink-0 text-muted-foreground transition-transform duration-base ease-out", open && "rotate-180")} />
         </button>
       )}
 
       {(!isMobile || open) && (
-        <div className={`flex flex-wrap gap-3 items-end ${isMobile ? 'mt-3' : ''}`}>
-          <DatePickerInput label="De" value={dateFrom} onChange={setDateFrom} max={dateTo || undefined} />
-          <DatePickerInput label="Até" value={dateTo} onChange={setDateTo} min={dateFrom || undefined} />
+        <div className={cn("flex flex-wrap items-center gap-2", isMobile && "mt-2")}>
+          <DatePickerInput variant="pill" label="De" value={dateFrom} onChange={setDateFrom} max={dateTo || undefined} />
+          <DatePickerInput variant="pill" label="Até" value={dateTo} onChange={setDateTo} min={dateFrom || undefined} />
           <SelectDropdown
+            variant="pill"
             label="Máquina"
             value={machine}
             onChange={setMachine}
             options={[
-              { value: "TODAS", label: "TODAS" },
+              { value: "TODAS", label: "Todas" },
               ...machines.map(m => ({ value: m.name, label: m.name })),
             ]}
           />
           {showTurno && (
             <SelectDropdown
+              variant="pill"
               label="Turno"
               value={turno}
               onChange={setTurno}
               options={[
-                { value: "TODOS", label: "TODOS" },
+                { value: "TODOS", label: "Todos" },
                 ...TURNOS.map(t => ({ value: t, label: t })),
               ]}
             />

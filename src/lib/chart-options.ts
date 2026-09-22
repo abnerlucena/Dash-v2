@@ -1,20 +1,8 @@
 import type { EChartsOption } from "echarts";
-import { pctColor as pctCol } from "./api";
+import { type ChartTheme, statusColor } from "./chart-theme";
 
-const C = {
-  green: "#22C55E", yellow: "#F59E0B", red: "#EF4444",
-  blue: "#0066B3", gray: "#6B7280", navy: "#003366",
-  teal: "#0095A8", info: "#3B82F6",
-};
-
-const tooltipBase = {
-  backgroundColor: '#fff',
-  borderColor: '#D0DEE8',
-  borderWidth: 1,
-  borderRadius: 8,
-  textStyle: { color: '#2D3E4E', fontSize: 12 },
-  confine: true,
-};
+// Todas as cores vêm do tema (tokens CSS resolvidos) — ver lib/chart-theme.ts.
+// Azuis WEG para séries/categorias; verde/amarelo/vermelho só para status.
 
 interface BarData { name: string; meta: number; producao: number; }
 interface AreaData { date: string; producao: number; meta: number; }
@@ -22,88 +10,134 @@ interface PieData { name: string; value: number; }
 interface HBarData { name: string; pct: number; }
 interface RetrabalhoData { name: string; normal: number; retrabalho: number; pctRetrabalho: number; }
 
-export function getBarChartOption(data: BarData[], mobile: boolean): EChartsOption {
-  const m = mobile;
-  const fs = m ? 10 : 11;
+const kFormat = (v: number) => (v >= 1000 ? (v / 1000).toFixed(0) + "k" : String(v));
 
-  if (m) {
+/** Base comum: fonte, tooltip, eixos e animação curta (desligada em reduced motion). */
+export function chartBase(t: ChartTheme) {
+  return {
+    animation: !t.reducedMotion,
+    animationDuration: 250,
+    animationEasing: "cubicOut" as const,
+    textStyle: { fontFamily: t.fontFamily, color: t.muted },
+    tooltip: {
+      backgroundColor: t.surface,
+      borderColor: t.border,
+      borderWidth: 1,
+      borderRadius: 6,
+      padding: [6, 10],
+      textStyle: { color: t.text, fontSize: 12, fontFamily: t.fontFamily },
+      extraCssText: "box-shadow: var(--shadow-popover);",
+      confine: true,
+    },
+  };
+}
+
+export function axisStyle(t: ChartTheme, fs: number) {
+  return {
+    axisLine: { show: false },
+    axisTick: { show: false },
+    axisLabel: { fontSize: fs, color: t.muted },
+    splitLine: { lineStyle: { color: t.grid } },
+  };
+}
+
+export function legendStyle(t: ChartTheme, fs: number) {
+  return { icon: "circle", itemWidth: 8, itemHeight: 8, textStyle: { fontSize: fs, color: t.muted } };
+}
+
+export function getBarChartOption(data: BarData[], mobile: boolean, t: ChartTheme): EChartsOption {
+  const fs = mobile ? 11 : 12;
+  const base = chartBase(t);
+  const ax = axisStyle(t, fs);
+  // Meta em tom neutro claro (referência); Produção em azul WEG (o que importa).
+  const metaColor = t.series[3];
+  const prodColor = t.series[0];
+
+  if (mobile) {
     return {
-      animation: true, animationDuration: 750,
-      tooltip: { ...tooltipBase, trigger: 'axis', axisPointer: { type: 'shadow' } },
-      legend: { data: ['Meta', 'Produção'], top: 0, right: 0, textStyle: { fontSize: fs } },
+      ...base,
+      tooltip: { ...base.tooltip, trigger: "axis", axisPointer: { type: "shadow" } },
+      legend: { ...legendStyle(t, fs), data: ["Meta", "Produção"], top: 0, right: 0 },
       grid: { top: 30, right: 10, bottom: 8, left: 8, containLabel: true },
-      yAxis: { type: 'category', data: data.slice().reverse().map(d => d.name), axisLabel: { fontSize: fs, width: 100, overflow: 'truncate' } },
-      xAxis: { type: 'value', axisLabel: { formatter: (v: number) => v >= 1000 ? (v / 1000).toFixed(0) + 'k' : String(v), fontSize: fs } },
+      yAxis: { type: "category", data: data.slice().reverse().map(d => d.name), ...ax, axisLabel: { ...ax.axisLabel, width: 100, overflow: "truncate" } },
+      xAxis: { type: "value", ...ax, axisLabel: { ...ax.axisLabel, formatter: kFormat } },
       series: [
-        { name: 'Meta', type: 'bar', data: data.slice().reverse().map(d => d.meta), itemStyle: { color: C.gray, borderRadius: [0, 4, 4, 0] }, barMaxWidth: 16 },
-        { name: 'Produção', type: 'bar', data: data.slice().reverse().map(d => d.producao), itemStyle: { color: C.blue, borderRadius: [0, 4, 4, 0] }, barMaxWidth: 16 },
+        { name: "Meta", type: "bar", data: data.slice().reverse().map(d => d.meta), itemStyle: { color: metaColor, borderRadius: [0, 3, 3, 0] }, barMaxWidth: 12 },
+        { name: "Produção", type: "bar", data: data.slice().reverse().map(d => d.producao), itemStyle: { color: prodColor, borderRadius: [0, 3, 3, 0] }, barMaxWidth: 12 },
       ],
     };
   }
 
   return {
-    animation: true, animationDuration: 750,
-    tooltip: { ...tooltipBase, trigger: 'axis', axisPointer: { type: 'shadow', shadowStyle: { color: 'rgba(0,0,0,0.05)' } } },
-    legend: { data: ['Meta', 'Produção'], top: 0, textStyle: { fontSize: fs } },
-    grid: { top: 40, right: 20, bottom: 60, left: 60 },
-    xAxis: { type: 'category', data: data.map(d => d.name), axisLabel: { fontSize: fs, rotate: 25, interval: 0 } },
-    yAxis: { type: 'value', axisLabel: { fontSize: fs, formatter: (v: number) => v >= 1000 ? (v / 1000).toFixed(0) + 'k' : String(v) } },
+    ...base,
+    tooltip: { ...base.tooltip, trigger: "axis", axisPointer: { type: "shadow", shadowStyle: { color: t.grid } } },
+    legend: { ...legendStyle(t, fs), data: ["Meta", "Produção"], top: 0, right: 0 },
+    grid: { top: 32, right: 8, bottom: 8, left: 8, containLabel: true },
+    xAxis: { type: "category", data: data.map(d => d.name), ...ax, axisLabel: { ...ax.axisLabel, interval: 0, width: 96, overflow: "break" } },
+    yAxis: { type: "value", ...ax, axisLabel: { ...ax.axisLabel, formatter: kFormat } },
     series: [
-      { name: 'Meta', type: 'bar', data: data.map(d => d.meta), itemStyle: { color: C.gray, borderRadius: [4, 4, 0, 0] }, barMaxWidth: 40 },
-      { name: 'Produção', type: 'bar', data: data.map(d => d.producao), itemStyle: { color: C.blue, borderRadius: [4, 4, 0, 0] }, barMaxWidth: 40 },
+      { name: "Meta", type: "bar", data: data.map(d => d.meta), itemStyle: { color: metaColor, borderRadius: [3, 3, 0, 0] }, barMaxWidth: 28 },
+      { name: "Produção", type: "bar", data: data.map(d => d.producao), itemStyle: { color: prodColor, borderRadius: [3, 3, 0, 0] }, barMaxWidth: 28 },
     ],
   };
 }
 
-export function getAreaChartOption(data: AreaData[], mobile: boolean): EChartsOption {
-  const fs = mobile ? 10 : 11;
+export function getAreaChartOption(data: AreaData[], mobile: boolean, t: ChartTheme): EChartsOption {
+  const fs = mobile ? 11 : 12;
+  const base = chartBase(t);
+  const ax = axisStyle(t, fs);
   return {
-    animation: true, animationDuration: 750,
-    tooltip: { ...tooltipBase, trigger: 'axis' },
-    legend: {
-      data: ['Produção Real', 'Meta Global', 'Meta Diária'],
-      top: 0, textStyle: { fontSize: fs },
-    },
-    grid: { top: 40, right: 20, bottom: 40, left: mobile ? 50 : 65 },
-    xAxis: { type: 'category', data: data.map(d => d.date), axisLabel: { fontSize: fs } },
-    yAxis: { type: 'value', axisLabel: { fontSize: fs, formatter: (v: number) => v >= 1000 ? (v / 1000).toFixed(0) + 'k' : String(v) } },
+    ...base,
+    tooltip: { ...base.tooltip, trigger: "axis" },
+    legend: { ...legendStyle(t, fs), data: ["Produção Real", "Meta Global", "Meta Diária"], top: 0 },
+    grid: { top: 36, right: 12, bottom: 8, left: 8, containLabel: true },
+    xAxis: { type: "category", data: data.map(d => d.date), ...ax },
+    yAxis: { type: "value", ...ax, axisLabel: { ...ax.axisLabel, formatter: kFormat } },
     series: [
       {
-        name: 'Produção Real', type: 'line', data: data.map(d => d.producao),
-        smooth: true, symbol: mobile ? 'none' : 'circle', symbolSize: 6,
-        lineStyle: { color: C.blue, width: mobile ? 2 : 3 }, itemStyle: { color: C.blue },
-        areaStyle: { color: { type: 'linear', x: 0, y: 0, x2: 0, y2: 1, colorStops: [{ offset: 0, color: C.blue + '44' }, { offset: 1, color: C.blue + '00' }] } },
+        name: "Produção Real", type: "line", data: data.map(d => d.producao),
+        smooth: true, symbol: "none",
+        lineStyle: { color: t.series[0], width: 2 }, itemStyle: { color: t.series[0] },
+        areaStyle: { color: t.series[0], opacity: 0.12 },
       },
       {
         // Calculated meta: sum of all machine metas × turnos ativos
-        name: 'Meta Global', type: 'line', data: data.map(d => Math.round(d.meta)),
-        smooth: false, lineStyle: { color: C.navy, width: 2, type: 'dashed' },
-        itemStyle: { color: C.navy }, symbol: 'none',
+        name: "Meta Global", type: "line", data: data.map(d => Math.round(d.meta)),
+        smooth: false, lineStyle: { color: t.reference, width: 1, type: "dashed" },
+        itemStyle: { color: t.reference }, symbol: "none",
       },
       {
         // Fixed daily reference line
-        name: 'Meta Diária', type: 'line', data: data.map(() => 60000),
-        lineStyle: { color: C.red, width: 2, type: 'dashed' },
-        itemStyle: { color: C.red }, symbol: 'none',
+        name: "Meta Diária", type: "line", data: data.map(() => 60000),
+        lineStyle: { color: t.series[2], width: 1, type: "dotted" },
+        itemStyle: { color: t.series[2] }, symbol: "none",
       },
     ],
   };
 }
 
-export function getPieChartOption(data: PieData[], mobile: boolean): EChartsOption {
-  const colors = [C.blue, C.green, C.yellow, C.teal, C.navy];
+export function getPieChartOption(data: PieData[], mobile: boolean, t: ChartTheme): EChartsOption {
+  // Turnos são categorias, não status: só azuis WEG + neutro.
+  const colors = [t.series[0], t.series[1], t.series[2], t.series[3]];
+  const base = chartBase(t);
   return {
-    animation: true, animationDuration: 750,
-    tooltip: { ...tooltipBase, trigger: 'item' },
-    legend: { bottom: 0, textStyle: { fontSize: mobile ? 10 : 12 } },
+    ...base,
+    tooltip: { ...base.tooltip, trigger: "item", formatter: "{b}: {c} pç ({d}%)" },
+    legend: { ...legendStyle(t, mobile ? 11 : 12), bottom: 0 },
     series: [{
-      type: 'pie',
-      radius: mobile ? ['30%', '60%'] : ['35%', '65%'],
-      center: ['50%', '45%'],
+      type: "pie",
+      radius: mobile ? ["40%", "64%"] : ["48%", "70%"],
+      center: ["50%", "45%"],
       data: data.map((d, i) => ({ ...d, itemStyle: { color: colors[i % colors.length] } })),
-      padAngle: 3,
-      itemStyle: { borderRadius: 4 },
-      label: { show: !mobile, formatter: '{b}: {d}%', fontSize: 12 },
+      padAngle: 2,
+      itemStyle: { borderRadius: 3 },
+      // Rótulos só para fatias com valor (evita "TURNO 3: 0%" sobreposto)
+      label: {
+        show: !mobile, fontSize: 12, color: t.muted,
+        formatter: (p: { value?: unknown; name: string; percent?: number }) =>
+          Number(p.value) > 0 ? `${p.name}\n${Math.round(p.percent ?? 0)}%` : "",
+      },
+      labelLine: { lineStyle: { color: t.border } },
     }],
   };
 }
@@ -111,46 +145,48 @@ export function getPieChartOption(data: PieData[], mobile: boolean): EChartsOpti
 // Stacked horizontal bar — retrabalho vs produção normal por máquina.
 // Espera-se que `data` venha pré-ordenado (% retrabalho descendente);
 // o gráfico inverte para que o maior fique no TOPO do eixo Y.
-export function getRetrabalhoOption(data: RetrabalhoData[], mobile: boolean): EChartsOption {
-  const fs = mobile ? 10 : 11;
+export function getRetrabalhoOption(data: RetrabalhoData[], mobile: boolean, t: ChartTheme): EChartsOption {
+  const fs = mobile ? 11 : 12;
+  const base = chartBase(t);
+  const ax = axisStyle(t, fs);
   // ECharts renderiza eixo Y de baixo pra cima; reverter pra colocar % maior no topo
   const reversed = data.slice().reverse();
   return {
-    animation: true, animationDuration: 600,
+    ...base,
     tooltip: {
-      ...tooltipBase, trigger: 'axis', axisPointer: { type: 'shadow' },
-      formatter: (params: Array<{ dataIndex: number }>) => {
-        const idx = params[0].dataIndex;
+      ...base.tooltip, trigger: "axis", axisPointer: { type: "shadow", shadowStyle: { color: t.grid } },
+      formatter: (params: unknown) => {
+        const idx = (params as Array<{ dataIndex: number }>)[0].dataIndex;
         const d = reversed[idx];
         const total = d.normal + d.retrabalho;
         return `<strong>${d.name}</strong><br/>` +
-               `Normal: <strong>${d.normal.toLocaleString('pt-BR')}</strong> pç<br/>` +
-               `Retrabalho: <strong>${d.retrabalho.toLocaleString('pt-BR')}</strong> pç<br/>` +
-               `Total: <strong>${total.toLocaleString('pt-BR')}</strong> pç (<strong>${d.pctRetrabalho}%</strong> retrabalho)`;
+               `Normal: <strong>${d.normal.toLocaleString("pt-BR")}</strong> pç<br/>` +
+               `Retrabalho: <strong>${d.retrabalho.toLocaleString("pt-BR")}</strong> pç<br/>` +
+               `Total: <strong>${total.toLocaleString("pt-BR")}</strong> pç (<strong>${d.pctRetrabalho}%</strong> retrabalho)`;
       },
     },
-    legend: { data: ['Produção Normal', 'Retrabalho'], top: 0, textStyle: { fontSize: fs } },
-    grid: { top: 30, right: mobile ? 50 : 70, bottom: 10, left: 10, containLabel: true },
-    xAxis: { type: 'value', axisLabel: { fontSize: fs, formatter: (v: number) => v >= 1000 ? (v / 1000).toFixed(0) + 'k' : String(v) } },
-    yAxis: { type: 'category', data: reversed.map(d => d.name), axisLabel: { fontSize: fs, width: mobile ? 80 : 140, overflow: 'truncate' } },
+    legend: { ...legendStyle(t, fs), data: ["Produção Normal", "Retrabalho"], top: 0 },
+    grid: { top: 30, right: mobile ? 50 : 70, bottom: 8, left: 8, containLabel: true },
+    xAxis: { type: "value", ...ax, axisLabel: { ...ax.axisLabel, formatter: kFormat } },
+    yAxis: { type: "category", data: reversed.map(d => d.name), ...ax, axisLabel: { ...ax.axisLabel, width: mobile ? 80 : 140, overflow: "truncate" } },
     series: [
       {
-        name: 'Produção Normal', type: 'bar', stack: 'total',
+        name: "Produção Normal", type: "bar", stack: "total",
         data: reversed.map(d => d.normal),
-        itemStyle: { color: C.blue },
-        barMaxWidth: mobile ? 18 : 26,
+        itemStyle: { color: t.series[0] },
+        barMaxWidth: mobile ? 14 : 20,
       },
       {
-        name: 'Retrabalho', type: 'bar', stack: 'total',
+        name: "Retrabalho", type: "bar", stack: "total",
         data: reversed.map(d => d.retrabalho),
-        itemStyle: { color: C.yellow },
-        barMaxWidth: mobile ? 18 : 26,
+        itemStyle: { color: t.attention, borderRadius: [0, 3, 3, 0] },
+        barMaxWidth: mobile ? 14 : 20,
         label: {
-          show: true, position: 'right', fontSize: fs, fontWeight: 'bold',
-          color: C.yellow,
+          show: true, position: "right", fontSize: fs, fontWeight: 500,
+          color: t.text,
           formatter: (p: { dataIndex: number }) => {
             const d = reversed[p.dataIndex];
-            return d.pctRetrabalho > 0 ? `${d.pctRetrabalho}%` : '';
+            return d.pctRetrabalho > 0 ? `${d.pctRetrabalho}%` : "";
           },
         },
       },
@@ -158,31 +194,37 @@ export function getRetrabalhoOption(data: RetrabalhoData[], mobile: boolean): EC
   };
 }
 
-export function getHorizontalBarOption(data: HBarData[], mobile: boolean): EChartsOption {
-  const fs = mobile ? 10 : 11;
+export function getHorizontalBarOption(data: HBarData[], mobile: boolean, t: ChartTheme): EChartsOption {
+  const fs = mobile ? 11 : 12;
+  const base = chartBase(t);
+  const ax = axisStyle(t, fs);
   // data is expected pre-sorted ascending by pct (best appears at top in ECharts y-axis)
   return {
-    animation: true, animationDuration: 750,
+    ...base,
     tooltip: {
-      ...tooltipBase, trigger: 'axis', axisPointer: { type: 'shadow' },
-      formatter: (params: any) => {
-        const d = params[0];
+      ...base.tooltip, trigger: "axis", axisPointer: { type: "shadow", shadowStyle: { color: t.grid } },
+      formatter: (params: unknown) => {
+        const d = (params as Array<{ name: string; value: number }>)[0];
         return `<strong>${d.name}</strong><br/>${d.value}% da meta`;
       },
     },
-    grid: { top: 10, right: mobile ? 50 : 65, bottom: 10, left: 10, containLabel: true },
-    xAxis: { type: 'value', axisLabel: { formatter: '{value}%', fontSize: fs }, max: (v: any) => Math.max(v.max * 1.1, 110) },
-    yAxis: { type: 'category', data: data.map(d => d.name), axisLabel: { fontSize: fs, width: mobile ? 70 : 130, overflow: 'truncate' } },
+    grid: { top: 10, right: mobile ? 44 : 56, bottom: 8, left: 8, containLabel: true },
+    xAxis: { type: "value", ...ax, axisLabel: { ...ax.axisLabel, formatter: "{value}%" }, max: (v: { max: number }) => Math.max(v.max * 1.1, 110) },
+    yAxis: { type: "category", data: data.map(d => d.name), ...ax, axisLabel: { ...ax.axisLabel, width: mobile ? 80 : 150, overflow: "truncate" } },
     series: [{
-      type: 'bar', barMaxWidth: mobile ? 18 : 30,
+      type: "bar", barMaxWidth: mobile ? 14 : 18,
       data: data.map(d => ({
         value: d.pct,
-        itemStyle: {
-          color: d.pct >= 100 ? C.green : d.pct >= 80 ? C.yellow : C.red,
-          borderRadius: [0, 4, 4, 0],
-        },
+        itemStyle: { color: statusColor(t, d.pct), borderRadius: [0, 3, 3, 0] },
       })),
-      label: { show: true, position: 'right', formatter: (p: any) => `${p.value}%`, fontSize: fs, color: '#2D3E4E', fontWeight: 'bold' },
+      label: { show: true, position: "right", formatter: (p: { value?: unknown }) => `${p.value}%`, fontSize: fs, color: t.text },
+      // Linha de referência: 100% da meta
+      markLine: {
+        silent: true, symbol: "none",
+        lineStyle: { color: t.reference, type: "dashed", width: 1 },
+        label: { formatter: "Meta", color: t.muted, fontSize: fs - 1 },
+        data: [{ xAxis: 100 }],
+      },
     }],
   };
 }

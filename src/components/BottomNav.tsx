@@ -1,4 +1,5 @@
 import { ClipboardEdit, LayoutDashboard, History, Target, MessageSquare } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 export type TabId = "entry" | "dashboard" | "history" | "metas" | "feedbacks";
 
@@ -18,7 +19,8 @@ const tabs = [
 const BottomNav = ({ activeTab, onTabChange }: BottomNavProps) => {
   return (
     <nav
-      className="fixed left-0 right-0 z-50 bg-card/95 backdrop-blur-xl border-t border-border shadow-[0_-4px_20px_rgba(0,0,0,0.08)]"
+      aria-label="Navegação principal"
+      className="fixed left-0 right-0 z-50 border-t bg-card/95 backdrop-blur-md"
       // bottom: 0 explícito pra evitar quirk do Safari iOS que reposiciona elementos
       // fixed durante o scroll. paddingBottom usa max() pra garantir folga mínima
       // mesmo quando a safe-area do dispositivo retorna 0.
@@ -27,27 +29,24 @@ const BottomNav = ({ activeTab, onTabChange }: BottomNavProps) => {
         paddingBottom: "max(env(safe-area-inset-bottom), 8px)",
       }}
     >
-      <div className="flex items-stretch h-16">
+      <div className="flex h-16 items-stretch">
         {tabs.map((t) => {
           const isActive = activeTab === t.id;
           return (
             <button
               key={t.id}
               onClick={() => onTabChange(t.id)}
-              className="flex-1 flex flex-col items-center justify-center gap-0.5 relative transition-colors"
+              aria-current={isActive ? "page" : undefined}
+              className={cn(
+                "relative flex flex-1 flex-col items-center justify-center gap-1 transition-colors duration-fast",
+                isActive ? "text-brand-text" : "text-muted-foreground",
+              )}
             >
               {isActive && (
-                <div className="absolute top-0 left-1/2 -translate-x-1/2 w-10 h-[3px] rounded-b-full bg-primary" />
+                <span className="absolute left-1/2 top-0 h-0.5 w-8 -translate-x-1/2 rounded-b-sm bg-brand-text" aria-hidden="true" />
               )}
-              <t.icon
-                size={20}
-                className={`transition-colors ${isActive ? "text-primary" : "text-muted-foreground"}`}
-              />
-              <span
-                className={`text-[10px] font-bold transition-colors ${isActive ? "text-primary" : "text-muted-foreground"}`}
-              >
-                {t.label}
-              </span>
+              <t.icon size={20} strokeWidth={isActive ? 2 : 1.5} aria-hidden="true" />
+              <span className="text-caption font-medium">{t.label}</span>
             </button>
           );
         })}

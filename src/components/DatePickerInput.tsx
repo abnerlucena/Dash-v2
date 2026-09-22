@@ -13,9 +13,11 @@ interface DatePickerInputProps {
   label?: string;
   className?: string;
   displayFormat?: string;   // date-fns format string, default "dd/MM/yyyy"
+  /** "field": rótulo em cima (formulários). "pill": rótulo apagado dentro da pílula (barras de filtro). */
+  variant?: "field" | "pill";
 }
 
-export function DatePickerInput({ value, onChange, min, max, label, className = "", displayFormat = "dd/MM/yyyy" }: DatePickerInputProps) {
+export function DatePickerInput({ value, onChange, min, max, label, className = "", displayFormat = "dd/MM/yyyy", variant = "field" }: DatePickerInputProps) {
   const [open, setOpen] = useState(false);
 
   const selected = value ? parseISO(value) : undefined;
@@ -32,8 +34,8 @@ export function DatePickerInput({ value, onChange, min, max, label, className = 
 
   return (
     <div className={className}>
-      {label && (
-        <label className="text-[11px] font-semibold text-muted-foreground mb-1 block uppercase tracking-wider">
+      {label && variant === "field" && (
+        <label className="mb-1 block text-xs text-muted-foreground">
           {label}
         </label>
       )}
@@ -41,10 +43,11 @@ export function DatePickerInput({ value, onChange, min, max, label, className = 
         <PopoverTrigger asChild>
           <button
             type="button"
-            className="w-full flex items-center gap-2 px-3 py-2 text-sm bg-background border border-border rounded-md font-semibold text-foreground hover:border-primary/60 hover:bg-primary/5 focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all"
-            style={{ borderRadius: 6, minWidth: 130 }}
+            aria-label={label ? `${label}: ${selected ? format(selected, displayFormat, { locale: ptBR }) : "sem data"}` : undefined}
+            className={`press flex w-full items-center gap-1.5 rounded-md border bg-card text-sm text-foreground transition-colors duration-fast hover:bg-accent ${variant === "pill" ? "h-8 px-2.5" : "h-9 min-w-[130px] px-3"}`}
           >
-            <CalendarDays size={15} className="text-muted-foreground shrink-0" />
+            <CalendarDays size={14} className="shrink-0 text-muted-foreground" aria-hidden="true" />
+            {label && variant === "pill" && <span className="text-muted-foreground">{label}</span>}
             <span>{selected ? format(selected, displayFormat, { locale: ptBR }) : "—"}</span>
           </button>
         </PopoverTrigger>

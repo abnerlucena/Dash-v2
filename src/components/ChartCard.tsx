@@ -1,6 +1,7 @@
 import ReactEChartsCore from "echarts-for-react";
 import { Maximize2 } from "lucide-react";
 import type { EChartsOption } from "echarts";
+import { Button } from "@/components/ui/button";
 
 interface ChartCardProps {
   title: string;
@@ -11,34 +12,36 @@ interface ChartCardProps {
   onExpand?: () => void;
   /** Conteúdo extra no canto direito do header (ex: toggle de modo). Renderiza ANTES do botão Expandir. */
   headerExtra?: React.ReactNode;
+  /** Número de destaque abaixo do subtítulo (padrão "título · subtítulo · número"). */
+  highlight?: React.ReactNode;
 }
 
-const ChartCard = ({ title, subtitle, icon, option, height = 300, onExpand, headerExtra }: ChartCardProps) => {
+const ChartCard = ({ title, subtitle, icon, option, height = 300, onExpand, headerExtra, highlight }: ChartCardProps) => {
   return (
-    <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden" style={{ borderRadius: 12 }}>
-      <div className="flex items-start justify-between gap-3 p-4 pb-0">
+    <section className="overflow-hidden rounded-lg border bg-card" aria-label={title}>
+      <header className="flex items-start justify-between gap-3 p-4 pb-0">
         <div className="min-w-0">
-          <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
+          <h3 className="flex items-center gap-2 text-sm font-medium text-foreground">
             {icon}
             {title}
           </h3>
-          {subtitle && <p className="text-[11px] text-muted-foreground mt-0.5">{subtitle}</p>}
+          {subtitle && <p className="mt-0.5 text-xs text-muted-foreground">{subtitle}</p>}
+          {highlight && <div className="mt-3">{highlight}</div>}
         </div>
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex shrink-0 items-center gap-1">
           {headerExtra}
           {onExpand && (
-            <button onClick={onExpand}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors">
-              <Maximize2 size={12} />
-              Expandir
-            </button>
+            <Button variant="ghost" size="sm" onClick={onExpand} aria-label={`Expandir ${title}`}>
+              <Maximize2 aria-hidden="true" />
+              <span className="hidden sm:inline">Expandir</span>
+            </Button>
           )}
         </div>
-      </div>
-      <div className="p-3">
+      </header>
+      <div className="p-2 pt-3">
         <ReactEChartsCore option={option} style={{ height }} notMerge lazyUpdate />
       </div>
-    </div>
+    </section>
   );
 };
 

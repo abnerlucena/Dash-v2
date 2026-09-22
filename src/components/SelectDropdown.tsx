@@ -10,6 +10,8 @@ interface SelectDropdownProps {
   placeholder?: string;
   className?: string;
   label?: string;
+  /** "field": rótulo em cima (formulários). "pill": rótulo apagado + valor na mesma pílula (barras de filtro). */
+  variant?: "field" | "pill";
 }
 
 export function SelectDropdown({
@@ -19,6 +21,7 @@ export function SelectDropdown({
   placeholder = "Selecionar...",
   className = "",
   label,
+  variant = "field",
 }: SelectDropdownProps) {
   const [open, setOpen] = useState(false);
 
@@ -26,8 +29,8 @@ export function SelectDropdown({
 
   return (
     <div className={className}>
-      {label && (
-        <label className="text-[11px] font-semibold text-muted-foreground mb-1 block uppercase tracking-wider">
+      {label && variant === "field" && (
+        <label className="mb-1 block text-xs text-muted-foreground">
           {label}
         </label>
       )}
@@ -35,18 +38,22 @@ export function SelectDropdown({
         <PopoverTrigger asChild>
           <button
             type="button"
+            aria-label={label ? `${label}: ${selectedLabel}` : undefined}
             className={cn(
-              "flex items-center justify-between w-full border border-border rounded-lg px-3 py-2 min-h-[36px] text-sm font-semibold text-foreground bg-background",
-              "hover:border-primary/60 hover:bg-primary/5 transition-all cursor-pointer",
-              open && "ring-2 ring-primary/40 border-primary/60 bg-primary/5"
+              "press flex w-full items-center justify-between rounded-md border bg-card text-sm text-foreground transition-colors duration-fast",
+              "hover:bg-accent",
+              variant === "pill" ? "h-8 gap-1.5 px-2.5" : "h-9 px-3",
+              open && "bg-accent"
             )}
-            style={{ borderRadius: 6 }}
           >
-            <span className={cn(!value && "text-muted-foreground")}>{selectedLabel}</span>
+            <span className={cn("truncate", !value && "text-muted-foreground")}>
+              {label && variant === "pill" && <span className="text-muted-foreground">{label} · </span>}
+              {selectedLabel}
+            </span>
             <ChevronDown
               size={14}
               className={cn(
-                "ml-2 shrink-0 text-muted-foreground transition-transform duration-200",
+                "ml-1 shrink-0 text-muted-foreground transition-transform duration-base ease-out",
                 open && "rotate-180"
               )}
             />
@@ -69,13 +76,12 @@ export function SelectDropdown({
                     setOpen(false);
                   }}
                   className={cn(
-                    "flex items-center w-full text-left px-3 py-2 text-sm font-semibold transition-colors",
-                    isSelected
-                      ? "bg-primary text-primary-foreground"
-                      : "hover:bg-primary/10 hover:text-primary text-foreground pl-[22px]"
+                    "flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-foreground transition-colors duration-fast hover:bg-accent",
+                    isSelected && "font-medium"
                   )}
+                  aria-selected={isSelected}
                 >
-                  {isSelected && <Check size={14} className="mr-1.5 shrink-0" />}
+                  <Check size={14} className={cn("shrink-0 text-brand-text", !isSelected && "invisible")} aria-hidden="true" />
                   {o.label}
                 </button>
               );

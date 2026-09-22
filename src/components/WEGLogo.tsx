@@ -4,7 +4,7 @@ interface WEGLogoProps {
   className?: string;
 }
 
-const WEGLogo = ({ height = 32, color = "#fff", className }: WEGLogoProps) => {
+const WEGLogo = ({ height = 32, color = "currentColor", className }: WEGLogoProps) => {
   const w = Math.round(height * 5991 / 4192);
   return (
     <svg

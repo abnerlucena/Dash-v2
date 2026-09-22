@@ -1,11 +1,18 @@
 import { useState, useMemo, Fragment } from "react";
-import { motion, AnimatePresence } from "framer-motion";
 import type { EChartsOption } from "echarts";
-import { BarChart3, TrendingUp, Factory, Activity, ClipboardEdit, FileText, ChevronDown, ChevronUp } from "lucide-react";
+import { Activity, BarChart3, FileText, ChevronDown, ChevronUp } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { TURNOS, pctColor, fmt, today } from "@/lib/api";
-import { getBarChartOption, getPieChartOption, getHorizontalBarOption, getRetrabalhoOption } from "@/lib/chart-options";
+import { TURNOS, fmt, today } from "@/lib/api";
+import { getBarChartOption, getPieChartOption, getHorizontalBarOption, getRetrabalhoOption, chartBase, axisStyle, legendStyle } from "@/lib/chart-options";
+import { useChartTheme } from "@/lib/chart-theme";
+import { getAttainmentStatus, STATUS_BG_CLASS, STATUS_LABEL, STATUS_THRESHOLDS } from "@/lib/status";
+import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { StatusChip } from "@/components/StatusChip";
+import { SegmentedBar } from "@/components/SegmentedBar";
 
 import WEGHeader from "@/components/WEGHeader";
 import BottomNav, { type TabId } from "@/components/BottomNav";
@@ -23,8 +30,6 @@ import MetasTab from "@/components/MetasTab";
 import FeedbacksTab from "@/components/FeedbacksTab";
 import TVMode from "@/components/TVMode";
 import OnboardingPresentation from "@/components/OnboardingPresentation";
-import { DatePickerInput } from "@/components/DatePickerInput";
-import { SelectDropdown } from "@/components/SelectDropdown";
 
 type DashboardSubTab = "resumo" | "detalhado" | "turnos" | "graficos";
 
@@ -42,9 +47,6 @@ const SUB_TABS: { id: DashboardSubTab; label: string }[] = [
   { id: "turnos", label: "Turnos" },
   { id: "graficos", label: "Gráficos" },
 ];
-
-const TOP3_BADGE_COLORS = ["#22C55E", "#16A34A", "#15803D"];
-const BOTTOM3_BADGE_COLORS = ["#EF4444", "#F97316", "#F59E0B"];
 
 const DashboardPage = () => {
   const { user, machines, metas, records, holidays, loading, turnosAtivos, setTurnosAtivos, needsOnboarding, completeOnboarding } = useAuth();
@@ -204,14 +206,35 @@ const DashboardPage = () => {
     machineAgg.filter(m => m.totalMeta > 0).map(m => ({ name: m.name, pct: m.pct })).sort((a, b) => a.pct - b.pct),
   [machineAgg]);
 
-  const barOption  = useMemo(() => getBarChartOption(barData, isMobile),        [barData, isMobile]);
-  const pieOption  = useMemo(() => getPieChartOption(turnoAgg, isMobile),        [turnoAgg, isMobile]);
-  const hbarOption = useMemo(() => getHorizontalBarOption(hbarData, isMobile),   [hbarData, isMobile]);
+  // Cores dos gráficos vêm dos tokens (claro/escuro) — recalculadas ao trocar o tema
+  const ct = useChartTheme();
+
+  const barOption  = useMemo(() => getBarChartOption(barData, isMobile, ct),        [barData, isMobile, ct]);
+  const pieOption  = useMemo(() => getPieChartOption(turnoAgg, isMobile, ct),        [turnoAgg, isMobile, ct]);
+  const hbarOption = useMemo(() => getHorizontalBarOption(hbarData, isMobile, ct),   [hbarData, isMobile, ct]);
 
   // Fullscreen options — always isMobile=false, derived from already-memoized data
-  const barOptionFs  = useMemo(() => getBarChartOption(barData, false),          [barData]);
-  const hbarOptionFs = useMemo(() => getHorizontalBarOption(hbarData, false),    [hbarData]);
-  const pieOptionFs  = useMemo(() => getPieChartOption(turnoAgg, false),         [turnoAgg]);
+  const barOptionFs  = useMemo(() => getBarChartOption(barData, false, ct),          [barData, ct]);
+  const hbarOptionFs = useMemo(() => getHorizontalBarOption(hbarData, false, ct),    [hbarData, ct]);
+  const pieOptionFs  = useMemo(() => getPieChartOption(turnoAgg, false, ct),         [turnoAgg, ct]);
+
+  // Sparkline da MachineTable: % da meta por dia (últimos 14 dias com apontamento) por máquina.
+  // Só apresentação — usa a mesma meta/turno × turnos aplicáveis do machineAgg.
+  const machineTrend = useMemo(() => {
+    const byMachineDay: Record<number, Record<string, number>> = {};
+    for (const r of filteredRecords) {
+      const m = (byMachineDay[r.machineId] ??= {});
+      m[r.date] = (m[r.date] ?? 0) + r.producao;
+    }
+    const out: Record<number, number[]> = {};
+    for (const mach of machines) {
+      const days = byMachineDay[mach.id];
+      const dailyMeta = (metas[mach.id] ?? mach.defaultMeta) * turnoMultiplier;
+      if (!days || dailyMeta <= 0) continue;
+      out[mach.id] = Object.keys(days).sort().slice(-14).map(d => Math.round((days[d] / dailyMeta) * 100));
+    }
+    return out;
+  }, [filteredRecords, machines, metas, turnoMultiplier]);
 
   // Top 3 best and worst
   const { top3, bottom3 } = useMemo(() => {
@@ -269,32 +292,44 @@ const DashboardPage = () => {
 
   const heatmapOption = useMemo((): EChartsOption => {
     const WDAYS = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"];
+    // Só mostra fim de semana se houver apontamento em sáb/dom
+    const hasWeekend = heatmapData.some(d => d.dayIdx >= 5);
+    const days = hasWeekend ? WDAYS : WDAYS.slice(0, 5);
+    const base = chartBase(ct);
+    const ax = axisStyle(ct, 12);
     return {
-      animation: true,
+      ...base,
       tooltip: {
+        ...base.tooltip,
         trigger: "item",
-        backgroundColor: "#fff", borderColor: "#D0DEE8", borderWidth: 1, borderRadius: 8,
-        textStyle: { color: "#2D3E4E", fontSize: 12 }, confine: true,
-        formatter: (params: any) => {
-          const [dIdx, mIdx, pct] = params.data as number[];
-          return `<strong>${heatmapMachines[mIdx]}</strong><br/>${WDAYS[dIdx]}: <strong>${pct}%</strong> da meta`;
+        formatter: (params: unknown) => {
+          const [dIdx, mIdx, pct] = (params as { data: number[] }).data;
+          return `<strong>${heatmapMachines[mIdx]}</strong><br/>${WDAYS[dIdx]}: <strong>${pct}%</strong> da meta · ${STATUS_LABEL[getAttainmentStatus(pct)]}`;
         },
       },
+      // Mesma escala de status do resto do app (faixas, não gradiente contínuo)
       visualMap: {
-        min: 0, max: 100, show: false, calculable: false,
-        inRange: { color: ["#EF4444", "#F59E0B", "#22C55E"] },
+        type: "piecewise", show: false, dimension: 2,
+        pieces: [
+          { lt: STATUS_THRESHOLDS.attention, color: ct.critical },
+          { gte: STATUS_THRESHOLDS.attention, lt: STATUS_THRESHOLDS.near, color: ct.attention },
+          { gte: STATUS_THRESHOLDS.near, lt: STATUS_THRESHOLDS.met, color: ct.near },
+          { gte: STATUS_THRESHOLDS.met, color: ct.met },
+        ],
       },
-      grid: { top: 10, right: 10, bottom: 60, left: 10, containLabel: true },
-      xAxis: { type: "category", data: WDAYS, axisLabel: { fontSize: 11 }, splitArea: { show: true } },
-      yAxis: { type: "category", data: heatmapMachines, axisLabel: { fontSize: 10, width: 140, overflow: "truncate" }, splitArea: { show: true } },
+      grid: { top: 8, right: 8, bottom: 8, left: 8, containLabel: true },
+      xAxis: { type: "category", data: days, ...ax, position: "top", splitArea: { show: false } },
+      yAxis: { type: "category", data: heatmapMachines, ...ax, axisLabel: { ...ax.axisLabel, width: 150, overflow: "truncate" } },
       series: [{
         type: "heatmap",
-        data: heatmapData.map(d => [d.dayIdx, d.machIdx, d.pct]),
-        label: { show: true, fontSize: 10, formatter: (p: any) => p.value[2] > 0 ? `${p.value[2]}%` : "" },
-        emphasis: { itemStyle: { shadowBlur: 10, shadowColor: "rgba(0,0,0,0.2)" } },
+        data: heatmapData.filter(d => hasWeekend || d.dayIdx < 5).map(d => [d.dayIdx, d.machIdx, d.pct]),
+        // Texto na cor da superfície: branco sobre status escuro (claro) e navy sobre status claro (escuro), ≥ 4.5:1
+        label: { show: true, fontSize: 12, fontWeight: 500, color: ct.surface, formatter: (p: { value?: unknown }) => { const v = (p.value as number[])[2]; return v > 0 ? `${v}%` : ""; } },
+        itemStyle: { borderColor: ct.surface, borderWidth: 2, borderRadius: 3 },
+        emphasis: { itemStyle: { borderColor: ct.text } },
       }],
     };
-  }, [heatmapData, heatmapMachines]);
+  }, [heatmapData, heatmapMachines, ct]);
 
   // Pareto: máquinas ordenadas por gap (meta - prod) descendente + % acumulado.
   // totalGap é constante — calculado uma vez fora do map. cumPct usa running sum
@@ -312,37 +347,40 @@ const DashboardPage = () => {
     });
   }, [machineAgg]);
 
-  const paretoOption = useMemo((): EChartsOption => ({
-    animation: true,
-    tooltip: {
-      trigger: "axis", axisPointer: { type: "cross" },
-      backgroundColor: "#fff", borderColor: "#D0DEE8", borderWidth: 1, borderRadius: 8,
-      textStyle: { color: "#2D3E4E", fontSize: 12 }, confine: true,
-    },
-    legend: { data: ["Gap (pç)", "% Acumulado"], top: 0, textStyle: { fontSize: 11 } },
-    grid: { top: 36, right: 60, bottom: 80, left: 60 },
-    xAxis: {
-      type: "category",
-      data: paretoData.map(d => d.name),
-      axisLabel: { fontSize: 10, rotate: 25, interval: 0 },
-    },
-    yAxis: [
-      { type: "value", name: "Gap (pç)", axisLabel: { fontSize: 10, formatter: (v: number) => v >= 1000 ? (v / 1000).toFixed(0) + "k" : String(v) } },
-      { type: "value", name: "% Acum", max: 100, min: 0, axisLabel: { fontSize: 10, formatter: "{value}%" } },
-    ],
-    series: [
-      {
-        name: "Gap (pç)", type: "bar", yAxisIndex: 0, barMaxWidth: 40,
-        data: paretoData.map(d => ({ value: d.gap, itemStyle: { color: pctColor(d.pct), borderRadius: [4, 4, 0, 0] } })),
+  const paretoOption = useMemo((): EChartsOption => {
+    const base = chartBase(ct);
+    const ax = axisStyle(ct, 12);
+    return {
+      ...base,
+      tooltip: { ...base.tooltip, trigger: "axis", axisPointer: { type: "shadow", shadowStyle: { color: ct.grid } } },
+      legend: { ...legendStyle(ct, 12), data: ["Gap (pç)", "% Acumulado"], top: 0, right: 0 },
+      grid: { top: 36, right: 8, bottom: 8, left: 8, containLabel: true },
+      xAxis: {
+        type: "category",
+        data: paretoData.map(d => d.name),
+        ...ax,
+        axisLabel: { ...ax.axisLabel, interval: 0, width: 96, overflow: "break" },
       },
-      {
-        name: "% Acumulado", type: "line", yAxisIndex: 1,
-        data: paretoData.map(d => d.cumPct),
-        lineStyle: { color: "#003366", width: 2 }, itemStyle: { color: "#003366" },
-        symbol: "circle", symbolSize: 6,
-      },
-    ],
-  }), [paretoData]);
+      yAxis: [
+        { type: "value", ...ax, axisLabel: { ...ax.axisLabel, formatter: (v: number) => v >= 1000 ? (v / 1000).toFixed(0) + "k" : String(v) } },
+        { type: "value", max: 100, min: 0, ...ax, splitLine: { show: false }, axisLabel: { ...ax.axisLabel, formatter: "{value}%" } },
+      ],
+      series: [
+        {
+          // Gap é volume (categoria), não status: azul WEG
+          name: "Gap (pç)", type: "bar", yAxisIndex: 0, barMaxWidth: 28,
+          data: paretoData.map(d => d.gap),
+          itemStyle: { color: ct.series[0], borderRadius: [3, 3, 0, 0] },
+        },
+        {
+          name: "% Acumulado", type: "line", yAxisIndex: 1,
+          data: paretoData.map(d => d.cumPct),
+          lineStyle: { color: ct.text, width: 1.5 }, itemStyle: { color: ct.text },
+          symbol: "circle", symbolSize: 5,
+        },
+      ],
+    };
+  }, [paretoData, ct]);
 
   // Trend: daily production + 7-day moving average + daily meta
   const trendData = useMemo(() =>
@@ -355,43 +393,42 @@ const DashboardPage = () => {
   const trendOption = useMemo((): EChartsOption => {
     // Series base (Meta sempre visível). Produção alterna entre diária crua e MA-7d.
     const isDaily = trendMode === "daily";
+    const area = { color: ct.series[0], opacity: 0.12 };
     const prodSeries = isDaily
       ? {
-          name: "Produção Diária", type: "line" as const, symbol: "circle" as const, symbolSize: 5,
+          name: "Produção Diária", type: "line" as const, symbol: "circle" as const, symbolSize: 4,
           data: trendData.map(d => d.producao),
-          lineStyle: { color: "#0066B3", width: 2 },
-          itemStyle: { color: "#0066B3" },
-          areaStyle: { color: { type: "linear" as const, x: 0, y: 0, x2: 0, y2: 1, colorStops: [{ offset: 0, color: "#0066B340" }, { offset: 1, color: "#0066B300" }] } },
+          lineStyle: { color: ct.series[0], width: 1.5 },
+          itemStyle: { color: ct.series[0] },
+          areaStyle: area,
         }
       : {
-          name: "Média 7d", type: "line" as const, symbol: "none" as const,
+          name: "Média 7d", type: "line" as const, symbol: "none" as const, smooth: true,
           data: trendData.map(d => d.ma7),
-          lineStyle: { color: "#0066B3", width: 3 },
-          itemStyle: { color: "#0066B3" },
-          areaStyle: { color: { type: "linear" as const, x: 0, y: 0, x2: 0, y2: 1, colorStops: [{ offset: 0, color: "#0066B340" }, { offset: 1, color: "#0066B300" }] } },
+          lineStyle: { color: ct.series[0], width: 2 },
+          itemStyle: { color: ct.series[0] },
+          areaStyle: area,
         };
+    const base = chartBase(ct);
+    const ax = axisStyle(ct, 12);
     return {
-      animation: true,
-      tooltip: {
-        trigger: "axis",
-        backgroundColor: "#fff", borderColor: "#D0DEE8", borderWidth: 1, borderRadius: 8,
-        textStyle: { color: "#2D3E4E", fontSize: 12 }, confine: true,
-      },
-      legend: { data: [prodSeries.name, "Meta"], top: 0, textStyle: { fontSize: 11 } },
-      grid: { top: 36, right: 20, bottom: 40, left: 65 },
-      xAxis: { type: "category", data: trendData.map(d => d.date), axisLabel: { fontSize: 10 } },
-      yAxis: { type: "value", axisLabel: { fontSize: 10, formatter: (v: number) => v >= 1000 ? (v / 1000).toFixed(0) + "k" : String(v) } },
+      ...base,
+      tooltip: { ...base.tooltip, trigger: "axis" },
+      legend: { ...legendStyle(ct, 12), data: [prodSeries.name, "Meta"], top: 0, right: 0 },
+      grid: { top: 32, right: 8, bottom: 8, left: 8, containLabel: true },
+      xAxis: { type: "category", data: trendData.map(d => d.date), ...ax, boundaryGap: false },
+      yAxis: { type: "value", ...ax, axisLabel: { ...ax.axisLabel, formatter: (v: number) => v >= 1000 ? (v / 1000).toFixed(0) + "k" : String(v) } },
       series: [
         prodSeries,
         {
           name: "Meta", type: "line", symbol: "none",
           data: trendData.map(d => d.meta),
-          lineStyle: { color: "#94A3B8", width: 1.5, type: "dashed" },
-          itemStyle: { color: "#94A3B8" },
+          lineStyle: { color: ct.reference, width: 1, type: "dashed" },
+          itemStyle: { color: ct.reference },
         },
       ],
     };
-  }, [trendData, trendMode]);
+  }, [trendData, trendMode, ct]);
 
   // Radar: top 8 machines — % meta, consistency, relative production
   const radarData = useMemo(() => {
@@ -410,11 +447,13 @@ const DashboardPage = () => {
   }, [machineAgg, filteredRecords, metas, turnoMultiplier]);
 
   const radarOption = useMemo((): EChartsOption => {
-    const COLORS = ["#0066B3", "#22C55E", "#F59E0B", "#EF4444", "#8B5CF6", "#06B6D4", "#F97316", "#64748B"];
+    // Muitas séries sobrepostas ficam ilegíveis: destaca a de maior produção (azul WEG)
+    // e deixa as demais em neutro; passar o mouse na legenda destaca cada uma.
+    const base = chartBase(ct);
     return {
-      animation: true,
-      tooltip: { trigger: "item", confine: true },
-      legend: { data: radarData.map(d => d.name), bottom: 0, type: "scroll", textStyle: { fontSize: 10 } },
+      ...base,
+      tooltip: { ...base.tooltip, trigger: "item" },
+      legend: { ...legendStyle(ct, 12), data: radarData.map(d => d.name), bottom: 0, type: "scroll", pageTextStyle: { color: ct.muted } },
       radar: {
         indicator: [
           { name: "% Meta", max: 100 },
@@ -422,22 +461,28 @@ const DashboardPage = () => {
           { name: "Prod. Relativa", max: 100 },
         ],
         radius: "60%", center: ["50%", "45%"],
-        axisName: { fontSize: 11, color: "#64748B" },
-        splitArea: { areaStyle: { color: ["rgba(0,102,179,0.03)", "rgba(0,102,179,0.07)"] } },
+        axisName: { fontSize: 12, color: ct.muted },
+        splitLine: { lineStyle: { color: ct.grid } },
+        axisLine: { lineStyle: { color: ct.grid } },
+        splitArea: { show: false },
       },
       series: [{
         type: "radar",
-        data: radarData.map((m, i) => ({
-          name: m.name,
-          value: m.values,
-          lineStyle: { color: COLORS[i % COLORS.length], width: 2 },
-          itemStyle: { color: COLORS[i % COLORS.length] },
-          areaStyle: { color: COLORS[i % COLORS.length] + "22" },
-          symbol: "circle", symbolSize: 4,
-        })),
+        emphasis: { focus: "self", lineStyle: { width: 2.5 } },
+        data: radarData.map((m, i) => {
+          const c = i === 0 ? ct.series[0] : ct.series[3];
+          return {
+            name: m.name,
+            value: m.values,
+            lineStyle: { color: c, width: i === 0 ? 2 : 1 },
+            itemStyle: { color: c },
+            areaStyle: { color: c, opacity: i === 0 ? 0.15 : 0.03 },
+            symbol: "circle", symbolSize: 3,
+          };
+        }),
       }],
     };
-  }, [radarData]);
+  }, [radarData, ct]);
 
   // ── Retrabalho por máquina ──────────────────────────────────────────────────
   // Agrega quantidade normal vs retrabalho por máquina, somando todas as ordens de
@@ -470,30 +515,50 @@ const DashboardPage = () => {
       .sort((a, b) => b.pctRetrabalho - a.pctRetrabalho);
   }, [filteredRecords]);
 
-  const retrabalhoOption = useMemo(() => getRetrabalhoOption(retrabalhoData, isMobile), [retrabalhoData, isMobile]);
-  const retrabalhoOptionFs = useMemo(() => getRetrabalhoOption(retrabalhoData, false), [retrabalhoData]);
+  const retrabalhoOption = useMemo(() => getRetrabalhoOption(retrabalhoData, isMobile, ct), [retrabalhoData, isMobile, ct]);
+  const retrabalhoOptionFs = useMemo(() => getRetrabalhoOption(retrabalhoData, false, ct), [retrabalhoData, ct]);
+
+  const subTabs = (
+    <div role="tablist" aria-label="Visão do dashboard" className="inline-flex items-center rounded-md border bg-card p-0.5">
+      {SUB_TABS.map(st => (
+        <button
+          key={st.id}
+          role="tab"
+          aria-selected={dashSubTab === st.id}
+          onClick={() => setDashSubTab(st.id)}
+          className={cn(
+            "h-7 rounded-sm px-3 text-sm transition-colors duration-fast",
+            dashSubTab === st.id ? "bg-accent text-foreground" : "text-muted-foreground hover:text-foreground",
+          )}
+        >
+          {st.label}
+        </button>
+      ))}
+    </div>
+  );
 
   return (
     <div className="min-h-screen bg-background">
       <WEGHeader onAdminClick={() => setShowAdmin(true)} onTVClick={() => setShowTV(true)} onTourClick={() => setShowTour(true)} />
 
-      {/* Desktop main tab nav */}
+      {/* Desktop main tab nav — abas em texto simples com sublinhado (referência) */}
       {!isMobile && (
-        <div className="bg-card border-b border-border">
-          <div className="max-w-[1400px] mx-auto px-4 py-2.5">
-            <nav className="flex items-center gap-2 overflow-x-auto">
+        <div className="border-b bg-card">
+          <div className="mx-auto max-w-[1400px] px-4">
+            <nav role="tablist" aria-label="Seções" className="flex items-center gap-5 overflow-x-auto">
               {MAIN_TABS.map(t => (
-                <button key={t.id} onClick={() => setActiveTab(t.id)}
-                  className={`px-5 py-2 text-sm font-semibold transition-all border ${
-                    activeTab === t.id
-                      ? "text-white border-transparent shadow-sm"
-                      : "text-foreground border-border hover:bg-muted/60"
-                  }`}
-                  style={{
-                    borderRadius: 20,
-                    ...(activeTab === t.id ? { background: "#0066B3" } : {}),
-                  }}>
+                <button
+                  key={t.id}
+                  role="tab"
+                  aria-selected={activeTab === t.id}
+                  onClick={() => setActiveTab(t.id)}
+                  className={cn(
+                    "relative h-11 whitespace-nowrap text-sm transition-colors duration-fast",
+                    activeTab === t.id ? "font-medium text-foreground" : "text-muted-foreground hover:text-foreground",
+                  )}
+                >
                   {t.label}
+                  {activeTab === t.id && <span className="absolute inset-x-0 bottom-0 h-0.5 rounded-t-sm bg-primary" aria-hidden="true" />}
                 </button>
               ))}
             </nav>
@@ -501,124 +566,62 @@ const DashboardPage = () => {
         </div>
       )}
 
-      <main className={`max-w-[1400px] mx-auto px-4 py-4 space-y-4 ${isMobile ? "pb-24" : ""}`}>
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={activeTab}
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -12 }}
-            transition={{ duration: 0.2, ease: "easeInOut" }}
-          >
+      {/* Troca de aba é instantânea: ação frequente não anima (emil-design-eng) */}
+      <main className={cn("mx-auto max-w-[1400px] space-y-4 px-4 py-4", isMobile && "pb-24")}>
             {/* ── APONTAMENTO ── */}
             {activeTab === "entry" && <ProductionEntry />}
 
             {/* ── DASHBOARD ── */}
             {activeTab === "dashboard" && (
               <div className="space-y-4">
-                {/* Filters row */}
-                <div className="flex flex-wrap items-end gap-3 bg-card rounded-xl p-4 border border-border shadow-sm" style={{ borderRadius: 12 }}>
-                  <DatePickerInput label="De" value={dateFrom} onChange={setDateFrom} max={dateTo || undefined} />
-                  <DatePickerInput label="Até" value={dateTo} onChange={setDateTo} min={dateFrom || undefined} />
-                  <SelectDropdown
-                    label="Máquina"
-                    value={selectedMachine}
-                    onChange={setSelectedMachine}
-                    options={[{ value: "TODAS", label: "TODAS" }, ...machines.map(m => ({ value: m.name, label: m.name }))]}
+                {/* Filtros em pílulas + visão à direita */}
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <FilterBar
+                    dateFrom={dateFrom} setDateFrom={setDateFrom}
+                    dateTo={dateTo} setDateTo={setDateTo}
+                    machine={selectedMachine} setMachine={setSelectedMachine}
+                    turno={selectedTurno} setTurno={setSelectedTurno}
+                    machines={machines}
                   />
-                  <SelectDropdown
-                    label="Turno"
-                    value={selectedTurno}
-                    onChange={setSelectedTurno}
-                    options={[{ value: "TODOS", label: "TODOS" }, ...TURNOS.map(t => ({ value: t, label: t }))]}
-                  />
-
-                  {/* Sub-tabs on the right */}
-                  <div className="ml-auto flex items-center gap-1.5 flex-wrap overflow-x-auto">
-                    {SUB_TABS.map(st => (
-                      <button key={st.id} onClick={() => setDashSubTab(st.id)}
-                        className={`px-4 py-2 text-xs font-semibold border transition-all ${
-                          dashSubTab === st.id
-                            ? "text-white border-transparent shadow-sm"
-                            : "bg-card text-foreground border-border hover:bg-muted"
-                        }`}
-                        style={{
-                          borderRadius: 20,
-                          ...(dashSubTab === st.id ? { background: "#0066B3" } : {}),
-                        }}>
-                        {st.label}
-                      </button>
-                    ))}
-                  </div>
+                  <div className="max-w-full overflow-x-auto">{subTabs}</div>
                 </div>
 
                 {/* KPI Cards */}
                 <KPICards totalProd={totalProd} totalMeta={totalMeta} pctGeral={pctGeral} recordCount={filteredRecords.length} activeMachineCount={activeMachineCount} totalMachineCount={machines.length} appointmentRate={appointmentRate} consecutiveDays={consecutiveDays} tendency={tendency} loading={loading} />
 
-                {/* Sub-tab content with animations */}
-                <AnimatePresence mode="wait">
-                  <motion.div
-                    key={dashSubTab}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -10 }}
-                    transition={{ duration: 0.2, ease: "easeInOut" }}
-                  >
                 {dashSubTab === "resumo" && (
                   <div className="space-y-4">
-                    {/* Top 3 best & worst */}
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                      <div className="bg-card rounded-xl border border-border shadow-sm p-4" style={{ borderRadius: 12 }}>
-                        <h3 className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: "#22C55E" }}>Top 3 Melhores</h3>
-                        <div className="space-y-2">
-                          {top3.map((m, i) => {
-                            const badgeColors = TOP3_BADGE_COLORS;
-                            return (
-                              <div key={m.id} className="flex items-center gap-3">
-                                <span className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white" style={{ backgroundColor: badgeColors[i] }}>{i + 1}</span>
-                                <span className="flex-1 text-sm font-medium text-foreground">{m.name}</span>
-                                <span className="text-sm font-extrabold px-2.5 py-0.5 rounded-full" style={{ color: pctColor(m.pct), backgroundColor: `${pctColor(m.pct)}15`, borderRadius: 20 }}>{m.pct}%</span>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                      <div className="bg-card rounded-xl border border-border shadow-sm p-4" style={{ borderRadius: 12 }}>
-                        <h3 className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: "#EF4444" }}>3 Que Mais Precisam de Atenção</h3>
-                        <div className="space-y-2">
-                          {bottom3.map((m, i) => {
-                            const badgeColors = BOTTOM3_BADGE_COLORS;
-                            return (
-                              <div key={m.id} className="flex items-center gap-3">
-                                <span className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white" style={{ backgroundColor: badgeColors[i] }}>{i + 1}</span>
-                                <span className="flex-1 text-sm font-medium text-foreground">{m.name}</span>
-                                <span className="text-sm font-extrabold px-2.5 py-0.5 rounded-full" style={{ color: pctColor(m.pct), backgroundColor: `${pctColor(m.pct)}15`, borderRadius: 20 }}>{m.pct}%</span>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
+                    {/* Maiores atingimentos × precisam de atenção */}
+                    <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                      <RankList title="Maiores atingimentos" subtitle="Máquinas com maior % da meta no período" items={top3} />
+                      <RankList title="Precisam de atenção" subtitle="Máquinas com menor % da meta no período" items={bottom3} />
                     </div>
 
-                    {/* Export + Machine Table */}
-                    <div>
-                      <button className="mb-3 flex items-center gap-2 px-4 py-2.5 text-sm font-bold text-white rounded-lg transition-all hover:opacity-90"
-                        style={{ background: "linear-gradient(135deg, #003366, #0066B3)", borderRadius: 8 }}>
-                        Exportar
-                      </button>
-                      {loading ? <DetailsSkeleton isMobile={isMobile} /> : 
+                    {/* Tabela de máquinas */}
+                    <section aria-labelledby="machines-title" className="space-y-2">
+                      <div className="flex items-end justify-between gap-2">
+                        <div>
+                          <h2 id="machines-title" className="text-sm font-medium">Máquinas</h2>
+                          <p className="text-xs text-muted-foreground">Produção, meta e tendência dos últimos 14 dias apontados</p>
+                        </div>
+                        <Button variant="outline" size="sm">
+                          <FileText aria-hidden="true" />
+                          Exportar
+                        </Button>
+                      </div>
+                      {loading ? <DetailsSkeleton isMobile={isMobile} /> :
                         isMobile ? <MobileDetailCards machines={machineAgg} totalProd={totalProd} totalMeta={totalMeta} pctGeral={pctGeral} /> :
-                        <MachineTable machines={machineAgg} totalProd={totalProd} totalMeta={totalMeta} pctGeral={pctGeral} />
+                        <MachineTable machines={machineAgg} totalProd={totalProd} totalMeta={totalMeta} pctGeral={pctGeral} trend={machineTrend} recordCount={filteredRecords.length} />
                       }
-                    </div>
+                    </section>
                   </div>
                 )}
 
                 {dashSubTab === "detalhado" && (
                   <div>
                     {loading ? <OverviewSkeleton isMobile={isMobile} /> : isMobile ? (
-                      <div className="grid grid-cols-1 gap-2">
-                        {machineAgg.map((m, i) => <MachineCardMobile key={m.id} machine={m} index={i} />)}
+                      <div className="divide-y overflow-hidden rounded-lg border bg-card">
+                        {machineAgg.map((m) => <MachineCardMobile key={m.id} machine={m} />)}
                       </div>
                     ) : (
                       <div className="space-y-4">
@@ -645,127 +648,107 @@ const DashboardPage = () => {
                             .map(([date, d]) => ({ date, ...d }));
 
                           if (dates.length === 0) return null;
+                          // Coluna T3 só aparece se houve produção no 3º turno
+                          const hasT3 = dates.some(d => d.t3 > 0);
 
                           return (
-                            <motion.div key={m.id}
-                              initial={{ opacity: 0, y: 12 }}
-                              animate={{ opacity: 1, y: 0 }}
-                              transition={{ duration: 0.25 }}
-                              className="bg-card rounded-xl border border-border shadow-sm overflow-hidden" style={{ borderRadius: 12 }}>
+                            <section key={m.id} aria-label={m.name} className="overflow-hidden rounded-lg border bg-card">
                               {/* Machine header */}
-                              <div className="flex items-center justify-between px-4 py-2.5" style={{ background: '#003366' }}>
-                                <span className="text-xs font-bold text-white uppercase tracking-wider">{m.name}</span>
-                                <div className="flex items-center gap-3">
-                                  <span className="text-[11px] text-white/80">
-                                    Total: {m.totalProd.toLocaleString("pt-BR")} pç
-                                  </span>
-                                  <span className="text-[11px] font-bold px-2 py-0.5 rounded-full"
-                                    style={{ color: pctColor(m.pct), background: `${pctColor(m.pct)}25` }}>
-                                    {m.pct}%
-                                  </span>
+                              <div className="flex items-center justify-between gap-3 border-b bg-surface-2 px-4 py-2.5">
+                                <h3 className="text-sm font-medium">{m.name}</h3>
+                                <div className="flex items-center gap-3 text-xs text-muted-foreground tabular-nums">
+                                  <span>Total <span className="font-medium text-foreground">{m.totalProd.toLocaleString("pt-BR")}</span> pç</span>
+                                  <span className="text-foreground">{m.pct}%</span>
+                                  <StatusChip pct={m.totalMeta > 0 ? m.pct : null} />
                                 </div>
                               </div>
                               {/* Records table */}
-                              <table className="w-full text-sm">
-                                <thead>
-                                  <tr className="border-b border-border" style={{ background: '#F8FAFC' }}>
-                                    <th className="w-8 px-2 py-2" />
-                                    <th className="text-left px-4 py-2 text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Data</th>
-                                    <th className="text-center px-3 py-2 text-[10px] font-bold text-muted-foreground uppercase tracking-wider">T1</th>
-                                    <th className="text-center px-3 py-2 text-[10px] font-bold text-muted-foreground uppercase tracking-wider">T2</th>
-                                    <th className="text-center px-3 py-2 text-[10px] font-bold text-muted-foreground uppercase tracking-wider">T3</th>
-                                    <th className="text-right px-3 py-2 text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Total</th>
-                                    <th className="text-center px-4 py-2 text-[10px] font-bold text-muted-foreground uppercase tracking-wider">% Meta</th>
-                                  </tr>
-                                </thead>
-                                <tbody>
-                                  {dates.map((d, i) => {
+                              <Table>
+                                <TableHeader>
+                                  <TableRow className="hover:bg-transparent">
+                                    <TableHead className="w-10"><span className="sr-only">Ordens</span></TableHead>
+                                    <TableHead>Data</TableHead>
+                                    <TableHead className="text-right">T1</TableHead>
+                                    <TableHead className="text-right">T2</TableHead>
+                                    {hasT3 && <TableHead className="text-right">T3</TableHead>}
+                                    <TableHead className="text-right">Total</TableHead>
+                                    <TableHead className="pr-4">% da meta</TableHead>
+                                  </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                  {dates.map((d) => {
                                     const rowKey = `${m.id}-${d.date}`;
                                     const isExpanded = expandedDetalhado === rowKey;
                                     const hasOrdens = d.records.some(r => (r.ordensProducao?.length ?? 0) > 0);
                                     const pctDia = metaDia > 0 ? Math.round(d.total / metaDia * 100) : null;
-                                    const rowBg = i % 2 === 0 ? '#fff' : '#F8FAFC';
                                     return (
                                       <Fragment key={d.date}>
-                                        <tr
-                                          className="border-b border-border/40 hover:bg-muted/30 transition-colors"
-                                          style={{ background: rowBg }}
-                                        >
-                                          <td className="px-2 py-2 text-center">
+                                        <TableRow data-state={isExpanded ? "selected" : undefined}>
+                                          <TableCell className="text-center">
                                             {hasOrdens && (
                                               <button
                                                 onClick={() => setExpandedDetalhado(isExpanded ? null : rowKey)}
-                                                className="w-6 h-6 flex items-center justify-center rounded text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
-                                                title={isExpanded ? "Recolher ordens" : "Ver ordens de produção"}
+                                                className="inline-flex size-7 items-center justify-center rounded-sm text-muted-foreground transition-colors duration-fast hover:bg-accent hover:text-foreground"
+                                                aria-expanded={isExpanded}
+                                                aria-label={isExpanded ? "Recolher ordens de produção" : "Ver ordens de produção"}
                                               >
-                                                {isExpanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+                                                {isExpanded ? <ChevronUp size={14} aria-hidden="true" /> : <ChevronDown size={14} aria-hidden="true" />}
                                               </button>
                                             )}
-                                          </td>
-                                          <td className="px-4 py-2.5 font-semibold text-foreground text-xs">
-                                            {d.date.split("-").reverse().join("/")}
-                                          </td>
-                                          <td className="px-3 py-2.5 text-center text-xs text-muted-foreground">
-                                            {d.t1 > 0 ? d.t1.toLocaleString("pt-BR") : "—"}
-                                          </td>
-                                          <td className="px-3 py-2.5 text-center text-xs text-muted-foreground">
-                                            {d.t2 > 0 ? d.t2.toLocaleString("pt-BR") : "—"}
-                                          </td>
-                                          <td className="px-3 py-2.5 text-center text-xs text-muted-foreground">
-                                            {d.t3 > 0 ? d.t3.toLocaleString("pt-BR") : "—"}
-                                          </td>
-                                          <td className="px-3 py-2.5 text-right font-bold text-foreground text-xs">
-                                            {d.total.toLocaleString("pt-BR")}
-                                          </td>
-                                          <td className="px-4 py-2.5 text-center">
+                                          </TableCell>
+                                          <TableCell className="font-medium">{d.date.split("-").reverse().join("/")}</TableCell>
+                                          <TableCell className="text-right text-muted-foreground">{d.t1 > 0 ? d.t1.toLocaleString("pt-BR") : "—"}</TableCell>
+                                          <TableCell className="text-right text-muted-foreground">{d.t2 > 0 ? d.t2.toLocaleString("pt-BR") : "—"}</TableCell>
+                                          {hasT3 && <TableCell className="text-right text-muted-foreground">{d.t3 > 0 ? d.t3.toLocaleString("pt-BR") : "—"}</TableCell>}
+                                          <TableCell className="text-right font-medium">{d.total.toLocaleString("pt-BR")}</TableCell>
+                                          <TableCell className="pr-4">
                                             {pctDia !== null ? (
-                                              <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full"
-                                                style={{ color: pctColor(pctDia), background: `${pctColor(pctDia)}15` }}>
-                                                {pctDia}%
-                                              </span>
+                                              <div className="flex items-center gap-2">
+                                                <SegmentedBar pct={pctDia} className="w-16 shrink-0" />
+                                                <span className="w-10 text-right">{pctDia}%</span>
+                                              </div>
                                             ) : "—"}
-                                          </td>
-                                        </tr>
+                                          </TableCell>
+                                        </TableRow>
                                         {isExpanded && (
-                                          <tr style={{ background: rowBg }}>
-                                            <td />
-                                            <td colSpan={6} className="px-4 pb-3 pt-1">
+                                          <TableRow className="bg-surface-2 hover:bg-surface-2">
+                                            <TableCell />
+                                            <TableCell colSpan={hasT3 ? 6 : 5} className="h-auto pb-3 pt-1">
                                               <div className="space-y-1.5 border-l-2 border-primary/30 pl-3">
                                                 {d.records.map((r, ri) => {
                                                   const hasOPs = (r.ordensProducao?.length ?? 0) > 0;
                                                   return (
                                                     <div key={ri} className="text-xs">
-                                                      <span className="font-semibold text-muted-foreground">{r.turno.replace("TURNO ", "T")} · {r.savedBy}</span>
+                                                      <span className="text-muted-foreground">{r.turno.replace("TURNO ", "T")} · {r.savedBy}</span>
                                                       {hasOPs && (
-                                                        <div className="flex flex-wrap gap-1 mt-0.5">
+                                                        <div className="mt-1 flex flex-wrap gap-1">
                                                           {r.ordensProducao!.map((o, oi) => (
-                                                            <span key={oi}
-                                                              className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full border border-primary/20"
-                                                              style={{ background: "#0066B310", color: "#0066B3" }}>
+                                                            <Badge key={oi} variant={o.retrabalho ? "warning" : "info"} className="tabular-nums">
                                                               <span className="text-muted-foreground">#{o.ordemId}</span>
-                                                              <span className="text-primary/40">→</span>
+                                                              <span aria-hidden="true">→</span>
                                                               <span>{o.quantidade.toLocaleString("pt-BR")} pç</span>
+                                                              {o.retrabalho && <span>· retrabalho</span>}
                                                               {o.obs && <span className="text-muted-foreground">· {o.obs}</span>}
-                                                            </span>
+                                                            </Badge>
                                                           ))}
                                                         </div>
                                                       )}
                                                       {r.obs && !hasOPs && (
-                                                        <span className="text-muted-foreground ml-2">— {r.obs}</span>
+                                                        <span className="ml-2 text-muted-foreground">— {r.obs}</span>
                                                       )}
                                                     </div>
                                                   );
                                                 })}
                                               </div>
-                                            </td>
-                                          </tr>
+                                            </TableCell>
+                                          </TableRow>
                                         )}
                                       </Fragment>
                                     );
                                   })}
-                                </tbody>
-                              </table>
-                            </motion.div>
+                                </TableBody>
+                              </Table>
+                            </section>
                           );
                         })}
                       </div>
@@ -776,83 +759,91 @@ const DashboardPage = () => {
                 {dashSubTab === "turnos" && (
                   <div className="space-y-4">
                     {loading ? <TurnosSkeleton /> : (
-                    <>
-                    {/* Comparativo por Turno table */}
-                    <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden" style={{ borderRadius: 12 }}>
-                      <div className="px-4 py-2.5" style={{ background: '#003366' }}>
-                        <span className="text-xs font-bold text-white uppercase tracking-wider">Comparativo por Turno</span>
+                    <section aria-labelledby="turnos-title" className="overflow-hidden rounded-lg border bg-card">
+                      <div className="flex flex-wrap items-center justify-between gap-2 border-b px-4 py-3">
+                        <div>
+                          <h2 id="turnos-title" className="text-sm font-medium">Produção por turno</h2>
+                          <p className="text-xs text-muted-foreground">Participação de cada turno na produção da máquina</p>
+                        </div>
+                        <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                          <span className="inline-flex items-center gap-1.5"><span className="size-2 rounded-full bg-chart-1" aria-hidden="true" />Turno 1</span>
+                          <span className="inline-flex items-center gap-1.5"><span className="size-2 rounded-full bg-chart-2" aria-hidden="true" />Turno 2</span>
+                          <span className="inline-flex items-center gap-1.5"><span className="size-2 rounded-full bg-chart-3" aria-hidden="true" />Turno 3</span>
+                        </div>
                       </div>
-                      <table className="w-full text-sm">
-                        <thead>
-                          <tr className="border-b border-border" style={{ background: '#F8FAFC' }}>
-                            <th className="text-left px-4 py-2 text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Máquina</th>
-                            <th className="text-center px-3 py-2 text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Turno 1</th>
-                            <th className="text-center px-3 py-2 text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Turno 2</th>
-                            <th className="text-center px-3 py-2 text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Turno 3</th>
-                            <th className="text-right px-3 py-2 text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Total</th>
-                            <th className="text-center px-4 py-2 text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Melhor</th>
-                          </tr>
-                        </thead>
-                        <tbody>
+                      <Table>
+                        <TableHeader>
+                          <TableRow className="hover:bg-transparent">
+                            <TableHead className="pl-4">Máquina</TableHead>
+                            <TableHead className="text-right">Turno 1</TableHead>
+                            <TableHead className="text-right">Turno 2</TableHead>
+                            <TableHead className="text-right">Turno 3</TableHead>
+                            <TableHead className="text-right">Total</TableHead>
+                            <TableHead className="min-w-[180px] pr-4">Divisão</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
                           {machineAgg.map((m) => {
                             const tb = turnoBreakdown[m.id];
                             if (!tb || tb.total === 0) return null;
-                            const { t1, t2, t3, total, best } = tb;
-                            const t1Pct = Math.round(t1 / total * 100);
-                            const t2Pct = Math.round(t2 / total * 100);
-                            const t3Pct = Math.round(t3 / total * 100);
+                            const { t1, t2, t3, total } = tb;
+                            const pcts = [t1, t2, t3].map(v => Math.round(v / total * 100));
+                            const cell = (v: number, p: number) => v > 0
+                              ? <>{v.toLocaleString("pt-BR")} <span className="text-xs text-muted-foreground">{p}%</span></>
+                              : <span className="text-muted-foreground">—</span>;
                             return (
-                              <tr key={m.id} className="border-b border-border/40 hover:bg-muted/30 transition-colors">
-                                <td className="px-4 py-3 font-semibold text-foreground text-xs">{m.name}</td>
-                                <td className="px-3 py-3 text-center">
-                                  {t1 > 0 ? <><span className="font-bold">{t1.toLocaleString("pt-BR")}</span><br/><span className="text-[10px] text-muted-foreground">{t1Pct}%</span></> : <span className="text-muted-foreground">—</span>}
-                                </td>
-                                <td className="px-3 py-3 text-center">
-                                  {t2 > 0 ? <><span className="font-bold">{t2.toLocaleString("pt-BR")}</span><br/><span className="text-[10px] text-muted-foreground">{t2Pct}%</span></> : <span className="text-muted-foreground">—</span>}
-                                </td>
-                                <td className="px-3 py-3 text-center">
-                                  {t3 > 0 ? <><span className="font-bold">{t3.toLocaleString("pt-BR")}</span><br/><span className="text-[10px] text-muted-foreground">{t3Pct}%</span></> : <span className="text-muted-foreground">—</span>}
-                                </td>
-                                <td className="px-3 py-3 text-right font-bold text-foreground">{total.toLocaleString("pt-BR")}</td>
-                                <td className="px-4 py-3 text-center">
-                                  <span className="text-[10px] font-bold px-2.5 py-1 rounded-full inline-block" style={{ color: '#0066B3', backgroundColor: '#0066B315', borderRadius: 20 }}>
-                                    {best}
-                                  </span>
-                                </td>
-                              </tr>
+                              <TableRow key={m.id}>
+                                <TableCell className="pl-4 font-medium">{m.name}</TableCell>
+                                <TableCell className="text-right">{cell(t1, pcts[0])}</TableCell>
+                                <TableCell className="text-right">{cell(t2, pcts[1])}</TableCell>
+                                <TableCell className="text-right">{cell(t3, pcts[2])}</TableCell>
+                                <TableCell className="text-right font-medium">{total.toLocaleString("pt-BR")}</TableCell>
+                                <TableCell className="pr-4">
+                                  <div className="flex h-2 overflow-hidden rounded-sm bg-muted" role="img" aria-label={`Turno 1 ${pcts[0]}%, turno 2 ${pcts[1]}%, turno 3 ${pcts[2]}%`}>
+                                    <span className="bg-chart-1" style={{ width: `${pcts[0]}%` }} />
+                                    <span className="bg-chart-2" style={{ width: `${pcts[1]}%` }} />
+                                    <span className="bg-chart-3" style={{ width: `${pcts[2]}%` }} />
+                                  </div>
+                                </TableCell>
+                              </TableRow>
                             );
                           })}
-                        </tbody>
-                      </table>
-                    </div>
-                    </>
+                        </TableBody>
+                      </Table>
+                    </section>
                     )}
                   </div>
                 )}
 
                 {dashSubTab === "graficos" && (
                   <>
-                    {loading ? <ChartsSkeleton isMobile={isMobile} /> : (
-                      <div className="space-y-5">
+                    {loading ? <ChartsSkeleton isMobile={isMobile} /> : filteredRecords.length === 0 ? (
+                      <div className="rounded-lg border bg-card px-6 py-12 text-center">
+                        <BarChart3 size={24} className="mx-auto mb-2 text-muted-foreground" aria-hidden="true" />
+                        <p className="text-sm font-medium">Nenhum apontamento no período</p>
+                        <p className="mt-1 text-xs text-muted-foreground">Ajuste as datas, a máquina ou o turno para ver os gráficos.</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
                         {/* Linha 1 — overview por máquina e turno */}
-                        <div className={isMobile ? "space-y-3" : "grid grid-cols-1 lg:grid-cols-2 gap-4"}>
-                          <ChartCard title="Produção vs Meta por Máquina" subtitle="Comparativo entre produção real e meta estabelecida"
-                            option={barOption} height={isMobile ? Math.max(280, barData.length * 48) : 400}
+                        <div className={isMobile ? "space-y-4" : "grid grid-cols-1 gap-4 lg:grid-cols-2"}>
+                          <ChartCard title="Produção vs meta por máquina" subtitle="Comparativo entre produção real e meta estabelecida"
+                            option={barOption} height={isMobile ? Math.max(280, barData.length * 48) : 360}
                             onExpand={() => setFullscreenChart("bar")} />
-                          <ChartCard title="Distribuição por Turno" subtitle="Percentual de produção em cada turno"
-                            option={pieOption} height={isMobile ? 280 : 400}
+                          <ChartCard title="Distribuição por turno" subtitle="Percentual de produção em cada turno"
+                            option={pieOption} height={isMobile ? 280 : 360}
                             onExpand={() => setFullscreenChart("pie")} />
                         </div>
 
                         {/* Ranking — full width */}
-                        <ChartCard title="Ranking de Performance" subtitle="Máquinas ordenadas por % da meta"
-                          option={hbarOption} height={isMobile ? Math.max(260, hbarData.length * 38) : 300}
+                        <ChartCard title="Ranking de performance" subtitle="Máquinas ordenadas por % da meta · linha tracejada = 100%"
+                          option={hbarOption} height={isMobile ? Math.max(260, hbarData.length * 38) : 280}
                           onExpand={() => setFullscreenChart("hbar")} />
 
                         {/* Tendência — fundida (toggle Diária/Média 7d), full width */}
                         <div>
                           <ChartCard
-                            title="Tendência de Produção"
+                            title="Tendência de produção"
                             subtitle={trendMode === "ma7"
                               ? "Média móvel 7d — remove ruído diário e revela tendência real"
                               : "Produção crua dia a dia — útil pra ver variabilidade pontual"}
@@ -860,12 +851,14 @@ const DashboardPage = () => {
                             height={isMobile ? 280 : 320}
                             onExpand={() => setFullscreenChart("trend")}
                             headerExtra={
-                              <div className="flex items-center bg-muted/50 rounded-lg p-0.5">
+                              <div role="radiogroup" aria-label="Modo da tendência" className="flex items-center rounded-md border p-0.5">
                                 {(["daily", "ma7"] as const).map(m => (
                                   <button
                                     key={m}
+                                    role="radio"
+                                    aria-checked={trendMode === m}
                                     onClick={() => setTrendMode(m)}
-                                    className={`px-2.5 py-1 text-[11px] font-bold rounded-md transition-colors ${trendMode === m ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+                                    className={cn("h-7 rounded-sm px-2.5 text-xs transition-colors duration-fast", trendMode === m ? "bg-accent text-foreground" : "text-muted-foreground hover:text-foreground")}
                                   >
                                     {m === "daily" ? "Diária" : "Média 7d"}
                                   </button>
@@ -873,32 +866,29 @@ const DashboardPage = () => {
                               </div>
                             }
                           />
-                          <p className="text-[11px] text-muted-foreground mt-1.5 px-1">
-                            <strong>Como interpretar:</strong> {trendMode === "ma7"
-                              ? "A linha espessa suaviza variações diárias e revela tendência real. Se ficar abaixo da meta tracejada por vários dias seguidos, é queda sistêmica — não só ruído."
-                              : "A produção diária crua mostra os altos e baixos do dia a dia. Use pra investigar dias específicos; pra olhar tendência, troque pra 'Média 7d'."}
-                          </p>
+                          <Hint>{trendMode === "ma7"
+                            ? "A linha suaviza variações diárias e revela tendência real. Se ficar abaixo da meta tracejada por vários dias seguidos, é queda sistêmica — não só ruído."
+                            : "A produção diária crua mostra os altos e baixos do dia a dia. Use pra investigar dias específicos; pra olhar tendência, troque pra 'Média 7d'."}</Hint>
                         </div>
 
                         {heatmapData.length === 0 ? (
-                          <div className="bg-card rounded-xl border border-border p-6 text-center" style={{ borderRadius: 12 }}>
-                            <Activity size={28} className="mx-auto text-muted-foreground mb-2" />
-                            <p className="text-sm text-muted-foreground">Sem dados com meta no período — análises avançadas indisponíveis.</p>
+                          <div className="rounded-lg border bg-card p-6 text-center">
+                            <Activity size={24} className="mx-auto mb-2 text-muted-foreground" aria-hidden="true" />
+                            <p className="text-sm font-medium">Sem dados com meta no período</p>
+                            <p className="text-xs text-muted-foreground">Ajuste o período ou a máquina para ver as análises avançadas.</p>
                           </div>
                         ) : (
                           <>
                             {/* Heatmap × dia da semana — full width */}
                             <div>
                               <ChartCard
-                                title="Heatmap de Performance"
+                                title="Heatmap de performance"
                                 subtitle="% médio de atingimento de meta por máquina × dia da semana"
                                 option={heatmapOption}
-                                height={Math.max(220, heatmapMachines.length * 36 + 80)}
+                                height={Math.max(200, heatmapMachines.length * 36 + 48)}
                                 onExpand={() => setFullscreenChart("heatmap")}
                               />
-                              <p className="text-[11px] text-muted-foreground mt-1.5 px-1">
-                                <strong>Como interpretar:</strong> Células verdes indicam dias onde a produção supera a meta consistentemente. Vermelhas revelam padrões sistemáticos de baixa performance.
-                              </p>
+                              <Hint>Cada célula usa a escala de status: crítico &lt; 70%, atenção 70–89%, próximo 90–99%, atingido ≥ 100%. O número sempre aparece dentro da célula.</Hint>
                             </div>
 
                             {/* Pareto + Radar — side by side em desktop */}
@@ -906,32 +896,28 @@ const DashboardPage = () => {
                               <div>
                                 {paretoData.length > 0 ? (
                                   <ChartCard
-                                    title="Pareto de Desvio de Meta"
+                                    title="Pareto de desvio de meta"
                                     subtitle="Onde concentrar atenção (lei 80/20)"
                                     option={paretoOption}
                                     height={320}
                                     onExpand={() => setFullscreenChart("pareto")}
                                   />
                                 ) : (
-                                  <div className="bg-card rounded-xl border border-border p-6 text-center" style={{ borderRadius: 12 }}>
-                                    <p className="text-xs text-muted-foreground">Todas as máquinas atingiram ou superaram a meta no período.</p>
+                                  <div className="rounded-lg border bg-card p-6 text-center">
+                                    <p className="text-sm text-muted-foreground">Todas as máquinas atingiram ou superaram a meta no período.</p>
                                   </div>
                                 )}
-                                <p className="text-[11px] text-muted-foreground mt-1.5 px-1">
-                                  <strong>Como interpretar:</strong> Barras à esquerda contribuem mais ao gap total. A linha acumulada mostra o ponto 80/20 — focar nas primeiras já resolve a maior parte.
-                                </p>
+                                <Hint>Barras à esquerda contribuem mais ao gap total. A linha acumulada mostra o ponto 80/20 — focar nas primeiras já resolve a maior parte.</Hint>
                               </div>
                               <div>
                                 <ChartCard
-                                  title="Radar de Consistência"
+                                  title="Radar de consistência"
                                   subtitle="% meta · consistência · produção relativa"
                                   option={radarOption}
                                   height={Math.min(500, Math.max(320, radarData.length * 40 + 120))}
                                   onExpand={() => setFullscreenChart("radar")}
                                 />
-                                <p className="text-[11px] text-muted-foreground mt-1.5 px-1">
-                                  <strong>Como interpretar:</strong> Máquina ideal ocupa o hexágono externo em todos os eixos. % meta alta com consistência baixa = bate meta esporadicamente.
-                                </p>
+                                <Hint>A máquina de maior produção aparece em azul; passe o mouse na legenda para destacar outra. Máquina ideal ocupa o triângulo externo em todos os eixos.</Hint>
                               </div>
                             </div>
                           </>
@@ -941,33 +927,29 @@ const DashboardPage = () => {
                         {retrabalhoData.length > 0 && (
                           <div>
                             <ChartCard
-                              title="Taxa de Retrabalho por Máquina"
+                              title="Taxa de retrabalho por máquina"
                               subtitle="Produção normal vs. retrabalho — % indica fração de retrabalho no total"
                               option={retrabalhoOption}
                               height={Math.max(220, retrabalhoData.length * 32 + 60)}
                               onExpand={() => setFullscreenChart("retrabalho")}
                             />
-                            <p className="text-[11px] text-muted-foreground mt-1.5 px-1">
-                              <strong>Como interpretar:</strong> Barras com âmbar grande indicam máquinas com alta taxa de retrabalho — sinal de qualidade ou processo a investigar. Ordenado por % retrabalho descendente.
-                            </p>
+                            <Hint>Barras com trecho âmbar grande indicam máquinas com alta taxa de retrabalho — sinal de qualidade ou processo a investigar. Ordenado por % retrabalho descendente.</Hint>
                           </div>
                         )}
                       </div>
                     )}
                   </>
                 )}
-                  </motion.div>
-                </AnimatePresence>
 
                 {/* Fullscreen charts */}
-                <ChartFullscreen open={fullscreenChart === "bar"}        onClose={() => setFullscreenChart(null)} title="Produção vs Meta"               option={barOptionFs} />
-                <ChartFullscreen open={fullscreenChart === "hbar"}       onClose={() => setFullscreenChart(null)} title="% Atingimento"                  option={hbarOptionFs} />
-                <ChartFullscreen open={fullscreenChart === "trend"}      onClose={() => setFullscreenChart(null)} title="Tendência de Produção"          option={trendOption} />
-                <ChartFullscreen open={fullscreenChart === "pie"}        onClose={() => setFullscreenChart(null)} title="Distribuição por Turno"         option={pieOptionFs} />
-                <ChartFullscreen open={fullscreenChart === "heatmap"}    onClose={() => setFullscreenChart(null)} title="Heatmap de Performance"         option={heatmapOption} />
-                <ChartFullscreen open={fullscreenChart === "pareto"}     onClose={() => setFullscreenChart(null)} title="Pareto de Desvio de Meta"       option={paretoOption} />
-                <ChartFullscreen open={fullscreenChart === "radar"}      onClose={() => setFullscreenChart(null)} title="Radar de Consistência"          option={radarOption} />
-                <ChartFullscreen open={fullscreenChart === "retrabalho"} onClose={() => setFullscreenChart(null)} title="Taxa de Retrabalho por Máquina" option={retrabalhoOptionFs} />
+                <ChartFullscreen open={fullscreenChart === "bar"}        onClose={() => setFullscreenChart(null)} title="Produção vs meta"               option={barOptionFs} />
+                <ChartFullscreen open={fullscreenChart === "hbar"}       onClose={() => setFullscreenChart(null)} title="% de atingimento"               option={hbarOptionFs} />
+                <ChartFullscreen open={fullscreenChart === "trend"}      onClose={() => setFullscreenChart(null)} title="Tendência de produção"          option={trendOption} />
+                <ChartFullscreen open={fullscreenChart === "pie"}        onClose={() => setFullscreenChart(null)} title="Distribuição por turno"         option={pieOptionFs} />
+                <ChartFullscreen open={fullscreenChart === "heatmap"}    onClose={() => setFullscreenChart(null)} title="Heatmap de performance"         option={heatmapOption} />
+                <ChartFullscreen open={fullscreenChart === "pareto"}     onClose={() => setFullscreenChart(null)} title="Pareto de desvio de meta"       option={paretoOption} />
+                <ChartFullscreen open={fullscreenChart === "radar"}      onClose={() => setFullscreenChart(null)} title="Radar de consistência"          option={radarOption} />
+                <ChartFullscreen open={fullscreenChart === "retrabalho"} onClose={() => setFullscreenChart(null)} title="Taxa de retrabalho por máquina" option={retrabalhoOptionFs} />
               </div>
             )}
 
@@ -979,8 +961,6 @@ const DashboardPage = () => {
 
             {/* ── FEEDBACKS ── */}
             {activeTab === "feedbacks" && (loading ? <FeedbacksSkeleton /> : <FeedbacksTab />)}
-          </motion.div>
-        </AnimatePresence>
       </main>
 
       {isMobile && <BottomNav activeTab={activeTab} onTabChange={setActiveTab} />}
@@ -1014,23 +994,63 @@ const DashboardPage = () => {
   );
 };
 
-/* Skeleton loaders */
+/** Texto de ajuda "como interpretar" abaixo dos gráficos. */
+const Hint = ({ children }: { children: React.ReactNode }) => (
+  <p className="mt-1.5 px-1 text-xs text-muted-foreground">
+    <span className="font-medium text-foreground">Como interpretar:</span> {children}
+  </p>
+);
+
+/** Lista curta ranqueada (padrão "Marketing goals" da referência): nome · valor/meta · barra fina. */
+const RankList = ({ title, subtitle, items }: {
+  title: string; subtitle: string;
+  items: { id: number; name: string; pct: number; totalProd: number; totalMeta: number }[];
+}) => (
+  <section className="rounded-lg border bg-card p-4" aria-label={title}>
+    <h2 className="text-sm font-medium">{title}</h2>
+    <p className="text-xs text-muted-foreground">{subtitle}</p>
+    {items.length === 0 ? (
+      <p className="mt-4 text-sm text-muted-foreground">Sem máquinas com meta no período.</p>
+    ) : (
+      <ol className="mt-3 space-y-3">
+        {items.map((m, i) => (
+          <li key={m.id}>
+            <div className="flex items-center gap-2 text-sm">
+              <span className="w-4 text-xs text-muted-foreground tabular-nums">{i + 1}</span>
+              <span className="flex-1 truncate">{m.name}</span>
+              <span className="hidden text-xs text-muted-foreground tabular-nums sm:inline">
+                <span className="text-foreground">{m.totalProd.toLocaleString("pt-BR")}</span> / {m.totalMeta.toLocaleString("pt-BR")}
+              </span>
+              <span className="w-10 text-right tabular-nums">{m.pct}%</span>
+              <StatusChip pct={m.pct} />
+            </div>
+            <div className="ml-6 mt-1.5 h-1 overflow-hidden rounded-sm bg-muted">
+              <div className={cn("h-full rounded-sm", STATUS_BG_CLASS[getAttainmentStatus(m.pct)])} style={{ width: `${Math.min(m.pct, 100)}%` }} />
+            </div>
+          </li>
+        ))}
+      </ol>
+    )}
+  </section>
+);
+
+/* Skeleton loaders — mesma forma do conteúdo final */
 const SkeletonBox = ({ className = "" }: { className?: string }) => (
-  <div className={`animate-pulse rounded-xl bg-muted ${className}`} />
+  <div className={`animate-pulse rounded-sm bg-muted motion-reduce:animate-none ${className}`} />
 );
 
 const OverviewSkeleton = ({ isMobile }: { isMobile: boolean }) => (
   <div className={`grid ${isMobile ? "grid-cols-1" : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"} gap-3`}>
     {Array.from({ length: 8 }).map((_, i) => (
-      <div key={i} className="bg-card rounded-xl p-4 border border-border" style={{ borderRadius: 12 }}>
-        <div className="flex items-start justify-between mb-3">
-          <SkeletonBox className="h-4 w-28 rounded-md" />
-          <SkeletonBox className="h-5 w-12 rounded-full" />
+      <div key={i} className="rounded-lg border bg-card p-4">
+        <div className="mb-3 flex items-start justify-between">
+          <SkeletonBox className="h-4 w-28" />
+          <SkeletonBox className="h-5 w-12" />
         </div>
-        <SkeletonBox className="h-2 w-full rounded-full mb-3" />
+        <SkeletonBox className="mb-3 h-2 w-full" />
         <div className="flex justify-between">
-          <SkeletonBox className="h-3 w-16 rounded-md" />
-          <SkeletonBox className="h-3 w-16 rounded-md" />
+          <SkeletonBox className="h-3 w-16" />
+          <SkeletonBox className="h-3 w-16" />
         </div>
       </div>
     ))}
@@ -1038,72 +1058,60 @@ const OverviewSkeleton = ({ isMobile }: { isMobile: boolean }) => (
 );
 
 const ChartsSkeleton = ({ isMobile }: { isMobile: boolean }) => (
-  <div className={`${isMobile ? "space-y-3" : "grid grid-cols-1 lg:grid-cols-2 gap-4"}`}>
+  <div className={`${isMobile ? "space-y-3" : "grid grid-cols-1 gap-4 lg:grid-cols-2"}`}>
     {Array.from({ length: 4 }).map((_, i) => (
-      <div key={i} className={`bg-card rounded-xl border border-border p-4 ${!isMobile && i === 0 ? "lg:col-span-2" : ""}`} style={{ borderRadius: 12 }}>
-        <SkeletonBox className="h-4 w-40 rounded-md mb-4" />
-        <SkeletonBox className={`w-full rounded-lg ${isMobile ? "h-[260px]" : i === 0 ? "h-[380px]" : "h-[280px]"}`} />
+      <div key={i} className={`rounded-lg border bg-card p-4 ${!isMobile && i === 0 ? "lg:col-span-2" : ""}`}>
+        <SkeletonBox className="mb-4 h-4 w-40" />
+        <SkeletonBox className={`w-full ${isMobile ? "h-[260px]" : i === 0 ? "h-[360px]" : "h-[280px]"}`} />
       </div>
     ))}
   </div>
 );
 
 const DetailsSkeleton = ({ isMobile }: { isMobile: boolean }) => (
-  <div className="space-y-2">
-    {isMobile ? (
-      <>
-        <SkeletonBox className="h-24 w-full rounded-2xl" />
-        {Array.from({ length: 5 }).map((_, i) => <SkeletonBox key={i} className="h-20 w-full rounded-xl" />)}
-      </>
-    ) : (
-      <div className="bg-card rounded-xl border border-border overflow-hidden" style={{ borderRadius: 12 }}>
-        <SkeletonBox className="h-10 w-full rounded-none" />
-        {Array.from({ length: 6 }).map((_, i) => <SkeletonBox key={i} className="h-12 w-full rounded-none" />)}
+  <div className="overflow-hidden rounded-lg border bg-card" aria-busy="true" aria-label="Carregando máquinas">
+    <SkeletonBox className={`w-full rounded-none ${isMobile ? "h-20" : "h-9"}`} />
+    {Array.from({ length: 6 }).map((_, i) => (
+      <div key={i} className="border-t px-4 py-2.5">
+        <SkeletonBox className={`w-full ${isMobile ? "h-12" : "h-4"}`} />
       </div>
-    )}
+    ))}
   </div>
 );
 
 const TurnosSkeleton = () => (
-  <div className="bg-card rounded-xl border border-border overflow-hidden" style={{ borderRadius: 12 }}>
-    <SkeletonBox className="h-10 w-full rounded-none" />
-    <div className="p-1">
-      <div className="grid grid-cols-6 gap-2 p-3">
-        {Array.from({ length: 6 }).map((_, i) => <SkeletonBox key={i} className="h-4 rounded-md" />)}
+  <div className="overflow-hidden rounded-lg border bg-card">
+    <SkeletonBox className="h-14 w-full rounded-none" />
+    {Array.from({ length: 6 }).map((_, i) => (
+      <div key={i} className="grid grid-cols-6 gap-2 border-t px-4 py-2.5">
+        {Array.from({ length: 6 }).map((_, j) => <SkeletonBox key={j} className="h-4" />)}
       </div>
-      {Array.from({ length: 6 }).map((_, i) => (
-        <div key={i} className="grid grid-cols-6 gap-2 px-3 py-2">
-          {Array.from({ length: 6 }).map((_, j) => <SkeletonBox key={j} className="h-5 rounded-md" />)}
-        </div>
-      ))}
-    </div>
+    ))}
   </div>
 );
 
 const MetasSkeleton = () => (
-  <div className="space-y-6">
-    <div className="bg-card rounded-xl border border-border p-5" style={{ borderRadius: 12 }}>
-      <SkeletonBox className="h-3 w-48 rounded-md mb-4" />
+  <div className="space-y-4">
+    <div className="rounded-lg border bg-card p-4">
+      <SkeletonBox className="mb-4 h-3 w-48" />
       <div className="grid grid-cols-3 gap-4">
-        {Array.from({ length: 3 }).map((_, i) => <SkeletonBox key={i} className="h-20 rounded-lg" />)}
+        {Array.from({ length: 3 }).map((_, i) => <SkeletonBox key={i} className="h-20" />)}
       </div>
     </div>
-    <div className="bg-card rounded-xl border border-border overflow-hidden" style={{ borderRadius: 12 }}>
-      <SkeletonBox className="h-10 w-full rounded-none" />
-      {Array.from({ length: 6 }).map((_, i) => <SkeletonBox key={i} className="h-12 w-full rounded-none" />)}
+    <div className="overflow-hidden rounded-lg border bg-card">
+      <SkeletonBox className="h-9 w-full rounded-none" />
+      {Array.from({ length: 6 }).map((_, i) => <div key={i} className="border-t px-4 py-2.5"><SkeletonBox className="h-4 w-full" /></div>)}
     </div>
   </div>
 );
 
 const FeedbacksSkeleton = () => (
-  <div className="space-y-5">
-    <div className="bg-card rounded-xl border border-border p-5" style={{ borderRadius: 12 }}>
-      <div className="flex flex-wrap gap-4">
-        {Array.from({ length: 3 }).map((_, i) => <SkeletonBox key={i} className="h-10 w-36 rounded-md" />)}
-      </div>
+  <div className="space-y-4">
+    <div className="flex flex-wrap gap-2">
+      {Array.from({ length: 3 }).map((_, i) => <SkeletonBox key={i} className="h-8 w-36" />)}
     </div>
     <div className="grid grid-cols-3 gap-4">
-      {Array.from({ length: 3 }).map((_, i) => <SkeletonBox key={i} className="h-40 rounded-xl" />)}
+      {Array.from({ length: 3 }).map((_, i) => <SkeletonBox key={i} className="h-40 rounded-lg" />)}
     </div>
   </div>
 );
@@ -1111,12 +1119,12 @@ const FeedbacksSkeleton = () => (
 const HistorySkeleton = () => (
   <div className="space-y-4">
     <div className="flex gap-2">
-      {Array.from({ length: 2 }).map((_, i) => <SkeletonBox key={i} className="h-9 w-24 rounded-full" />)}
+      {Array.from({ length: 2 }).map((_, i) => <SkeletonBox key={i} className="h-8 w-24" />)}
     </div>
-    <div className="bg-card rounded-xl border border-border p-4" style={{ borderRadius: 12 }}>
-      <SkeletonBox className="h-8 w-full rounded-md mb-3" />
+    <div className="rounded-lg border bg-card p-4">
+      <SkeletonBox className="mb-3 h-8 w-full" />
       <div className="grid grid-cols-7 gap-2">
-        {Array.from({ length: 35 }).map((_, i) => <SkeletonBox key={i} className="h-16 rounded-lg" />)}
+        {Array.from({ length: 35 }).map((_, i) => <SkeletonBox key={i} className="h-16" />)}
       </div>
     </div>
   </div>
