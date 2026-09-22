@@ -10,6 +10,10 @@ import { getAttainmentStatus, STATUS_LABEL, STATUS_THRESHOLDS, STATUS_TOKEN, wit
 const pctColor = (pct: number) => `hsl(var(${STATUS_TOKEN[getAttainmentStatus(pct)]}))`;
 import type { EChartsOption } from "echarts";
 
+// Prefixos antigos da API de tela cheia (Safari/Firefox/IE)
+type FullscreenElement = HTMLElement & { webkitRequestFullscreen?: () => void; mozRequestFullScreen?: () => void; msRequestFullscreen?: () => void };
+type FullscreenDocument = Document & { webkitExitFullscreen?: () => void; mozCancelFullScreen?: () => void; msExitFullscreen?: () => void };
+
 // ─── Constants ─────────────────────────────────────────────────────────────────
 const SLIDE_DURATION_MS = 8000;
 
@@ -615,9 +619,9 @@ const TVMode = ({
     if (el) {
       try {
         if      (el.requestFullscreen)              el.requestFullscreen();
-        else if ((el as any).webkitRequestFullscreen) (el as any).webkitRequestFullscreen();
-        else if ((el as any).mozRequestFullScreen)    (el as any).mozRequestFullScreen();
-        else if ((el as any).msRequestFullscreen)     (el as any).msRequestFullscreen();
+        else if ((el as FullscreenElement).webkitRequestFullscreen) (el as FullscreenElement).webkitRequestFullscreen();
+        else if ((el as FullscreenElement).mozRequestFullScreen)    (el as FullscreenElement).mozRequestFullScreen();
+        else if ((el as FullscreenElement).msRequestFullscreen)     (el as FullscreenElement).msRequestFullscreen();
       } catch { /* browser may deny — silently ignore */ }
     }
 
@@ -663,9 +667,9 @@ const TVMode = ({
   function handleClose() {
     try {
       if      (document.exitFullscreen)               document.exitFullscreen();
-      else if ((document as any).webkitExitFullscreen)  (document as any).webkitExitFullscreen();
-      else if ((document as any).mozCancelFullScreen)   (document as any).mozCancelFullScreen();
-      else if ((document as any).msExitFullscreen)      (document as any).msExitFullscreen();
+      else if ((document as FullscreenDocument).webkitExitFullscreen)  (document as FullscreenDocument).webkitExitFullscreen();
+      else if ((document as FullscreenDocument).mozCancelFullScreen)   (document as FullscreenDocument).mozCancelFullScreen();
+      else if ((document as FullscreenDocument).msExitFullscreen)      (document as FullscreenDocument).msExitFullscreen();
     } catch { /* ignore */ }
     onClose();
   }

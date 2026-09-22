@@ -5,7 +5,9 @@
 export function sanitizeInput(value: string, maxLength = 200): string {
   if (!value) return "";
   return String(value)
+    // eslint-disable-next-line no-control-regex -- sanitização: remove caracteres de controle de propósito
     .replace(/[=+\-@\t\r\n\x00\xFF]/g, "")
+    // eslint-disable-next-line no-control-regex -- idem: caracteres de controle removidos de propósito
     .replace(/[\x01-\x08\x0B\x0C\x0E-\x1F]/g, "")
     .slice(0, maxLength)
     .trim();

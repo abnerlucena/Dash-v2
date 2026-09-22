@@ -67,7 +67,8 @@ const AlertConfigPanel = () => {
     try {
       await api("saveAlertConfig", { config }, user);
       toast.success("Configuração salva!");
-    } catch (e: any) {
+    } catch (err) {
+      const e = err as Error;
       toast.error(e.message || "Erro ao salvar.");
     }
     setSaving(false);
@@ -82,7 +83,8 @@ const AlertConfigPanel = () => {
     try {
       await api("testAlertEmail", {}, user);
       toast.success("E-mail de teste enviado!");
-    } catch (e: any) {
+    } catch (err) {
+      const e = err as Error;
       toast.error(e.message || "Erro ao enviar e-mail de teste.");
     }
     setTesting(false);

@@ -161,7 +161,8 @@ const ReportsTab = () => {
       toast.success(`${selectedIds.size} registro(s) excluído(s)`);
       setSelectedIds(new Set());
       setBulkAction(null);
-    } catch (e: any) {
+    } catch (err) {
+      const e = err as Error;
       toast.error(e.message || "Erro ao excluir registros");
     } finally {
       setBulkLoading(false);
@@ -178,7 +179,8 @@ const ReportsTab = () => {
       toast.success(`${selectedIds.size} registro(s) movido(s) para ${dispD(bulkMoveDate)}`);
       setSelectedIds(new Set());
       setBulkAction(null);
-    } catch (e: any) {
+    } catch (err) {
+      const e = err as Error;
       toast.error(e.message || "Erro ao mover registros");
     } finally {
       // Spinner some assim que o api() retorna — silentRefresh roda em background
@@ -196,7 +198,8 @@ const ReportsTab = () => {
       toast.success(`${selectedIds.size} registro(s) atualizados para ${bulkTurno}`);
       setSelectedIds(new Set());
       setBulkAction(null);
-    } catch (e: any) {
+    } catch (err) {
+      const e = err as Error;
       toast.error(e.message || "Erro ao editar turno");
     } finally {
       setBulkLoading(false);

@@ -82,7 +82,8 @@ const FeedbacksTab = () => {
       toast.success("Observação atualizada!");
       setEditingKey(null);
       setEditText("");
-    } catch (e: any) {
+    } catch (err) {
+      const e = err as Error;
       toast.error(e.message || "Erro ao salvar");
     } finally {
       // Spinner some assim que o api() retorna — silentRefresh roda em background
@@ -115,7 +116,8 @@ const FeedbacksTab = () => {
       ok = true;
       toast.success("Observação removida.");
       setDeletingKey(null);
-    } catch (e: any) {
+    } catch (err) {
+      const e = err as Error;
       toast.error(e.message || "Erro ao excluir");
     } finally {
       setSavingKey(null);

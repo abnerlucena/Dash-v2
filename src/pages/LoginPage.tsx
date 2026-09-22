@@ -43,7 +43,8 @@ const LoginPage = () => {
       }
       setAlert({ type: "success", msg: isLogin ? "Bem-vindo!" : "Conta criada com sucesso!" });
       setTimeout(() => navigate("/dashboard"), 600);
-    } catch (e: any) {
+    } catch (err) {
+      const e = err as Error;
       setAlert({ type: "error", msg: e.message || "Erro de conexão" });
     }
     setLoading(false);

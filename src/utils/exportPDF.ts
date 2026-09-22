@@ -256,7 +256,7 @@ export async function exportToPDF(
         }
       },
     });
-    cursorY = (doc as any).lastAutoTable?.finalY ?? cursorY;
+    cursorY = (doc as InstanceType<typeof jsPDF> & { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY ?? cursorY;
   }
 
   // ── Turnos breakdown table ────────────────────────────────────
@@ -297,7 +297,7 @@ export async function exportToPDF(
   }
 
   // ── Footer on each page ──────────────────────────────────────
-  const totalPages = (doc as any).internal.getNumberOfPages();
+  const totalPages = doc.getNumberOfPages();
   for (let p = 1; p <= totalPages; p++) {
     doc.setPage(p);
     doc.setFontSize(7);

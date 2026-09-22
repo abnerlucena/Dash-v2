@@ -46,7 +46,8 @@ const MetasTab = () => {
       setEditing(false);
       setEditValues({});
       toast.success("Metas salvas com sucesso!");
-    } catch (e: any) {
+    } catch (err) {
+      const e = err as Error;
       toast.error(e.message || "Erro ao salvar metas");
     } finally {
       setSaving(false);

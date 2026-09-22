@@ -84,7 +84,8 @@ const ExportModal = ({ open, onClose, format, records, filters, holidays }: Expo
         toast.success("PDF exportado com sucesso!");
         onClose();
       }
-    } catch (e: any) {
+    } catch (err) {
+      const e = err as Error;
       toast.error(e.message || "Erro ao exportar. Tente novamente.");
     } finally {
       setExporting(false);

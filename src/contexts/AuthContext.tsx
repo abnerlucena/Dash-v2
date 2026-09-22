@@ -47,9 +47,12 @@ const AuthContext = createContext<AuthContextType | null>(null);
 // When read back via getValues(), the date comes as a verbose string like
 // "Thu Apr 03 2026 00:00:00 GMT-0300" instead of "2026-04-03".
 // This function ensures dates are always in YYYY-MM-DD format.
-function normalizeHolidays(raw: any[]): Holiday[] {
-  return (raw || []).map((h: any) => {
-    let date = h.date ?? "";
+type RawRow = Record<string, unknown>;
+
+function normalizeHolidays(raw: unknown[]): Holiday[] {
+  return (raw || []).map((item) => {
+    const h = item as RawRow;
+    let date = String(h.date ?? "");
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
       // Google Sheets stores date strings as Date objects. When read back via getValues()
       // and serialized to JSON, they arrive as verbose strings like:
@@ -77,9 +80,10 @@ function normalizeHolidays(raw: any[]): Holiday[] {
 }
 
 // Normalize numeric fields — backend returns everything as strings
-function normalizeRecords(raw: any[]): ProdRecord[] {
+function normalizeRecords(raw: unknown[]): ProdRecord[] {
   return (raw || [])
-    .map((rec: any) => {
+    .map((item) => {
+      const rec = item as RawRow;
       // Parse ordensProducao — backend stores as JSON string
       let ordensProducao: OrdemProducao[] = [];
       if (rec.ordensProducao) {
@@ -88,7 +92,7 @@ function normalizeRecords(raw: any[]): ProdRecord[] {
             ? JSON.parse(rec.ordensProducao)
             : rec.ordensProducao;
           if (Array.isArray(parsed)) ordensProducao = parsed;
-        } catch {}
+        } catch { /* resposta inválida: mantém o valor anterior */ }
       }
       return {
         ...rec,
@@ -96,7 +100,7 @@ function normalizeRecords(raw: any[]): ProdRecord[] {
         meta:      Number(rec.meta)      || 0,
         producao:  Number(rec.producao)  || 0,
         ordensProducao,
-      };
+      } as unknown as ProdRecord;
     })
     .filter((rec: ProdRecord) => rec.machineId > 0 && rec.date);
 }
@@ -134,7 +138,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const r = await api("getMachines", {}, user);
       const list = (r.machines || r.allMachines || MACHINES_DEFAULT) as Machine[];
       setMachines(list.filter(m => m.status !== "inativo"));
-    } catch {}
+    } catch { /* resposta inválida: mantém o valor anterior */ }
   }, [user]);
 
   const refreshMetas = useCallback(async () => {
@@ -147,7 +151,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         saveCachedMetas(newMetas);
       }
       if (r.metasInfo) setMetasInfo(r.metasInfo as Record<number, MetaInfo>);
-    } catch {}
+    } catch { /* resposta inválida: mantém o valor anterior */ }
   }, [user]);
 
   const refreshHolidays = useCallback(async () => {
@@ -159,7 +163,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setHolidays(normalized);
         saveCachedHolidays(normalized);
       }
-    } catch {}
+    } catch { /* resposta inválida: mantém o valor anterior */ }
   }, [user]);
 
   // Full refresh — shows loading skeleton (use only when cache is empty)
@@ -171,7 +175,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const data = normalizeRecords(r.data);
       setRecords(data);
       saveCachedRecords(data);
-    } catch {}
+    } catch { /* resposta inválida: mantém o valor anterior */ }
     try {
       const rh = await api("getHolidays", {}, user);
       if (rh.holidays) {
@@ -179,7 +183,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setHolidays(normalized);
         saveCachedHolidays(normalized);
       }
-    } catch {}
+    } catch { /* resposta inválida: mantém o valor anterior */ }
     setLoading(false);
   }, [user]);
 
@@ -191,7 +195,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const data = normalizeRecords(r.data);
       setRecords(data);
       saveCachedRecords(data);
-    } catch {}
+    } catch { /* resposta inválida: mantém o valor anterior */ }
     try {
       const rh = await api("getHolidays", {}, user);
       if (rh.holidays) {
@@ -199,7 +203,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setHolidays(normalized);
         saveCachedHolidays(normalized);
       }
-    } catch {}
+    } catch { /* resposta inválida: mantém o valor anterior */ }
   }, [user]);
 
   // ── Initial load ──────────────────────────────────────────────
@@ -249,7 +253,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!user) return;
     try {
       await api("completeOnboarding", {}, user);
-    } catch {}
+    } catch { /* resposta inválida: mantém o valor anterior */ }
     setNeedsOnboarding(false);
   };
 

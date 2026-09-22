@@ -144,7 +144,8 @@ const ProductionEntry = () => {
       await api("upsert", { records }, user);
       saveOk = true;
       toast.success("Apontamento salvo com sucesso!");
-    } catch (e: any) {
+    } catch (err) {
+      const e = err as Error;
       toast.error(e.message || "Erro ao salvar");
     } finally {
       // Encerra o spinner imediatamente após o api() retornar — antes do silentRefresh
@@ -170,7 +171,8 @@ const ProductionEntry = () => {
   function toggleGroup(groupId: string) {
     setCollapsedGroups(prev => {
       const next = new Set(prev);
-      next.has(groupId) ? next.delete(groupId) : next.add(groupId);
+      if (next.has(groupId)) next.delete(groupId);
+      else next.add(groupId);
       return next;
     });
   }

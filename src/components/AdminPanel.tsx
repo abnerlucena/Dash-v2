@@ -17,6 +17,7 @@ interface AdminPanelProps {
 interface AdminUser {
   nome: string;
   status: string;
+  role?: string;
 }
 
 interface AdminMachine {
@@ -82,7 +83,7 @@ const AdminPanel = ({ onClose }: AdminPanelProps) => {
       const r = await api("toggleUser", { targetNome: nome }, user);
       setUsers(u => u.map(x => x.nome === nome ? { ...x, status: r.newStatus } : x));
       toast.success(`${nome} ${r.newStatus === "ativo" ? "ativado" : "bloqueado"}.`);
-    } catch (e: any) { toast.error(e.message); }
+    } catch (e) { toast.error((e as Error).message); }
   }
 
   async function createUser() {
@@ -94,7 +95,7 @@ const AdminPanel = ({ onClose }: AdminPanelProps) => {
       setCNome(""); setCSenha("");
       const r = await api("listUsers", {}, user);
       setUsers(r.users || []);
-    } catch (e: any) { toast.error(e.message); }
+    } catch (e) { toast.error((e as Error).message); }
     setCreating(false);
   }
 
@@ -104,7 +105,7 @@ const AdminPanel = ({ onClose }: AdminPanelProps) => {
       await api("resetPassword", { targetNome: rTarget, novaSenha: newPw }, user);
       toast.success(`Senha de "${rTarget}" redefinida.`);
       setRTarget(""); setNewPw("");
-    } catch (e: any) { toast.error(e.message); }
+    } catch (e) { toast.error((e as Error).message); }
   }
 
   async function addMachine() {
@@ -117,7 +118,7 @@ const AdminPanel = ({ onClose }: AdminPanelProps) => {
       const r = await api("getMachines", {}, user);
       setAllMachines(r.allMachines || r.machines || []);
       refreshMachines();
-    } catch (e: any) { toast.error(e.message); }
+    } catch (e) { toast.error((e as Error).message); }
     setMAdding(false);
   }
 
@@ -127,7 +128,7 @@ const AdminPanel = ({ onClose }: AdminPanelProps) => {
       setAllMachines(prev => prev.map(m => m.id === mId ? { ...m, status: r.newStatus } : m));
       toast.success(`Máquina ${r.newStatus === "ativo" ? "ativada" : "desativada"}.`);
       refreshMachines();
-    } catch (e: any) { toast.error(e.message); }
+    } catch (e) { toast.error((e as Error).message); }
   }
 
   async function generateInvite() {
@@ -136,7 +137,7 @@ const AdminPanel = ({ onClose }: AdminPanelProps) => {
       const r = await api("generateInviteCode", {}, user);
       setInviteCode(r.code);
       toast.success("Código de convite gerado!");
-    } catch (e: any) { toast.error(e.message); }
+    } catch (e) { toast.error((e as Error).message); }
     setInviteLoading(false);
   }
 
@@ -151,7 +152,7 @@ const AdminPanel = ({ onClose }: AdminPanelProps) => {
       const r = await api("getHolidays", {}, user);
       setHolidaysList(r.holidays || []);
       refreshHolidays();
-    } catch (e: any) { toast.error(e.message); }
+    } catch (e) { toast.error((e as Error).message); }
     setHAdding(false);
   }
 
@@ -161,7 +162,7 @@ const AdminPanel = ({ onClose }: AdminPanelProps) => {
       toast.success("Feriado removido.");
       setHolidaysList(prev => prev.filter(h => h.id !== id));
       refreshHolidays();
-    } catch (e: any) { toast.error(e.message); }
+    } catch (e) { toast.error((e as Error).message); }
   }
 
   const tabCls = (key: string) =>
@@ -309,7 +310,7 @@ const AdminPanel = ({ onClose }: AdminPanelProps) => {
                       </tr>
                     </thead>
                     <tbody>
-                      {allMachines.map((m: any, i: number) => (
+                      {allMachines.map((m: AdminMachine, i: number) => (
                         <tr key={m.id} className="border-b border-border/50" style={{ opacity: m.status === "inativo" ? 0.5 : 1 }}>
                           <td className="px-3 py-2 text-muted-foreground text-xs">{m.id}</td>
                           <td className="px-3 py-2 font-semibold text-foreground text-xs">{m.name}</td>
