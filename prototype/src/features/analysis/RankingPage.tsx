@@ -13,7 +13,7 @@ import {
   type Machine,
   type Shift,
 } from "@/data/machines";
-import { cn, formatDecimal, formatNumber } from "@/lib/utils";
+import { cn, formatDecimal, formatNumber, plural } from "@/lib/utils";
 import { DataTable, type Column } from "@/components/data/DataTable";
 import { PageBody, PageHeader } from "@/components/layout/PageHeader";
 import { FilterPill } from "@/components/ui/FilterPill";
@@ -197,7 +197,7 @@ export function RankingPage() {
           getRowId={(r) => r.machine.id}
           getRowLabel={(r) => `${r.position}º, ${r.machine.name}, ${display(metric, r.value)}`}
           selectable={false}
-          footerLead={`${ranked.length} máquinas`}
+          footerLead={plural(ranked.length, "máquina", "máquinas")}
         />
       </PageBody>
     </>

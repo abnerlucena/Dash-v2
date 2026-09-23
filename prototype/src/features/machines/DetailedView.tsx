@@ -32,7 +32,6 @@ export function DetailedView({ rows, state, activeId, onRowActivate, emptyState,
     {
       id: "name",
       header: "Máquina",
-      sticky: true,
       className: "min-w-column-name",
       cell: (m) => <span className="font-medium text-default">{m.name}</span>,
       skeleton: <Skeleton className="h-150 w-1000" />,

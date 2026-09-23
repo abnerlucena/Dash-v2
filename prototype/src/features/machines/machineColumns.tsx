@@ -22,7 +22,6 @@ export function machineColumns({ onOpenOrders, onAction, totals }: ColumnOptions
       id: "name",
       header: "Máquina",
       sortable: true,
-      sticky: true,
       className: "min-w-column-name",
       cell: (m) => <span className="font-medium text-default">{m.name}</span>,
       skeleton: <Skeleton className="h-150 w-1000 xs:w-full" />,

@@ -95,4 +95,7 @@ export async function saveFile(filename: string, data: Blob): Promise<"saved" | 
   return "saved";
 }
 
+/** "1 máquina", "6 máquinas" */
+export const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+
 export const clamp = (n: number, min: number, max: number) => Math.min(Math.max(n, min), max);

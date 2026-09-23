@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { SHIFTS, SHIFT_META, STATUS_META, shiftTotals, statusFor, type Machine, type Shift } from "@/data/machines";
-import { cn, formatNumber } from "@/lib/utils";
+import { cn, formatNumber, plural } from "@/lib/utils";
 import { Legend } from "@/components/data/Chart";
 import { DataTable, type Column, type TableState } from "@/components/data/DataTable";
 import { KpiStrip, type KpiItem } from "@/components/data/KpiStrip";
@@ -88,7 +88,6 @@ export function ShiftsView({ machines, state, focus, activeId, onRowActivate, em
     {
       id: "name",
       header: "Máquina",
-      sticky: true,
       className: "min-w-column-name",
       cell: (m) => <span className="font-medium text-default">{m.name}</span>,
       skeleton: <Skeleton className="h-150 w-1000" />,
@@ -137,7 +136,7 @@ export function ShiftsView({ machines, state, focus, activeId, onRowActivate, em
           selectable={false}
           activeRowId={activeId}
           onRowActivate={onRowActivate}
-          footerLead={`${machines.length} máquinas`}
+          footerLead={plural(machines.length, "máquina", "máquinas")}
           emptyState={emptyState}
           errorState={errorState}
         />

@@ -15,7 +15,7 @@ import {
   type Shift,
   type Status,
 } from "@/data/machines";
-import { formatDecimal, formatNumber, readToken } from "@/lib/utils";
+import { formatDecimal, formatNumber, plural, readToken } from "@/lib/utils";
 import { DataTable, type SortState, type TableState } from "@/components/data/DataTable";
 import { KpiStrip, type KpiItem } from "@/components/data/KpiStrip";
 import { Button } from "@/components/ui/Button";
@@ -193,7 +193,7 @@ export function MachinesPage({
     setExporting(true);
     window.setTimeout(() => {
       setExporting(false);
-      notify("Exportação pronta", `${rows.length} máquinas · março de 2026 (.xlsx)`);
+      notify("Exportação pronta", `${plural(rows.length, "máquina", "máquinas")} · março de 2026 (.xlsx)`);
     }, readToken("--ds-motion-duration-skeleton") / 2);
   };
 
@@ -362,7 +362,7 @@ export function MachinesPage({
           )}
           {tableState === "ready" && (
             <p aria-live="polite" className="ml-auto font-body-small text-subtlest">
-              {rows.length === pool.length ? `${rows.length} ${rows.length === 1 ? "máquina" : "máquinas"}` : `${rows.length} de ${pool.length} máquinas`}
+              {rows.length === pool.length ? plural(rows.length, "máquina", "máquinas") : `${rows.length} de ${pool.length} máquinas`}
             </p>
           )}
         </div>
@@ -389,7 +389,7 @@ export function MachinesPage({
                   {selected.size} de {rows.length} selecionadas
                 </span>
               ) : (
-                `${rows.length} máquinas`
+                plural(rows.length, "máquina", "máquinas")
               )
             }
             emptyState={emptyState}
@@ -430,7 +430,7 @@ export function MachinesPage({
             isRefetching={periodLoading}
             activeId={activeId}
             onSelect={openPanel}
-            scopeLabel={`${rows.length === pool.length ? (groupId ? `todas as máquinas da linha` : "todas as máquinas") : `${rows.length} máquinas`}${shiftLabel ? ` no ${shiftLabel.toLowerCase()}` : ""}`}
+            scopeLabel={`${rows.length === pool.length ? (groupId ? `todas as máquinas da linha` : "todas as máquinas") : plural(rows.length, "máquina", "máquinas")}${shiftLabel ? ` no ${shiftLabel.toLowerCase()}` : ""}`}
             replacement={
               demoState === "error" ? (
                 errorState

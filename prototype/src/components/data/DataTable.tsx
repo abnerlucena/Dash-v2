@@ -17,8 +17,6 @@ export interface Column<T> {
   srHeader?: string;
   align?: "start" | "end";
   sortable?: boolean;
-  /** Primeira coluna de dados: fica fixa à esquerda ao rolar na horizontal */
-  sticky?: boolean;
   className?: string;
   cell: (row: T) => ReactNode;
   footer?: ReactNode;
@@ -51,8 +49,9 @@ interface DataTableProps<T> {
 /*
  * Tabela densa: linhas de 36px, cabeçalho em font.body.small/text.subtlest,
  * hover background.neutral.subtle.hovered, selecionada background.selected.
- * Container com radius.xlarge. Colunas fixas usam uma camada opaca
- * (surface) + a cor de estado da linha por cima, para não "vazar" conteúdo.
+ * Container com radius.xlarge. Nenhuma coluna é fixa: ao rolar na
+ * horizontal (mobile), a tabela inteira anda junto; a sombra na borda
+ * direita indica que há mais colunas.
  */
 const EMPTY = new Set<string>();
 
@@ -75,15 +74,13 @@ export function DataTable<T>({
   footerLead,
   skeletonRows = 6,
 }: DataTableProps<T>) {
-  const [scrolledX, setScrolledX] = useState(false);
   const [moreRight, setMoreRight] = useState(false);
   const scrollerRef = useRef<HTMLDivElement>(null);
 
-  // Sombra de overflow nas bordas enquanto houver conteúdo escondido
+  // Sombra de overflow na borda direita enquanto houver colunas escondidas
   const measure = () => {
     const el = scrollerRef.current;
     if (!el) return;
-    setScrolledX(el.scrollLeft > 0);
     setMoreRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 1);
   };
   useEffect(() => {
@@ -130,17 +127,7 @@ export function DataTable<T>({
     }
   };
 
-  const stickyClass = (col: Column<T> | "select") =>
-    col === "select"
-      ? "sticky left-0 z-sticky w-500 bg-surface p-0"
-      : col.sticky
-        ? cn(
-            "clip-shadow-right sticky z-sticky bg-surface",
-            selectable ? "left-500" : "left-0",
-            " transition-shadow duration-hover ease-out",
-            scrolledX ? "shadow-overflow" : "shadow-none",
-          )
-        : "";
+  const selectCell = "w-500 p-0";
 
   const alignClass = (col: Column<T>) => (col.align === "end" ? "text-right" : "text-left");
 
@@ -155,7 +142,7 @@ export function DataTable<T>({
           <thead>
             <tr className="h-row-header">
               {selectable && (
-              <th scope="col" className={stickyClass("select")}>
+              <th scope="col" className={selectCell}>
                 <span className="flex w-500 justify-center">
                 <Checkbox
                   label="Selecionar todas as linhas"
@@ -178,7 +165,6 @@ export function DataTable<T>({
                       "whitespace-nowrap px-100 font-body-small font-medium text-subtlest",
                       alignClass(col),
                       !selectable && i === 0 && "pl-200",
-                      stickyClass(col),
                       col.className,
                     )}
                   >
@@ -221,14 +207,14 @@ export function DataTable<T>({
               Array.from({ length: skeletonRows }, (_, r) => (
                 <tr key={r} className="h-row border-t">
                   {selectable && (
-                    <td className={stickyClass("select")}>
+                    <td className={selectCell}>
                       <span className="flex w-500 justify-center">
                         <Skeleton className="size-checkbox rounded-xsmall" />
                       </span>
                     </td>
                   )}
                   {columns.map((col, i) => (
-                    <td key={col.id} className={cn("px-100", !selectable && i === 0 && "pl-200", stickyClass(col))}>
+                    <td key={col.id} className={cn("px-100", !selectable && i === 0 && "pl-200")}>
                       <span className={cn("flex", col.align === "end" && "justify-end")}>
                         {col.skeleton ?? <Skeleton className="h-150 w-1000" />}
                       </span>
@@ -256,7 +242,10 @@ export function DataTable<T>({
                 const id = getRowId(row);
                 const isSelected = selectedIds.has(id);
                 const isActive = activeRowId === id;
-                const stateBg = isSelected || isActive ? "bg-selected" : "group-hover/row:bg-neutral-subtle-hovered";
+                // Marca à esquerda da linha aberta no painel
+                const activeMark = isActive && (
+                  <span aria-hidden className="absolute inset-y-0 left-0 w-splitter-line bg-icon-brand" />
+                );
                 return (
                   <tr
                     key={id}
@@ -273,13 +262,9 @@ export function DataTable<T>({
                     )}
                   >
                     {selectable && (
-                    <td
-                      className={cn("relative", stickyClass("select"))}
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <span aria-hidden className={cn("absolute inset-0 transition-colors duration-hover ease-out", stateBg)} />
-                      {isActive && <span aria-hidden className="absolute inset-y-0 left-0 w-splitter-line bg-icon-brand" />}
-                      <span className="relative flex w-500 justify-center">
+                    <td className={cn("relative", selectCell)} onClick={(e) => e.stopPropagation()}>
+                      {activeMark}
+                      <span className="flex w-500 justify-center">
                         <Checkbox
                           label={`Selecionar ${getRowLabel(row)}`}
                           checked={isSelected}
@@ -294,19 +279,12 @@ export function DataTable<T>({
                         className={cn(
                           "whitespace-nowrap px-100",
                           alignClass(col),
-                          !selectable && i === 0 && "pl-200",
-                          col.sticky && "relative",
-                          stickyClass(col),
+                          !selectable && i === 0 && "relative pl-200",
                           col.className,
                         )}
                       >
-                        {col.sticky && (
-                          <span aria-hidden className={cn("absolute inset-0 transition-colors duration-hover ease-out", stateBg)} />
-                        )}
-                        {!selectable && i === 0 && isActive && (
-                          <span aria-hidden className="absolute inset-y-0 left-0 w-splitter-line bg-icon-brand" />
-                        )}
-                        <span className={cn(col.sticky && "relative")}>{col.cell(row)}</span>
+                        {!selectable && i === 0 && activeMark}
+                        {col.cell(row)}
                       </td>
                     ))}
                   </tr>
@@ -317,7 +295,7 @@ export function DataTable<T>({
           {isReady && (
             <tfoot>
               <tr className="h-row border-t bg-surface-sunken">
-                {selectable && <td className="sticky left-0 z-sticky w-500 bg-surface-sunken p-0" />}
+                {selectable && <td className={selectCell} />}
                 {columns.map((col, i) => (
                   <td
                     key={col.id}
@@ -325,8 +303,6 @@ export function DataTable<T>({
                       "whitespace-nowrap px-100 font-body-small text-subtle",
                       alignClass(col),
                       !selectable && i === 0 && "pl-200",
-                      col.sticky && "sticky z-sticky bg-surface-sunken",
-                      col.sticky && (selectable ? "left-500" : "left-0"),
                     )}
                   >
                     {i === 0 ? footerLead : col.footer}

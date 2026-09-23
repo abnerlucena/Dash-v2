@@ -127,7 +127,6 @@ export function HistoryPage({ notify }: { notify: Notify }) {
     {
       id: "machine",
       header: "Máquina",
-      sticky: true,
       className: "min-w-column-name",
       cell: (o) => <span className="font-medium text-default">{machineById(o.machineId).name}</span>,
     },
