@@ -27,7 +27,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
-import { SHIFTS, SHIFT_META, type Shift } from "@/data/machines";
+import { INITIAL_UNREAD, SHIFTS, SHIFT_META, type Shift } from "@/data/machines";
 import { SHIFT_FILL } from "@/components/data/StackedBar";
 import { Lozenge } from "@/components/ui/Lozenge";
 import { AppRoot, Banner, Main } from "@/components/layout/AppRoot";
@@ -62,6 +62,10 @@ import { MetasPage } from "@/features/metas/MetasPage";
 import { HistoryPage } from "@/features/history/HistoryPage";
 import { RankingPage } from "@/features/analysis/RankingPage";
 import { ReworkPage } from "@/features/analysis/ReworkPage";
+import { FeedbacksPage } from "@/features/feedbacks/FeedbacksPage";
+import { ReportsPage } from "@/features/reports/ReportsPage";
+import { TvMode } from "@/features/tv/TvMode";
+import { HelpPage } from "@/features/help/HelpPage";
 import { useColorMode, type ColorModePreference } from "@/lib/hooks";
 import { cn, readToken, storageGet, storageSet, type Notify } from "@/lib/utils";
 
@@ -73,7 +77,7 @@ const NAV_MAIN: NavEntry[] = [
   { id: "apontamento", label: "Apontamento", icon: ClipboardList },
   { id: "historico", label: "Histórico", icon: History },
   { id: "metas", label: "Metas", icon: Target },
-  { id: "feedbacks", label: "Feedbacks", icon: MessageSquare, count: 12 },
+  { id: "feedbacks", label: "Feedbacks", icon: MessageSquare },
   { id: "relatorios", label: "Relatórios", icon: FileText },
 ];
 const NAV_SECTIONS: Array<{ title: string; items: NavEntry[] }> = [
@@ -156,6 +160,15 @@ export default function App() {
   const [flags, setFlags] = useState<FlagData[]>([]);
   const [bannerOpen, setBannerOpen] = useState(() => !storageGet("dash-proto.banner.dismissed", false));
   const flagId = useRef(0);
+  // Feedbacks não lidos: o contador do menu acompanha
+  const [unread, setUnread] = useState<Set<string>>(() => new Set(INITIAL_UNREAD));
+  const setRead = useCallback((ids: string[], read: boolean) => {
+    setUnread((prev) => {
+      const next = new Set(prev);
+      ids.forEach((id) => (read ? next.delete(id) : next.add(id)));
+      return next;
+    });
+  }, []);
 
   const notify = useCallback<Notify>((title, description, appearance = "success", action) => {
     setFlags((f) => [...f.slice(-2), { id: ++flagId.current, title, description, appearance, action }]);
@@ -170,6 +183,14 @@ export default function App() {
   }, [demoState]);
 
   const plantLabel = PLANTS.find((p) => p.id === plant)?.label ?? "";
+
+  // Modo TV ocupa a tela inteira, sem navegação
+  if (route === "tv")
+    return (
+      <TooltipProvider>
+        <TvMode onExit={() => (window.location.hash = "/dashboard")} />
+      </TooltipProvider>
+    );
   const current = ALL_NAV.find((n) => n.id === route);
 
   return (
@@ -209,7 +230,14 @@ export default function App() {
             <SideNavBody>
               <SideNavSection>
                 {NAV_MAIN.map((n) => (
-                  <SideNavItem key={n.id} href={`#/${n.id}`} label={n.label} icon={n.icon} count={n.count} isCurrent={route === n.id} />
+                  <SideNavItem
+                    key={n.id}
+                    href={`#/${n.id}`}
+                    label={n.label}
+                    icon={n.icon}
+                    count={n.id === "feedbacks" && unread.size > 0 ? unread.size : undefined}
+                    isCurrent={route === n.id}
+                  />
                 ))}
               </SideNavSection>
               {NAV_SECTIONS.map((section) => (
@@ -256,6 +284,12 @@ export default function App() {
             <RankingPage />
           ) : route === "retrabalho" ? (
             <ReworkPage />
+          ) : route === "feedbacks" ? (
+            <FeedbacksPage unread={unread} onReadChange={setRead} notify={notify} />
+          ) : route === "relatorios" ? (
+            <ReportsPage notify={notify} />
+          ) : route === "ajuda" ? (
+            <HelpPage notify={notify} />
           ) : (
             <div className="px-200 pt-300 m:px-400">
               <h1 className="font-heading-large text-default">{current?.label ?? "Página não encontrada"}</h1>

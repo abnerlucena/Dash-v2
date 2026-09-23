@@ -162,6 +162,7 @@ const fontTokens = [
   "metric-small",
   "code",
 ];
+const TV_FONTS = ["tv-hero", "tv-metric", "tv-title", "tv-body"];
 const TIGHT = new Set(["heading-xxlarge", "heading-xlarge", "heading-large", "metric-large", "metric-medium"]);
 
 export default {
@@ -293,6 +294,7 @@ export default {
       gridTemplateColumns: {
         // nome da máquina | trilho da barra
         attainment: "minmax(0, var(--dash-size-column-name)) minmax(0, 1fr) var(--dash-size-attainment-value)",
+        tv: "minmax(0, var(--dash-size-tv-label)) minmax(0, 1fr) var(--dash-size-tv-value)",
       },
       transformOrigin: {
         menu: "var(--radix-dropdown-menu-content-transform-origin)",
@@ -336,6 +338,7 @@ export default {
         "ds-fade-out": { from: { opacity: "1" }, to: { opacity: "0" } },
         "ds-skeleton": { "0%, 100%": { opacity: "1" }, "50%": { opacity: "var(--ds-opacity-loading-pulse)" } },
         "ds-spin": { to: { transform: "rotate(360deg)" } },
+        "ds-progress": { from: { transform: "scaleX(0)" }, to: { transform: "scaleX(1)" } },
       },
       animation: {
         "menu-in": "ds-menu-in var(--ds-motion-duration-menu) var(--ds-motion-easing-out)",
@@ -348,6 +351,7 @@ export default {
         "fade-out": "ds-fade-out var(--ds-motion-duration-hover) var(--ds-motion-easing-out) both",
         skeleton: "ds-skeleton var(--ds-motion-duration-skeleton) ease-in-out infinite",
         spin: "ds-spin var(--ds-motion-duration-spin) linear infinite",
+        "tv-progress": "ds-progress var(--dash-tv-slide-duration) linear both",
       },
     },
   },
@@ -367,6 +371,11 @@ export default {
               letterSpacing: TIGHT.has(t) ? v("ds-font-tracking-tight") : v("ds-font-tracking-normal"),
             },
           ]),
+        ),
+      );
+      addUtilities(
+        Object.fromEntries(
+          TV_FONTS.map((t) => [`.font-${t}`, { font: v(`dash-font-${t}`), letterSpacing: v("ds-font-tracking-tight") }]),
         ),
       );
       addUtilities(

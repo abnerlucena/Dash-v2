@@ -14,7 +14,16 @@ export const BURNUP_LEGEND: LegendItem[] = [
  * Linha do acumulado do mês contra a meta acumulada (burn-up).
  * Crosshair encaixa no dia útil mais próximo; setas ← → percorrem os dias.
  */
-export function BurnupChart({ series, label }: { series: Point[]; label: string }) {
+export function BurnupChart({
+  series,
+  label,
+  heightClass = "h-chart-large",
+}: {
+  series: Point[];
+  label: string;
+  /** altura do gráfico (token de tamanho); o Modo TV usa h-full */
+  heightClass?: string;
+}) {
   const [ref, { width, height }] = useElementSize<HTMLDivElement>();
   const [active, setActive] = useState<number | null>(null);
 
@@ -71,7 +80,7 @@ export function BurnupChart({ series, label }: { series: Point[]; label: string 
       aria-label={`${summary} Use as setas para percorrer os dias.`}
       onKeyDown={onKeyDown}
       onBlur={() => setActive(null)}
-      className="relative h-chart-large w-full rounded-medium focus-visible:outline-offset-inset"
+      className={cn("relative w-full rounded-medium focus-visible:outline-offset-inset", heightClass)}
     >
       {width > 0 && (
         <svg

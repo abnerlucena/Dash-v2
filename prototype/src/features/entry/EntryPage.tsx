@@ -215,8 +215,9 @@ export function EntryPage({ notify }: EntryPageProps) {
               iconOnly={false}
               value={String(shift)}
               onChange={(v) => switchContext({ date, shift: Number(v) as Shift })}
-              options={SHIFTS.map((s) => ({ value: String(s), label: `${SHIFT_META[s].label} · ${SHIFT_META[s].hours}` }))}
+              options={SHIFTS.map((s) => ({ value: String(s), label: SHIFT_META[s].label }))}
             />
+            <span className="font-body-small text-subtlest">{SHIFT_META[shift].hours}</span>
           </div>
           <TextField
             label="Filtrar máquinas"
@@ -383,7 +384,7 @@ function MachineEntryRow({
                 onChange={(e) => setRow(r.key, { op: e.target.value.replace(/\D/g, "").slice(0, 7) })}
                 error={showErrors || r.op.length >= 7 || (r.qty && !r.op) ? errors.op : null}
                 inputClassName="font-code"
-                className="w-field-op flex-1 s:flex-none"
+                className="w-field-op flex-1 basis-field-op s:flex-none"
               />
               <TextField
                 label="Quantidade"
@@ -396,7 +397,7 @@ function MachineEntryRow({
                 error={errors.qty}
                 elemAfter="un."
                 inputClassName="text-right tabular-nums"
-                className="w-field-quantity flex-1 s:flex-none"
+                className="w-field-quantity flex-1 basis-field-quantity s:flex-none"
               />
               <label className={cn("flex h-control items-center gap-075 font-body text-subtle", i === 0 && "s:mt-250")}>
                 <Checkbox

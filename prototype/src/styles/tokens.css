@@ -93,6 +93,15 @@
 
   --ds-font-code: var(--ds-font-weight-regular) 0.8125rem / 1.25rem var(--ds-font-family-code);
 
+  /* Modo TV: leitura a distância (telão no chão de fábrica) */
+  --dash-font-tv-hero: var(--ds-font-weight-bold) 5rem / 5rem var(--ds-font-family-body);
+  --dash-font-tv-metric: var(--ds-font-weight-bold) 3rem / 3.25rem var(--ds-font-family-body);
+  --dash-font-tv-title: var(--ds-font-weight-bold) 2rem / 2.25rem var(--ds-font-family-heading);
+  --dash-font-tv-body: var(--ds-font-weight-medium) 1.375rem / 1.75rem var(--ds-font-family-body);
+  --dash-tv-slide-duration: 12s;
+  --dash-size-tv-label: 30rem; /* coluna de nomes no Modo TV */
+  --dash-size-tv-value: 20rem; /* coluna de valor + status no Modo TV */
+
   /* ---------- Motion [inferido — página de motion do ADS não analisada] ---------- */
   --ds-motion-duration-press: 100ms;
   --ds-motion-duration-hover: 150ms;

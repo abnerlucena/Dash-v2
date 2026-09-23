@@ -12,14 +12,14 @@ mkdirSync(OUT, { recursive: true });
 
 const browser = await chromium.launch();
 
-async function shot(name, { width = 1440, height = 900, scheme = "light", storage = {}, act } = {}) {
+async function shot(name, { width = 1440, height = 900, scheme = "light", storage = {}, act, route } = {}) {
   const context = await browser.newContext({ viewport: { width, height }, colorScheme: scheme, deviceScaleFactor: 1 });
   await context.addInitScript((s) => {
     for (const [k, v] of Object.entries(s)) localStorage.setItem(k, JSON.stringify(v));
   }, { "dash-proto.banner.dismissed": true, ...storage });
   const page = await context.newPage();
-  await page.goto(URL);
-  await page.waitForSelector("table");
+  await page.goto(route ? `${URL}#/${route}` : URL);
+  await page.waitForSelector(route ? "main, [data-color-mode]" : "table");
   await page.evaluate(() => document.fonts.ready);
   if (act) await act(page);
   await page.waitForTimeout(400);
@@ -141,5 +141,35 @@ await shot("25-graficos-painel", {
     await page.getByRole("button", { name: /^HORIZONTAL 1: .*Abrir ordens/ }).click();
   },
 });
+
+/* ---------- Páginas do menu ---------- */
+await shot("26-apontamento", { route: "apontamento", height: 1100 });
+await shot("27-apontamento-validacao-escuro", {
+  route: "apontamento",
+  height: 1100,
+  scheme: "dark",
+  act: async (page) => {
+    await page.getByRole("textbox", { name: /Quantidade, linha 1, HORIZONTAL 1/ }).fill("5200");
+    await page.getByRole("button", { name: "Salvar apontamento" }).click();
+  },
+});
+await shot("28-metas-edicao", {
+  route: "metas",
+  height: 1100,
+  act: async (page) => {
+    await page.getByRole("button", { name: "Editar metas" }).click();
+    await page.getByRole("textbox", { name: "Meta por turno de HORIZONTAL 1" }).fill("7500");
+  },
+});
+await shot("29-historico", { route: "historico" });
+await shot("30-ranking", { route: "ranking" });
+await shot("31-retrabalho", { route: "retrabalho", height: 1300 });
+await shot("32-feedbacks", { route: "feedbacks", height: 1000 });
+await shot("33-relatorios", { route: "relatorios", height: 1250 });
+await shot("34-modo-tv", { route: "tv", width: 1920, height: 1080, act: async (page) => page.keyboard.press(" ") });
+await shot("35-ajuda", { route: "ajuda", height: 1300 });
+await shot("36-linha-granel", { route: "linha-granel" });
+await shot("37-turno-3-escuro", { route: "turno-3", scheme: "dark" });
+await shot("38-mobile-apontamento", { route: "apontamento", width: 390, height: 1200 });
 
 await browser.close();

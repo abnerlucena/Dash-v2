@@ -1,6 +1,6 @@
 # Dash de Produção — protótipo de interface
 
-Protótipo de alta fidelidade da tela **Máquinas**, construído sobre um sistema de
+Protótipo de alta fidelidade do **Dash de Produção** (todas as páginas do menu), construído sobre um sistema de
 tokens derivado do Atlassian Design System (fundações → componentes → padrões),
 com a marca WEG. Fica isolado do app em produção: Vite, Tailwind e tokens próprios,
 reaproveitando os `node_modules` da raiz.
@@ -23,10 +23,14 @@ prototype/
 ├── tailwind.config.ts        ← mapeamento Tailwind → tokens (substitui a escala padrão)
 ├── src/components/layout/    ← AppRoot, TopNav (+slots), SideNav (+Header/Body/Footer,
 │                               item, seção, splitter, toggle, flyout), Main, Panel
-├── src/components/data/      ← KpiStrip, DataTable, SegmentedBar, Sparkline
+├── src/components/data/      ← KpiStrip, DataTable, SegmentedBar, Sparkline, gráficos,
+│                               BarList, MonthCalendar, HeatCell, StackedBar
 ├── src/components/ui/        ← Button, IconButton, Lozenge, Tag, FilterPill, Menu,
-│                               Tooltip, Checkbox, Skeleton, EmptyState, ErrorMessage, Flag
-├── src/features/machines/    ← página Máquinas, colunas da tabela, painel de ordens
+│                               Tooltip, Checkbox, Skeleton, EmptyState, ErrorMessage, Flag,
+│                               TextField, TextArea, Modal, SegmentedControl
+├── src/features/            ← páginas: machines (Dashboard, Linhas, Turnos), entry
+│                               (Apontamento), history, metas, feedbacks, reports,
+│                               analysis (Ranking, Retrabalho), tv, help
 └── screenshots/              ← capturas dos estados (claro, escuro, flyout, mobile…)
 ```
 
@@ -42,6 +46,22 @@ prototype/
   `bg-blue-500` ou `p-4` não geram CSS. Todo valor novo entra primeiro no `tokens.css`.
 - Tema: `data-color-mode="light|dark"` no `<html>`. Os componentes nunca mudam.
   O escuro deriva do azul-marinho WEG, e as superfícies mais altas são mais claras.
+
+## Páginas
+
+| Menu | O que faz |
+| --- | --- |
+| Dashboard | Tela Máquinas (abas abaixo) |
+| Apontamento | Data + turno, máquinas por linha, várias OPs por máquina, retrabalho, observação, validação e Ctrl+S |
+| Histórico | Calendário do mês no tom do status; editar, mover, alterar turno e excluir (em lote), com Desfazer |
+| Metas | Meta por turno × turnos ativos × dias úteis; edição em lote com vigência futura e confirmação |
+| Feedbacks | Observações dos operadores; lido/não lido (o contador do menu acompanha), editar e excluir |
+| Relatórios | Montador (tipo, período, máquinas, turnos, formato, seções) com pré-visualização; CSV real |
+| Linhas / Turnos | A tela Máquinas com recorte fixo por linha ou por turno |
+| Ranking | Posição por atingimento, produção, apontamento ou retrabalho, com movimento da semana |
+| Retrabalho | Taxa por máquina (limite de 10%), motivos e lista de OPs |
+| Modo TV | Tela cheia, tema escuro, slides com rotação (← → Espaço F Esc) |
+| Ajuda | Perguntas frequentes com busca, atalhos, legenda de status e suporte |
 
 ## Abas da tela Máquinas
 

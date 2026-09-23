@@ -35,7 +35,7 @@ export function SegmentedControl({ label, value, options, onChange, iconOnly = t
   };
 
   return (
-    <div role="radiogroup" aria-label={label} className="inline-flex shrink-0 gap-025 rounded-medium bg-neutral p-025">
+    <div role="radiogroup" aria-label={label} className="inline-flex w-fit shrink-0 gap-025 rounded-medium bg-neutral p-025">
       {options.map((o, i) => {
         const selected = o.value === value;
         const Icon = o.icon;

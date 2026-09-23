@@ -298,6 +298,12 @@ function buildMachine(raw: (typeof RAW)[number], index: number): Machine {
       const operator = operators[Math.floor(extra() * operators.length)];
       const minutes = 20 + Math.floor(extra() * 35);
       const noteRoll = extra();
+      const reworkReason = rework ? REWORK_REASONS[Math.floor(extra() * REWORK_REASONS.length)] : null;
+      const REWORK_NOTES = [
+        "peças separadas e identificadas na caixa.",
+        "lote segregado para inspeção da qualidade.",
+        "retrabalho feito no próprio turno.",
+      ];
       const id = `OP ${4501000 + index * 997 + seq++ * 13}`;
       orders.push({
         id,
@@ -307,7 +313,7 @@ function buildMachine(raw: (typeof RAW)[number], index: number): Machine {
         product,
         quantity: quantities[i],
         rework,
-        reworkReason: rework ? REWORK_REASONS[Math.floor(extra() * REWORK_REASONS.length)] : null,
+        reworkReason,
         operator,
         recordedAt: new Date(YEAR, MONTH, date.getDate(), SHIFT_END_HOUR[shift], minutes),
         note:
@@ -315,7 +321,7 @@ function buildMachine(raw: (typeof RAW)[number], index: number): Machine {
             ? {
                 id: `n-${id}`,
                 text: rework
-                  ? "Peças separadas para retrabalho; lote identificado na caixa."
+                  ? `${reworkReason}: ${REWORK_NOTES[Math.floor(noteRoll * 3)]}`
                   : NOTES[Math.floor(noteRoll * 33) % NOTES.length],
                 author: operator,
               }
