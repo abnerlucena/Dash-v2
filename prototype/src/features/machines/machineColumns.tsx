@@ -96,27 +96,25 @@ export function machineColumns({ onOpenOrders, onAction, totals }: ColumnOptions
     {
       id: "trend",
       header: "Tendência",
-      srHeader: " (últimos 14 dias)",
+      srHeader: " (últimos 14 dias úteis)",
       cell: (m) => (
-        <Sparkline
-          values={m.trend}
-          threshold={m.dailyTarget}
-          endDate={m.lastEntry.date}
-          label={`Produção diária de ${m.name}`}
-        />
+        <Sparkline points={m.trend} threshold={m.dailyTarget} label={`Produção diária de ${m.name}`} />
       ),
       skeleton: <Skeleton className="h-sparkline-height w-1000" />,
     },
     {
       id: "last",
       header: "Último apontamento",
-      cell: (m) => (
-        <span className="flex items-center gap-075">
-          <CalendarDays aria-hidden className="size-icon-small text-icon-subtle" />
-          <span className="tabular-nums text-default">{formatShortDate(m.lastEntry.date)}</span>
-          <span className="text-subtlest">Turno {m.lastEntry.shift}</span>
-        </span>
-      ),
+      cell: (m) =>
+        m.lastEntry ? (
+          <span className="flex items-center gap-075">
+            <CalendarDays aria-hidden className="size-icon-small text-icon-subtle" />
+            <span className="tabular-nums text-default">{formatShortDate(m.lastEntry.date)}</span>
+            <span className="text-subtlest">Turno {m.lastEntry.shift}</span>
+          </span>
+        ) : (
+          <span className="text-subtlest">Sem apontamento</span>
+        ),
       skeleton: <Skeleton className="h-150 w-1000" />,
     },
     {

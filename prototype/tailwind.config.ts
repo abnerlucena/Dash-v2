@@ -114,6 +114,14 @@ const sizeKeys = [
   "content-max",
   "kbd",
   "kpi-min",
+  "chart",
+  "chart-large",
+  "chart-axis",
+  "bar-max",
+  "heat-cell",
+  "stacked-bar",
+  "chart-tooltip",
+  "chart-card-min",
 ];
 
 const spacing = {
@@ -171,8 +179,7 @@ export default {
       current: "currentColor",
       ...map(backgroundKeys, (k) => v(`ds-background-${k}`)),
       ...map(surfaceKeys, (k) => v(`ds-${k}`)),
-      "chart-brand": v("ds-chart-brand"),
-      "chart-neutral": v("ds-chart-neutral"),
+      ...Object.fromEntries(["brand","neutral","gridline","target","categorical-1","categorical-2","categorical-3"].map((k) => [`chart-${k}`, v(`ds-chart-${k}`)])),
       blanket: v("ds-blanket"),
       // pontos decorativos e barras de status usam cores de ícone como preenchimento: bg-icon-*
       ...Object.fromEntries(
@@ -190,6 +197,8 @@ export default {
       default: v("ds-text"),
       ...map(textKeys, (k) => v(`ds-text-${k}`)),
       icon: v("ds-icon"),
+      // Marcas de gráfico em SVG usam currentColor: text-chart-* + fill-current/stroke-current
+      ...Object.fromEntries(["brand","neutral","gridline","target","categorical-1","categorical-2","categorical-3"].map((k) => [`chart-${k}`, v(`ds-chart-${k}`)])),
       ...Object.fromEntries(iconKeys.map((k) => [`icon-${k}`, v(`ds-icon-${k}`)])),
     },
     borderColor: {
@@ -198,14 +207,16 @@ export default {
       current: "currentColor",
       default: v("ds-border"),
       surface: v("ds-surface"),
+      "chart-target": v("ds-chart-target"),
       ...map(borderKeys, (k) => v(`ds-border-${k}`)),
     },
     outlineColor: {
       focused: v("ds-border-focused"),
       transparent: "transparent",
     },
-    fill: { current: "currentColor", none: "none" },
-    stroke: { current: "currentColor", none: "none" },
+    fill: { current: "currentColor", none: "none", transparent: "transparent" },
+    // anel de 2px na cor da superfície em marcadores de gráfico
+    stroke: { current: "currentColor", none: "none", "surface-raised": v("ds-surface-raised") },
     spacing,
     borderRadius: {
       none: "0",
@@ -246,6 +257,8 @@ export default {
       0: "0",
       100: "1",
       disabled: v("ds-opacity-disabled"),
+      "chart-area": v("ds-opacity-chart-area"),
+      refetch: v("ds-opacity-refetch"),
     },
     zIndex: {
       0: "0",
@@ -270,6 +283,10 @@ export default {
       out: v("ds-motion-easing-out"),
     },
     extend: {
+      gridTemplateColumns: {
+        // nome da máquina | trilho da barra
+        attainment: "minmax(0, var(--dash-size-column-name)) minmax(0, 1fr) var(--dash-size-attainment-value)",
+      },
       transformOrigin: {
         menu: "var(--radix-dropdown-menu-content-transform-origin)",
         popover: "var(--radix-popover-content-transform-origin)",

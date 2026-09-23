@@ -86,4 +86,60 @@ await shot("15-mobile-busca", {
 });
 await shot("16-tablet-painel-overlay", { width: 900, height: 1000, act: openRow("VERTICAL") });
 
+const tab = (name) => (page) => page.getByRole("tab", { name }).click();
+const pick = async (page, filter, option) => {
+  await page.getByRole("button", { name: new RegExp(`^${filter}:`) }).click();
+  await page.getByRole("menuitemradio", { name: option }).click();
+};
+
+await shot("17-detalhado-claro", { act: tab("Detalhado") });
+await shot("18-detalhado-percentual-escuro", {
+  scheme: "dark",
+  act: async (page) => {
+    await tab("Detalhado")(page);
+    await page.getByRole("radio", { name: "% da meta diária" }).click();
+  },
+});
+await shot("19-turnos-claro", { act: tab("Turnos") });
+await shot("20-turnos-foco-t3-escuro", {
+  scheme: "dark",
+  act: async (page) => {
+    await tab("Turnos")(page);
+    await pick(page, "Turno", /Turno 3/);
+  },
+});
+await shot("21-graficos-claro", {
+  height: 1200,
+  act: async (page) => {
+    await tab("Gráficos")(page);
+    const box = await page.getByRole("group", { name: /Produção acumulada/ }).boundingBox();
+    await page.mouse.move(box.x + box.width * 0.62, box.y + box.height / 2);
+  },
+});
+await shot("22-graficos-escuro", {
+  scheme: "dark",
+  height: 1200,
+  act: async (page) => {
+    await tab("Gráficos")(page);
+    const box = await page.getByRole("group", { name: /^Produção diária/ }).boundingBox();
+    await page.mouse.move(box.x + box.width * 0.4, box.y + box.height / 2);
+  },
+});
+await shot("23-graficos-turno2-tabela", {
+  height: 1200,
+  act: async (page) => {
+    await tab("Gráficos")(page);
+    await pick(page, "Turno", /Turno 2/);
+    await page.getByRole("radio", { name: "Tabela" }).first().click();
+  },
+});
+await shot("24-mobile-graficos", { width: 390, height: 1400, act: tab("Gráficos") });
+await shot("25-graficos-painel", {
+  height: 1200,
+  act: async (page) => {
+    await tab("Gráficos")(page);
+    await page.getByRole("button", { name: /^HORIZONTAL 1: .*Abrir ordens/ }).click();
+  },
+});
+
 await browser.close();

@@ -86,11 +86,11 @@ const NAV_SECTIONS: Array<{ title: string; items: NavEntry[] }> = [
   },
   {
     title: "Turnos",
-    // Pontos com cores de destaque: decorativos, sem significado de status
+    // Mesma cor do turno nos gráficos (paleta categórica validada); não indica status
     items: [
-      { id: "turno-1", label: "Turno 1", dot: "bg-icon-accent-blue" },
-      { id: "turno-2", label: "Turno 2", dot: "bg-icon-accent-teal" },
-      { id: "turno-3", label: "Turno 3", dot: "bg-icon-accent-purple" },
+      { id: "turno-1", label: "Turno 1", dot: "bg-chart-categorical-1" },
+      { id: "turno-2", label: "Turno 2", dot: "bg-chart-categorical-2" },
+      { id: "turno-3", label: "Turno 3", dot: "bg-chart-categorical-3" },
     ],
   },
 ];
@@ -368,9 +368,9 @@ function SearchField({ value, onChange }: { value: string; onChange: (v: string)
 
 /* ---------- Top nav: fim ---------- */
 const NOTIFICATIONS = [
-  { id: 1, dot: "bg-icon-danger", status: "Crítico", title: "Meta de março em risco", body: "Atingimento geral em 49% a 9 dias úteis do fim do mês.", time: "há 12 min" },
+  { id: 1, dot: "bg-icon-danger", status: "Crítico", title: "Meta de março em risco", body: "Atingimento geral em 49% a 2 dias úteis do fim do mês.", time: "há 12 min" },
   { id: 2, dot: "bg-icon-brand", status: "Novo", title: "12 novos feedbacks", body: "Operadores do Turno 2 comentaram a linha Horizontais.", time: "há 1 h" },
-  { id: 3, dot: "bg-icon-warning", status: "Atenção", title: "Turno 3 sem apontamento", body: "VERTICAL PLACAS / SUP. 2 não registrou produção em 20/03.", time: "ontem" },
+  { id: 3, dot: "bg-icon-warning", status: "Atenção", title: "Turno 3 sem apontamento", body: "HORIZONTAL 1 não registrou produção no Turno 3 em 26/03.", time: "ontem" },
 ];
 
 function Notifications() {

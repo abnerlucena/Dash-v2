@@ -110,6 +110,8 @@
   --ds-opacity-disabled: 0.4;
   --ds-opacity-loading: 0.2;
   --ds-opacity-loading-pulse: 0.55;
+  --ds-opacity-chart-area: 0.12; /* preenchimento de área: lavagem, nunca bloco saturado */
+  --ds-opacity-refetch: 0.5; /* gráficos mantêm o quadro anterior ao recarregar */
 
   /* ================================================================
    * App (--dash-*): layout, tamanhos de controle e camadas
@@ -162,6 +164,19 @@
   --dash-size-content-max: 125rem; /* 2000px */
   --dash-size-kbd: 1.25rem; /* 20px */
   --dash-size-kpi-min: 12.5rem; /* 200px: largura mínima de uma célula de KPI */
+  --dash-size-chart: 15rem; /* 240px: altura de gráfico */
+  --dash-size-chart-large: 17.5rem; /* 280px */
+  --dash-size-chart-axis: 3.5rem; /* 56px: calha do eixo Y */
+  --dash-chart-label-gap: 3.5rem; /* 56px: distância mínima entre rótulos do eixo X */
+  --dash-size-attainment-value: 8.5rem; /* 136px: coluna de valor + status */
+  --dash-size-chart-card-min: 26rem; /* 416px: largura mínima de um card de gráfico lado a lado */
+  --dash-size-bar-max: 1.5rem; /* 24px: espessura máxima de barra */
+  --dash-size-heat-cell: 3.25rem; /* 52px: célula da grade diária */
+  --dash-size-stacked-bar: 10rem; /* 160px: barra de distribuição */
+  --dash-size-chart-tooltip: 13.75rem; /* 220px */
+  --dash-chart-dash: 6 4; /* tracejado de linhas de referência (meta) */
+  --dash-chart-line: 2px; /* espessura de linha de série */
+  --dash-chart-marker: 4px; /* raio do marcador (8px de diâmetro) */
 
   --dash-z-sticky: 1;
   --dash-z-topnav: 10;
@@ -394,6 +409,12 @@
   /* ---------- Chart ---------- */
   --ds-chart-brand: hsl(207 100% 42%);
   --ds-chart-neutral: hsl(215 16% 80%);
+  --ds-chart-gridline: hsl(215 30% 20% / 0.1);
+  --ds-chart-target: hsl(215 13% 42%);
+  /* Categórica (turnos). Validada: CVD ΔE 12.4, visão normal ΔE 16.4, contraste ≥ 3:1 */
+  --ds-chart-categorical-1: #1f7ad6;
+  --ds-chart-categorical-2: #0e9c91;
+  --ds-chart-categorical-3: #a32966;
 
   /* ---------- Elevation ---------- */
   --ds-surface: hsl(0 0% 100%);
@@ -625,6 +646,12 @@
   /* ---------- Chart ---------- */
   --ds-chart-brand: hsl(207 100% 62%);
   --ds-chart-neutral: hsl(212 22% 30%);
+  --ds-chart-gridline: hsl(210 60% 85% / 0.1);
+  --ds-chart-target: hsl(212 18% 66%);
+  /* Categórica (turnos). Validada: CVD ΔE 9.4, visão normal ΔE 16.7, contraste ≥ 3:1 */
+  --ds-chart-categorical-1: #2f80dc;
+  --ds-chart-categorical-2: #0ea396;
+  --ds-chart-categorical-3: #b8307a;
 
   /* ---------- Elevation ---------- */
   --ds-surface: hsl(212 50% 8%);

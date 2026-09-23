@@ -43,6 +43,28 @@ prototype/
 - Tema: `data-color-mode="light|dark"` no `<html>`. Os componentes nunca mudam.
   O escuro deriva do azul-marinho WEG, e as superfícies mais altas são mais claras.
 
+## Abas da tela Máquinas
+
+| Aba | O que mostra |
+| --- | --- |
+| Visão geral | KPIs e tabela por máquina: atingimento, tendência de 14 dias úteis e último apontamento |
+| Detalhado | Grade máquina × dia útil no tom do status do dia; `–` marca dia sem apontamento. Alterna entre quantidade e % da meta diária |
+| Turnos | Produção por turno (KPIs), tabela com a participação de cada turno e barra de distribuição |
+| Gráficos | Acumulado vs meta (linha), produção diária (colunas) e atingimento por máquina (barras, clique abre o painel). Todos têm visão em tabela |
+
+Decisões que valem para todas as abas:
+
+- **Filtros acima de tudo.** A linha de filtros fica fora das abas e define o recorte de KPIs, tabelas e gráficos.
+  Com um turno filtrado, cada máquina é recortada para aquele turno, contra 1/3 da meta.
+  A aba Turnos é a exceção: ela compara os três turnos e só destaca o turno escolhido.
+- **Uma fonte de dados.** A sparkline, a grade diária, o painel e os gráficos leem as mesmas ordens
+  de produção (22 dias úteis em março/2026, referência 27/03), então os números sempre concordam.
+- **Cor de turno fixa.** Azul, teal e magenta (`--ds-chart-categorical-1..3`) aparecem na navegação,
+  nos KPIs, nas barras e nas legendas. A paleta foi validada nos dois temas (daltonismo, visão
+  normal e contraste). A cor segue o turno, nunca a posição.
+- **Recarregar mantém o quadro.** Numa troca de período, os gráficos continuam na tela esmaecidos.
+  O skeleton aparece só no carregamento inicial.
+
 ## Comportamentos do layout
 
 | Largura | Navegação lateral | Painel |

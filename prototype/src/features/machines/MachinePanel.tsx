@@ -9,15 +9,15 @@ import { Lozenge } from "@/components/ui/Lozenge";
 interface MachinePanelProps {
   machine: Machine | null;
   open: boolean;
-  shift: string;
+  /** Recorte ativo (ex.: "Turno 2"); a máquina já chega recortada */
+  scopeLabel: string | null;
   onClose: () => void;
   onAction: (action: string, m: Machine) => void;
 }
 
-export function MachinePanel({ machine, open, shift, onClose, onAction }: MachinePanelProps) {
+export function MachinePanel({ machine, open, scopeLabel, onClose, onAction }: MachinePanelProps) {
   if (!machine) return null;
-  const orders = shift === "all" ? machine.orders : machine.orders.filter((o) => String(o.shift) === shift);
-  const groups = groupByDay(orders);
+  const groups = groupByDay(machine.orders);
   const meta = STATUS_META[machine.status];
 
   return (
@@ -28,7 +28,7 @@ export function MachinePanel({ machine, open, shift, onClose, onAction }: Machin
       subtitle={
         <>
           Ordens de produção · {PERIOD_LABEL}
-          {shift !== "all" && ` · Turno ${shift}`}
+          {scopeLabel && ` · ${scopeLabel}`}
         </>
       }
       headerExtra={
@@ -66,8 +66,8 @@ export function MachinePanel({ machine, open, shift, onClose, onAction }: Machin
         <EmptyState
           headingLevel={3}
           icon={PackageOpen}
-          title="Nenhuma ordem neste turno"
-          hint={`Não há apontamentos do Turno ${shift} para esta máquina em ${PERIOD_LABEL}.`}
+          title="Nenhuma ordem neste recorte"
+          hint={`Não há apontamentos${scopeLabel ? ` do ${scopeLabel.toLowerCase()}` : ""} para esta máquina em ${PERIOD_LABEL}.`}
           className="py-600"
         />
       ) : (

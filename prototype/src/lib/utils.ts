@@ -7,6 +7,10 @@ export const cn = (...inputs: ClassValue[]) => clsx(inputs);
 const numberFormat = new Intl.NumberFormat("pt-BR");
 export const formatNumber = (n: number) => numberFormat.format(n);
 
+const compactFormat = new Intl.NumberFormat("pt-BR", { notation: "compact", maximumFractionDigits: 1 });
+/** "27 mil", "1,8 mi" — para eixos e células estreitas */
+export const formatCompact = (n: number) => compactFormat.format(n);
+
 const percentFormat = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 1, minimumFractionDigits: 1 });
 export const formatDecimal = (n: number) => percentFormat.format(n);
 
