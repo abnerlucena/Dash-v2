@@ -4,13 +4,15 @@ import { cn } from "@/lib/utils";
 import { Spinner } from "./Spinner";
 import { Tooltip } from "./Tooltip";
 
-export type ButtonAppearance = "primary" | "default" | "subtle";
+export type ButtonAppearance = "primary" | "default" | "subtle" | "danger";
 
 const APPEARANCE: Record<ButtonAppearance, string> = {
   // Único botão "bold" da página: color.background.brand.bold
   primary: "bg-brand-bold text-inverse hover:bg-brand-bold-hovered active:bg-brand-bold-pressed",
   default: "bg-neutral text-subtle hover:bg-neutral-hovered active:bg-neutral-pressed",
   subtle: "bg-neutral-subtle text-subtle hover:bg-neutral-subtle-hovered active:bg-neutral-subtle-pressed",
+  // Ações destrutivas (excluir): só em confirmações
+  danger: "bg-danger-bold text-inverse hover:bg-danger-bold-hovered active:bg-danger-bold-pressed",
 };
 
 const SELECTED = "bg-selected text-selected hover:bg-selected-hovered active:bg-selected-pressed";
@@ -81,7 +83,7 @@ interface IconButtonProps extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, 
   /** Rótulo acessível — também vira tooltip */
   label: string;
   shortcut?: string;
-  appearance?: Exclude<ButtonAppearance, "primary">;
+  appearance?: Exclude<ButtonAppearance, "primary" | "danger">;
   spacing?: "default" | "compact";
   isSelected?: boolean;
   isDisabled?: boolean;

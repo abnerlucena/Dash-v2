@@ -10,6 +10,9 @@ export const formatNumber = (n: number) => numberFormat.format(n);
 const compactFormat = new Intl.NumberFormat("pt-BR", { notation: "compact", maximumFractionDigits: 1 });
 /** "27 mil", "1,8 mi" — para eixos e células estreitas */
 export const formatCompact = (n: number) => compactFormat.format(n);
+const compactShortFormat = new Intl.NumberFormat("pt-BR", { notation: "compact", maximumFractionDigits: 0 });
+/** "81 mil" — para células muito estreitas (calendário) */
+export const formatCompactShort = (n: number) => compactShortFormat.format(n);
 
 const percentFormat = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 1, minimumFractionDigits: 1 });
 export const formatDecimal = (n: number) => percentFormat.format(n);
@@ -50,5 +53,17 @@ export function storageSet(key: string, value: unknown) {
     /* modo privado / armazenamento bloqueado: segue sem persistir */
   }
 }
+
+/** Dispara uma notificação (flag) no canto inferior */
+export interface FlagAction {
+  label: string;
+  onClick: () => void;
+}
+export type Notify = (
+  title: string,
+  description?: string,
+  appearance?: "success" | "error",
+  action?: FlagAction,
+) => void;
 
 export const clamp = (n: number, min: number, max: number) => Math.min(Math.max(n, min), max);

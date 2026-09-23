@@ -163,6 +163,12 @@
   --dash-size-column-name: 12.5rem; /* 200px */
   --dash-size-content-max: 125rem; /* 2000px */
   --dash-size-kbd: 1.25rem; /* 20px */
+  --dash-size-modal: 30rem; /* 480px */
+  --dash-size-field-op: 10rem; /* 160px: campo Nº da OP */
+  --dash-size-calendar: 26rem; /* 416px: calendário do histórico */
+  --dash-size-field-quantity: 9rem; /* 144px: campo de quantidade */
+  --dash-size-modal-max-height: calc(100dvh - 2 * var(--ds-space-600));
+  --dash-size-modal-gutter: calc(100vw - 2 * var(--ds-space-200));
   --dash-size-kpi-min: 12.5rem; /* 200px: largura mínima de uma célula de KPI */
   --dash-size-chart: 15rem; /* 240px: altura de gráfico */
   --dash-size-chart-large: 17.5rem; /* 280px */
@@ -183,6 +189,7 @@
   --dash-z-banner: 11;
   --dash-z-panel-overlay: 20;
   --dash-z-sidenav-overlay: 30;
+  --dash-z-modal: 40;
   --dash-z-menu: 50;
   --dash-z-tooltip: 60;
   --dash-z-flag: 70;

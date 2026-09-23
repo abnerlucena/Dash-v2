@@ -65,12 +65,27 @@ export const REFERENCE_DATE = new Date(YEAR, MONTH, REFERENCE_DAY);
 export const dayKey = (d: Date) => d.getDate();
 
 /* ---------- Tipos ---------- */
+export interface OrderNote {
+  id: string;
+  text: string;
+  author: string;
+}
+
 export interface ProductionOrder {
   id: string;
+  machineId: string;
   date: Date;
   shift: Shift;
   product: string;
   quantity: number;
+  /** OP inteira marcada como retrabalho (como no app atual) */
+  rework: boolean;
+  reworkReason: string | null;
+  /** Operador que registrou e horário do registro */
+  operator: string;
+  recordedAt: Date;
+  /** Observação do operador (vira um "feedback") */
+  note: OrderNote | null;
 }
 
 export interface DayPoint {
@@ -121,6 +136,8 @@ const RAW: Array<{
   lastDay: number;
   /** peso de cada turno na produção da máquina */
   shiftProfile: [number, number, number];
+  /** chance de uma OP ser de retrabalho */
+  reworkRate: number;
   products: string[];
 }> = [
   {
@@ -132,6 +149,7 @@ const RAW: Array<{
     target: 630000,
     lastDay: 27,
     shiftProfile: [0.4, 0.35, 0.25],
+    reworkRate: 0.04,
     products: ["Parafuso borne M3", "Mola de contato", "Terminal olhal"],
   },
   {
@@ -143,6 +161,7 @@ const RAW: Array<{
     target: 440000,
     lastDay: 26,
     shiftProfile: [0.5, 0.35, 0.15],
+    reworkRate: 0.1,
     products: ["Placa 4x2 branca", "Placa 4x4 branca", "Placa cega 4x2"],
   },
   {
@@ -154,6 +173,7 @@ const RAW: Array<{
     target: 440000,
     lastDay: 27,
     shiftProfile: [0.3, 0.3, 0.4],
+    reworkRate: 0.16,
     products: ["Suporte 4x2", "Placa 4x2 grafite", "Suporte 4x4"],
   },
   {
@@ -165,6 +185,7 @@ const RAW: Array<{
     target: 88000,
     lastDay: 25,
     shiftProfile: [0.55, 0.45, 0],
+    reworkRate: 0.06,
     products: ["Tomada 10A", "Tomada 20A", "Interruptor paralelo"],
   },
   {
@@ -176,6 +197,7 @@ const RAW: Array<{
     target: 72000,
     lastDay: 24,
     shiftProfile: [0.6, 0.4, 0],
+    reworkRate: 0.2,
     products: ["Interruptor simples", "Interruptor bipolar", "Pulsador campainha"],
   },
   {
@@ -187,8 +209,38 @@ const RAW: Array<{
     target: 84000,
     lastDay: 23,
     shiftProfile: [1, 0, 0],
+    reworkRate: 0.08,
     products: ["Placa Refinatto 4x2", "Placa Refinatto 4x4", "Módulo Refinatto USB"],
   },
+];
+
+/* ---------- Pessoas, motivos e observações (fictícios) ---------- */
+export const OPERATORS: Record<Shift, string[]> = {
+  1: ["Ana Paula Ribeiro", "Carlos Eduardo Lima", "Juliana Martins"],
+  2: ["Marcos Vieira", "Patrícia Gomes", "Rodrigo Alves"],
+  3: ["Fernanda Costa", "Lucas Pereira"],
+};
+const SHIFT_END_HOUR: Record<Shift, number> = { 1: 13, 2: 21, 3: 5 };
+
+export const REWORK_REASONS = [
+  "Rebarba na peça",
+  "Cor fora do padrão",
+  "Montagem invertida",
+  "Falha no teste elétrico",
+  "Encaixe com folga",
+];
+
+const NOTES = [
+  "Máquina parada 40 min para troca de molde.",
+  "Falta de matéria-prima no início do turno; produção começou às 7h20.",
+  "Setup demorado por ajuste de temperatura.",
+  "Operador novo em treinamento neste turno.",
+  "Troca de bobina fora do previsto.",
+  "Parada de 25 min por queda de energia na linha.",
+  "Produção normal, sem ocorrências.",
+  "Ajuste de ferramenta depois do intervalo.",
+  "Aguardando manutenção no alimentador vibratório.",
+  "Lote de tampas com variação de cor; separado para inspeção.",
 ];
 
 /** Divide `total` em partes inteiras proporcionais aos pesos, somando exatamente `total`. */
@@ -225,6 +277,8 @@ function buildMachine(raw: (typeof RAW)[number], index: number): Machine {
   const byShift: Record<Shift, number> = { 1: 0, 2: 0, 3: 0 };
   const ordersByShift: Record<Shift, number> = { 1: 0, 2: 0, 3: 0 };
   let seq = 0;
+  // Gerador separado para os campos de apoio: não altera produção, dias nem turnos
+  const extra = rng(index * 104729 + 7);
 
   entryDates.forEach((date, d) => {
     daily.set(dayKey(date), perDay[d]);
@@ -238,12 +292,34 @@ function buildMachine(raw: (typeof RAW)[number], index: number): Machine {
     shifts.forEach((shift, i) => {
       byShift[shift] += quantities[i];
       ordersByShift[shift] += 1;
+      const product = raw.products[Math.floor(random() * raw.products.length)];
+      const rework = extra() < raw.reworkRate;
+      const operators = OPERATORS[shift];
+      const operator = operators[Math.floor(extra() * operators.length)];
+      const minutes = 20 + Math.floor(extra() * 35);
+      const noteRoll = extra();
+      const id = `OP ${4501000 + index * 997 + seq++ * 13}`;
       orders.push({
-        id: `OP ${4501000 + index * 997 + seq++ * 13}`,
+        id,
+        machineId: raw.id,
         date,
         shift,
-        product: raw.products[Math.floor(random() * raw.products.length)],
+        product,
         quantity: quantities[i],
+        rework,
+        reworkReason: rework ? REWORK_REASONS[Math.floor(extra() * REWORK_REASONS.length)] : null,
+        operator,
+        recordedAt: new Date(YEAR, MONTH, date.getDate(), SHIFT_END_HOUR[shift], minutes),
+        note:
+          noteRoll < 0.3 || rework
+            ? {
+                id: `n-${id}`,
+                text: rework
+                  ? "Peças separadas para retrabalho; lote identificado na caixa."
+                  : NOTES[Math.floor(noteRoll * 33) % NOTES.length],
+                author: operator,
+              }
+            : null,
       });
     });
   });
@@ -272,6 +348,49 @@ function buildMachine(raw: (typeof RAW)[number], index: number): Machine {
 }
 
 export const MACHINES: Machine[] = RAW.map(buildMachine);
+export const machineById = (id: string) => MACHINES.find((m) => m.id === id)!;
+
+/** Todas as OPs do mês, da mais recente para a mais antiga */
+export const ALL_ORDERS: ProductionOrder[] = MACHINES.flatMap((m) => m.orders).sort(
+  (a, b) => b.recordedAt.getTime() - a.recordedAt.getTime(),
+);
+
+/* ---------- Linhas (mesmos grupos do apontamento no app atual) ---------- */
+export interface MachineGroup {
+  id: string;
+  label: string;
+  machineIds: string[];
+}
+export const MACHINE_GROUPS: MachineGroup[] = [
+  { id: "horizontais", label: "Horizontais", machineIds: ["horizontal-1"] },
+  { id: "verticais", label: "Verticais", machineIds: ["vertical-placas-2"] },
+  { id: "granel", label: "Granel & Interruptores", machineIds: ["granel", "teste-interruptores"] },
+  { id: "montagem", label: "Montagem", machineIds: ["montagem-diversos", "montagem-refinatto"] },
+];
+export const groupOf = (machineId: string) => MACHINE_GROUPS.find((g) => g.machineIds.includes(machineId))!;
+
+/* ---------- Metas ---------- */
+export const ACTIVE_SHIFTS = 3;
+export const META_EFFECTIVE_FROM = new Date(YEAR, MONTH, 1);
+/** Meta por turno derivada da meta do mês (meta/mês = meta/turno × turnos × dias úteis) */
+export const metaPerShift = (m: Machine, shifts = ACTIVE_SHIFTS) => Math.round(m.target / (WORKING_DAYS * shifts));
+
+export interface MetaChange {
+  id: string;
+  date: Date;
+  author: string;
+  summary: string;
+}
+export const META_CHANGES: MetaChange[] = [
+  { id: "c3", date: new Date(YEAR, MONTH, 1, 8, 12), author: "Rafael Souza", summary: "Metas de março publicadas para 6 máquinas" },
+  { id: "c2", date: new Date(YEAR, 1, 24, 16, 40), author: "Rafael Souza", summary: "MONTAGEM PLACA REFINATTO: meta por turno de 1.100 para 1.273" },
+  { id: "c1", date: new Date(YEAR, 1, 2, 9, 5), author: "Juliana Martins", summary: "Turnos ativos alterados de 2 para 3" },
+];
+
+/* ---------- Feedbacks (observações das OPs) ---------- */
+export const FEEDBACKS = ALL_ORDERS.filter((o) => o.note);
+/** Os 12 mais recentes começam como não lidos */
+export const INITIAL_UNREAD = FEEDBACKS.slice(0, 12).map((o) => o.note!.id);
 
 /**
  * Recorta a máquina para um turno: produção, dias, ordens e tendência só

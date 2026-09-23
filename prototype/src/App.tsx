@@ -54,8 +54,11 @@ import {
 import { Avatar, WegTile } from "@/components/ui/Misc";
 import { TooltipProvider } from "@/components/ui/Tooltip";
 import { MachinesPage, type DemoState } from "@/features/machines/MachinesPage";
+import { EntryPage } from "@/features/entry/EntryPage";
+import { MetasPage } from "@/features/metas/MetasPage";
+import { HistoryPage } from "@/features/history/HistoryPage";
 import { useColorMode, type ColorModePreference } from "@/lib/hooks";
-import { cn, readToken, storageGet, storageSet } from "@/lib/utils";
+import { cn, readToken, storageGet, storageSet, type Notify } from "@/lib/utils";
 
 /* ---------- Navegação ---------- */
 type NavEntry = { id: string; label: string; icon?: LucideIcon; count?: number; dot?: string };
@@ -125,8 +128,8 @@ export default function App() {
   const [bannerOpen, setBannerOpen] = useState(() => !storageGet("dash-proto.banner.dismissed", false));
   const flagId = useRef(0);
 
-  const notify = useCallback((title: string, description?: string) => {
-    setFlags((f) => [...f.slice(-2), { id: ++flagId.current, title, description }]);
+  const notify = useCallback<Notify>((title, description, appearance = "success", action) => {
+    setFlags((f) => [...f.slice(-2), { id: ++flagId.current, title, description, appearance, action }]);
   }, []);
   const dismissFlag = useCallback((id: number) => setFlags((f) => f.filter((x) => x.id !== id)), []);
 
@@ -212,6 +215,12 @@ export default function App() {
               onDemoStateChange={setDemoState}
               notify={notify}
             />
+          ) : route === "apontamento" ? (
+            <EntryPage notify={notify} />
+          ) : route === "metas" ? (
+            <MetasPage notify={notify} />
+          ) : route === "historico" ? (
+            <HistoryPage notify={notify} />
           ) : (
             <div className="px-200 pt-300 m:px-400">
               <h1 className="font-heading-large text-default">{current?.label ?? "Página não encontrada"}</h1>

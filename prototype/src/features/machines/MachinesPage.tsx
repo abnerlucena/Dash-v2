@@ -156,7 +156,7 @@ export function MachinesPage({ search, onClearSearch, demoState, onDemoStateChan
 
   const onAction = (action: string, m: Machine) => {
     if (action === "export") notify("Exportação pronta", `${m.name} · março de 2026 (.xlsx)`);
-    else if (action === "entry") notify("Novo apontamento", `O formulário para ${m.name} ainda não faz parte do protótipo.`);
+    else if (action === "entry") window.location.hash = "/apontamento";
     else notify("Histórico da máquina", "Esta tela ainda não faz parte do protótipo.");
   };
 
@@ -175,7 +175,7 @@ export function MachinesPage({ search, onClearSearch, demoState, onDemoStateChan
         icon={LayoutList}
         title="Nenhum apontamento em março"
         hint="Ainda não há produção registrada neste período. Os números aparecem assim que o primeiro turno apontar."
-        action={{ label: "Novo apontamento", icon: Plus, onClick: () => onDemoStateChange("live") }}
+        action={{ label: "Novo apontamento", icon: Plus, onClick: () => (window.location.hash = "/apontamento") }}
       />
     ) : (
       <EmptyState
@@ -277,7 +277,7 @@ export function MachinesPage({ search, onClearSearch, demoState, onDemoStateChan
               <Button
                 appearance="primary"
                 iconBefore={Plus}
-                onClick={() => notify("Novo apontamento", "O formulário de apontamento ainda não faz parte do protótipo.")}
+                onClick={() => (window.location.hash = "/apontamento")}
               >
                 Novo apontamento
               </Button>

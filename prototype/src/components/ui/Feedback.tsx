@@ -62,6 +62,7 @@ export interface FlagData {
   title: string;
   description?: string;
   appearance?: "success" | "error";
+  action?: { label: string; onClick: () => void };
 }
 
 export function FlagStack({ flags, onDismiss }: { flags: FlagData[]; onDismiss: (id: number) => void }) {
@@ -98,6 +99,19 @@ function Flag({ flag, onDismiss }: { flag: FlagData; onDismiss: () => void }) {
       <div className="min-w-0 flex-1">
         <p className="font-heading-xsmall text-default">{flag.title}</p>
         {flag.description && <p className="mt-050 text-subtle">{flag.description}</p>}
+        {flag.action && (
+          <Button
+            appearance="subtle"
+            spacing="compact"
+            className="-ml-100 mt-100"
+            onClick={() => {
+              flag.action!.onClick();
+              onDismiss();
+            }}
+          >
+            {flag.action.label}
+          </Button>
+        )}
       </div>
       <IconButton icon={X} label="Fechar notificação" spacing="compact" showTooltip={false} onClick={onDismiss} />
     </div>

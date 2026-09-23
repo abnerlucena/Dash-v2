@@ -260,14 +260,15 @@ export function DataTable<T>({
                 return (
                   <tr
                     key={id}
-                    tabIndex={0}
-                    aria-selected={isSelected}
+                    tabIndex={onRowActivate ? 0 : undefined}
+                    aria-selected={selectable ? isSelected : undefined}
                     aria-current={isActive || undefined}
                     aria-label={getRowLabel(row)}
                     onClick={() => onRowActivate?.(row)}
                     onKeyDown={(e) => onRowKeyDown(e, row)}
                     className={cn(
-                      "group/row h-row cursor-pointer border-t transition-colors duration-hover ease-out focus-visible:outline-offset-inset",
+                      "group/row h-row border-t transition-colors duration-hover ease-out focus-visible:outline-offset-inset",
+                      onRowActivate && "cursor-pointer",
                       isSelected || isActive ? "bg-selected" : "hover:bg-neutral-subtle-hovered",
                     )}
                   >
