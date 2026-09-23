@@ -26,7 +26,10 @@ import {
   UserRound,
   type LucideIcon,
 } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { SHIFTS, SHIFT_META, type Shift } from "@/data/machines";
+import { SHIFT_FILL } from "@/components/data/StackedBar";
+import { Lozenge } from "@/components/ui/Lozenge";
 import { AppRoot, Banner, Main } from "@/components/layout/AppRoot";
 import { useLayout } from "@/components/layout/LayoutContext";
 import { SideNav, SideNavBody, SideNavFooter, SideNavItem, SideNavSection } from "@/components/layout/SideNav";
@@ -57,6 +60,8 @@ import { MachinesPage, type DemoState } from "@/features/machines/MachinesPage";
 import { EntryPage } from "@/features/entry/EntryPage";
 import { MetasPage } from "@/features/metas/MetasPage";
 import { HistoryPage } from "@/features/history/HistoryPage";
+import { RankingPage } from "@/features/analysis/RankingPage";
+import { ReworkPage } from "@/features/analysis/ReworkPage";
 import { useColorMode, type ColorModePreference } from "@/lib/hooks";
 import { cn, readToken, storageGet, storageSet, type Notify } from "@/lib/utils";
 
@@ -98,6 +103,30 @@ const NAV_SECTIONS: Array<{ title: string; items: NavEntry[] }> = [
   },
 ];
 const ALL_NAV = [...NAV_MAIN, ...NAV_SECTIONS.flatMap((s) => s.items), { id: "tv", label: "Modo TV" }, { id: "ajuda", label: "Ajuda" }];
+
+/* Linhas e turnos reaproveitam a tela Máquinas com um recorte fixo */
+const LINE_ROUTES: Record<string, { title: string; breadcrumbs: string[]; groupId: string }> = {
+  "linha-horizontais": { title: "Horizontais", breadcrumbs: ["Linhas"], groupId: "horizontais" },
+  "linha-verticais": { title: "Verticais", breadcrumbs: ["Linhas"], groupId: "verticais" },
+  "linha-granel": { title: "Granel & Interruptores", breadcrumbs: ["Linhas"], groupId: "granel" },
+};
+const SHIFT_ROUTES: Record<string, { title: string; breadcrumbs: string[]; presetShift: Shift; titleAccessory: ReactNode }> =
+  Object.fromEntries(
+    SHIFTS.map((s) => [
+      `turno-${s}`,
+      {
+        title: SHIFT_META[s].label,
+        breadcrumbs: ["Turnos"],
+        presetShift: s,
+        titleAccessory: (
+          <Lozenge>
+            <span aria-hidden className={cn("size-dot rounded-full", SHIFT_FILL[s])} />
+            {SHIFT_META[s].hours}
+          </Lozenge>
+        ),
+      },
+    ]),
+  );
 
 const PLANTS = [
   { id: "jaragua", label: "Jaraguá do Sul" },
@@ -207,8 +236,10 @@ export default function App() {
         }
       >
         <Main>
-          {route === "dashboard" ? (
+          {route === "dashboard" || LINE_ROUTES[route] || SHIFT_ROUTES[route] ? (
             <MachinesPage
+              key={route}
+              {...(LINE_ROUTES[route] ?? SHIFT_ROUTES[route] ?? {})}
               search={search}
               onClearSearch={() => setSearch("")}
               demoState={demoState}
@@ -221,6 +252,10 @@ export default function App() {
             <MetasPage notify={notify} />
           ) : route === "historico" ? (
             <HistoryPage notify={notify} />
+          ) : route === "ranking" ? (
+            <RankingPage />
+          ) : route === "retrabalho" ? (
+            <ReworkPage />
           ) : (
             <div className="px-200 pt-300 m:px-400">
               <h1 className="font-heading-large text-default">{current?.label ?? "Página não encontrada"}</h1>

@@ -1,8 +1,9 @@
 import * as Tabs from "@radix-ui/react-tabs";
-import { ArrowUp, Download, FilterX, LayoutList, Plus, RefreshCw, SearchX } from "lucide-react";
+import { ArrowDown, ArrowUp, Download, FilterX, LayoutList, Plus, RefreshCw, SearchX } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import {
   MACHINES,
+  MACHINE_GROUPS,
   PREVIOUS_MONTH_PRODUCED,
   SHIFTS,
   SHIFT_META,
@@ -25,11 +26,20 @@ import { ChartsView } from "./ChartsView";
 import { DetailedView } from "./DetailedView";
 import { machineColumns } from "./machineColumns";
 import { MachinePanel } from "./MachinePanel";
+import { PageHeader } from "@/components/layout/PageHeader";
 import { ShiftsView } from "./ShiftsView";
 
 export type DemoState = "live" | "loading" | "empty" | "error";
 
 interface MachinesPageProps {
+  /** Título e trilha (Linhas › Horizontais, Turnos › Turno 1…) */
+  title?: string;
+  breadcrumbs?: string[];
+  titleAccessory?: React.ReactNode;
+  /** Recorte fixo por grupo de máquinas (páginas de Linhas) */
+  groupId?: string;
+  /** Turno pré-selecionado (páginas de Turnos); "Limpar filtros" volta para ele */
+  presetShift?: Shift;
   search: string;
   onClearSearch: () => void;
   demoState: DemoState;
@@ -42,10 +52,6 @@ const PERIODS: FilterOption[] = [
   { value: "2026-02", label: "Fevereiro de 2026", short: "Fevereiro 2026" },
   { value: "2026-01", label: "Janeiro de 2026", short: "Janeiro 2026" },
   { value: "90d", label: "Últimos 90 dias" },
-];
-const MACHINE_OPTIONS: FilterOption[] = [
-  { value: "all", label: "Todas" },
-  ...MACHINES.map((m) => ({ value: m.id, label: m.name })),
 ];
 const SHIFT_OPTIONS: FilterOption[] = [
   { value: "all", label: "Todos" },
@@ -67,7 +73,6 @@ const TABS = [
   ["charts", "Gráficos"],
 ] as const;
 
-const DEFAULT_FILTERS = { period: "2026-03", machine: "all", shift: "all", status: "all" };
 const SORT_VALUE: Record<string, (m: Machine) => number | string> = {
   name: (m) => m.name,
   days: (m) => m.days,
@@ -76,7 +81,31 @@ const SORT_VALUE: Record<string, (m: Machine) => number | string> = {
   percent: (m) => m.percent,
 };
 
-export function MachinesPage({ search, onClearSearch, demoState, onDemoStateChange, notify }: MachinesPageProps) {
+export function MachinesPage({
+  title = "Máquinas",
+  breadcrumbs,
+  titleAccessory,
+  groupId,
+  presetShift,
+  search,
+  onClearSearch,
+  demoState,
+  onDemoStateChange,
+  notify,
+}: MachinesPageProps) {
+  // Máquinas disponíveis nesta página (todas ou só as da linha)
+  const pool = useMemo(() => {
+    const group = MACHINE_GROUPS.find((g) => g.id === groupId);
+    return group ? MACHINES.filter((m) => group.machineIds.includes(m.id)) : MACHINES;
+  }, [groupId]);
+  const machineOptions = useMemo<FilterOption[]>(
+    () => [{ value: "all", label: "Todas" }, ...pool.map((m) => ({ value: m.id, label: m.name }))],
+    [pool],
+  );
+  const DEFAULT_FILTERS = useMemo(
+    () => ({ period: "2026-03", machine: "all", shift: presetShift ? String(presetShift) : "all", status: "all" }),
+    [presetShift],
+  );
   const [tab, setTab] = useState("overview");
   const [filters, setFilters] = useState(DEFAULT_FILTERS);
   const [sort, setSort] = useState<SortState | null>({ columnId: "produced", direction: "descending" });
@@ -97,7 +126,7 @@ export function MachinesPage({ search, onClearSearch, demoState, onDemoStateChan
   const shiftLabel = shift === "all" ? null : SHIFT_META[shift].label;
 
   // O turno recorta os dados de todas as abas (exceto a comparação em "Turnos")
-  const scoped = useMemo(() => MACHINES.map((m) => scopeToShift(m, shift)), [shift]);
+  const scoped = useMemo(() => pool.map((m) => scopeToShift(m, shift)), [pool, shift]);
 
   const rows = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -141,7 +170,7 @@ export function MachinesPage({ search, onClearSearch, demoState, onDemoStateChan
     if (panelMachine) setLastPanelMachine(panelMachine);
   }, [panelMachine]);
 
-  const setFilter = (key: keyof typeof DEFAULT_FILTERS) => (value: string) => {
+  const setFilter = (key: "period" | "machine" | "shift" | "status") => (value: string) => {
     setFilters((f) => ({ ...f, [key]: value }));
     if (key === "period") setPeriodLoading(true);
   };
@@ -216,16 +245,19 @@ export function MachinesPage({ search, onClearSearch, demoState, onDemoStateChan
       value: noData ? "—" : formatNumber(totals.produced),
       footer: noData ? (
         "Sem dados no período"
-      ) : onlyDefaults ? (
+      ) : onlyDefaults && !groupId && !presetShift ? (
+        // comparação com fevereiro só existe para a fábrica inteira
         <span className="flex items-center gap-050">
-          <span className="flex items-center gap-025 font-medium text-success">
-            <ArrowUp aria-hidden className="size-icon-small" />
-            {formatDecimal(growth)}%
+          <span className={`flex items-center gap-025 font-medium ${growth >= 0 ? "text-success" : "text-danger"}`}>
+            {growth >= 0 ? <ArrowUp aria-hidden className="size-icon-small" /> : <ArrowDown aria-hidden className="size-icon-small" />}
+            {formatDecimal(Math.abs(growth))}%
           </span>
-          vs fevereiro
+          {growth >= 0 ? "acima de" : "abaixo de"} fevereiro
         </span>
       ) : (
-        `Recorte filtrado${shiftLabel ? ` · ${shiftLabel}` : ""}`
+        groupId || presetShift
+          ? `Produção de março${shiftLabel ? ` no ${shiftLabel.toLowerCase()}` : ""}`
+          : `Recorte filtrado${shiftLabel ? ` · ${shiftLabel}` : ""}`
       ),
     },
     {
@@ -262,27 +294,27 @@ export function MachinesPage({ search, onClearSearch, demoState, onDemoStateChan
     <>
       <Tabs.Root value={tab} onValueChange={setTab} className="flex min-h-full flex-col">
         {/* ---------- Cabeçalho da página ---------- */}
-        <div className={`${pad} pt-300`}>
-          <div className="flex flex-wrap items-center justify-between gap-200">
-            <div className="flex min-w-0 items-center gap-150">
-              <h1 className="font-heading-large text-default">Máquinas</h1>
+        <PageHeader
+          title={title}
+          breadcrumbs={breadcrumbs}
+          lozenge={
+            titleAccessory ?? (
               <Lozenge appearance="success" withDot>
                 Em produção
               </Lozenge>
-            </div>
-            <div className="flex items-center gap-100">
+            )
+          }
+          actions={
+            <>
               <Button appearance="subtle" iconBefore={Download} isLoading={exporting} onClick={exportAll}>
                 Exportar
               </Button>
-              <Button
-                appearance="primary"
-                iconBefore={Plus}
-                onClick={() => (window.location.hash = "/apontamento")}
-              >
+              <Button appearance="primary" iconBefore={Plus} onClick={() => (window.location.hash = "/apontamento")}>
                 Novo apontamento
               </Button>
-            </div>
-          </div>
+            </>
+          }
+        >
           <Tabs.List
             aria-label="Visões da página"
             className="mt-200 flex gap-300 overflow-x-auto overflow-y-hidden border-b"
@@ -297,7 +329,7 @@ export function MachinesPage({ search, onClearSearch, demoState, onDemoStateChan
               </Tabs.Trigger>
             ))}
           </Tabs.List>
-        </div>
+        </PageHeader>
 
         {/* ---------- Filtros: uma linha acima do conteúdo; valem para todas as abas ---------- */}
         <div role="toolbar" aria-label="Filtros" className={`${pad} flex flex-wrap items-center gap-100 pt-300`}>
@@ -312,10 +344,16 @@ export function MachinesPage({ search, onClearSearch, demoState, onDemoStateChan
             label="Máquina"
             value={filters.machine}
             defaultValue="all"
-            options={MACHINE_OPTIONS}
+            options={machineOptions}
             onChange={setFilter("machine")}
           />
-          <FilterPill label="Turno" value={filters.shift} defaultValue="all" options={SHIFT_OPTIONS} onChange={setFilter("shift")} />
+          <FilterPill
+            label="Turno"
+            value={filters.shift}
+            defaultValue={DEFAULT_FILTERS.shift}
+            options={SHIFT_OPTIONS}
+            onChange={setFilter("shift")}
+          />
           <FilterPill label="Status" value={filters.status} defaultValue="all" options={STATUSES} onChange={setFilter("status")} />
           {!onlyDefaults && (
             <Button appearance="subtle" iconBefore={FilterX} onClick={clearFilters}>
@@ -324,7 +362,7 @@ export function MachinesPage({ search, onClearSearch, demoState, onDemoStateChan
           )}
           {tableState === "ready" && (
             <p aria-live="polite" className="ml-auto font-body-small text-subtlest">
-              {rows.length === MACHINES.length ? `${rows.length} máquinas` : `${rows.length} de ${MACHINES.length} máquinas`}
+              {rows.length === pool.length ? `${rows.length} ${rows.length === 1 ? "máquina" : "máquinas"}` : `${rows.length} de ${pool.length} máquinas`}
             </p>
           )}
         </div>
@@ -392,7 +430,7 @@ export function MachinesPage({ search, onClearSearch, demoState, onDemoStateChan
             isRefetching={periodLoading}
             activeId={activeId}
             onSelect={openPanel}
-            scopeLabel={`${rows.length === MACHINES.length ? "todas as máquinas" : `${rows.length} máquinas`}${shiftLabel ? ` no ${shiftLabel.toLowerCase()}` : ""}`}
+            scopeLabel={`${rows.length === pool.length ? (groupId ? `todas as máquinas da linha` : "todas as máquinas") : `${rows.length} máquinas`}${shiftLabel ? ` no ${shiftLabel.toLowerCase()}` : ""}`}
             replacement={
               demoState === "error" ? (
                 errorState
