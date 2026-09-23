@@ -8,7 +8,7 @@ import {
   machineById,
   type ProductionOrder,
 } from "@/data/machines";
-import { cn, formatNumber, readToken, type Notify } from "@/lib/utils";
+import { cn, formatNumber, readToken, saveFile, type Notify } from "@/lib/utils";
 import { DataTable, type Column } from "@/components/data/DataTable";
 import { PageBody, PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/Button";
@@ -38,8 +38,12 @@ interface Generated {
 const dateTime = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
 const br = (iso: string) => iso.split("-").reverse().join("/");
 
-/** Gera um CSV real (separador ";" e BOM, como o Excel em pt-BR espera) */
+/** CSV real: separador ";" e BOM, como o Excel em pt-BR espera */
 function downloadCsv(orders: ProductionOrder[], filename: string) {
+  return saveFile(filename, new Blob(["\uFEFF" + toCsv(orders)], { type: "text/csv;charset=utf-8" }));
+}
+
+function toCsv(orders: ProductionOrder[]) {
   const header = ["Data", "Máquina", "Turno", "OP", "Produto", "Quantidade", "Retrabalho", "Motivo", "Operador", "Observação"];
   const rows = orders.map((o) => [
     o.date.toLocaleDateString("pt-BR"),
@@ -53,13 +57,7 @@ function downloadCsv(orders: ProductionOrder[], filename: string) {
     o.operator,
     o.note?.text ?? "",
   ]);
-  const csv = [header, ...rows].map((r) => r.map((c) => `"${c.replace(/"/g, '""')}"`).join(";")).join("\r\n");
-  const url = URL.createObjectURL(new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" }));
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  a.click();
-  URL.revokeObjectURL(url);
+  return [header, ...rows].map((r) => r.map((c) => `"${c.replace(/"/g, '""')}"`).join(";")).join("\r\n");
 }
 
 export function ReportsPage({ notify }: { notify: Notify }) {
@@ -119,8 +117,11 @@ export function ReportsPage({ notify }: { notify: Notify }) {
         ...g,
       ]);
       if (format === "CSV") {
-        downloadCsv(orders, filename);
-        notify("Planilha baixada", `${filename} · ${orders.length} OPs`);
+        downloadCsv(orders, filename).then((r) =>
+          r === "saved"
+            ? notify("Planilha baixada", `${filename} · ${orders.length} OPs`)
+            : notify("Download cancelado", "O relatório continua na lista abaixo."),
+        );
       } else {
         notify("Relatório pronto", `${filename} (PDF simulado no protótipo)`);
       }

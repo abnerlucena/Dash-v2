@@ -66,4 +66,33 @@ export type Notify = (
   action?: FlagAction,
 ) => void;
 
+/* ---------- Download de arquivo ---------- */
+type DownloadsApi = { save: (req: { filename: string; data: string | Blob }) => Promise<{ status: string }> };
+type ClaudeHost = { use?: (name: "downloads") => Promise<DownloadsApi | null> };
+
+/**
+ * Salva um arquivo gerado pela página. Dentro do visualizador do claude.ai usa a
+ * capacidade "downloads" (o viewer confirma); fora dele, um link de download comum.
+ * Resolve "saved" ou "declined".
+ */
+export async function saveFile(filename: string, data: Blob): Promise<"saved" | "declined"> {
+  const host = (window as unknown as { claude?: ClaudeHost }).claude;
+  const downloads = host?.use ? await host.use("downloads").catch(() => null) : null;
+  if (downloads) {
+    try {
+      await downloads.save({ filename, data });
+      return "saved";
+    } catch {
+      return "declined";
+    }
+  }
+  const url = URL.createObjectURL(data);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  window.setTimeout(() => URL.revokeObjectURL(url), 0);
+  return "saved";
+}
+
 export const clamp = (n: number, min: number, max: number) => Math.min(Math.max(n, min), max);
