@@ -1,0 +1,649 @@
+/*
+ * Dash de Produção — design tokens
+ * ------------------------------------------------------------------
+ * Única fonte de valores visuais do protótipo. Nenhum componente usa
+ * cor, espaçamento, raio, sombra, tipografia ou duração fora daqui.
+ *
+ * Nomenclatura (ADS): --ds-[property]-[role]-[emphasis]-[state]
+ *   property  background | text | border | icon
+ *   role      neutral | brand | information | success | warning |
+ *             danger | discovery | accent-* | inverse | input | selected
+ *   emphasis  subtlest < subtler < subtle < (default) < bold < boldest
+ *   state     hovered | pressed | selected | focused | disabled
+ *
+ * Tokens --ds-* seguem o sistema ADS. Tokens --dash-* são específicos
+ * deste app (dimensões de layout, tamanhos de controle, camadas).
+ *
+ * Temas: [data-color-mode="light"] e [data-color-mode="dark"] no <html>.
+ * Os componentes nunca mudam — só os valores dos tokens.
+ */
+
+/* ================================================================
+ * Tokens independentes de tema
+ * ================================================================ */
+:root {
+  /* ---------- Spacing (base 8px) ---------- */
+  --ds-space-0: 0rem;
+  --ds-space-025: 0.125rem; /* 2px */
+  --ds-space-050: 0.25rem; /* 4px */
+  --ds-space-075: 0.375rem; /* 6px */
+  --ds-space-100: 0.5rem; /* 8px */
+  --ds-space-150: 0.75rem; /* 12px */
+  --ds-space-200: 1rem; /* 16px */
+  --ds-space-250: 1.25rem; /* 20px */
+  --ds-space-300: 1.5rem; /* 24px */
+  --ds-space-400: 2rem; /* 32px */
+  --ds-space-500: 2.5rem; /* 40px */
+  --ds-space-600: 3rem; /* 48px */
+  --ds-space-800: 4rem; /* 64px */
+  --ds-space-1000: 5rem; /* 80px */
+  --ds-space-negative-025: -0.125rem;
+  --ds-space-negative-050: -0.25rem;
+  --ds-space-negative-075: -0.375rem;
+  --ds-space-negative-100: -0.5rem;
+  --ds-space-negative-150: -0.75rem;
+  --ds-space-negative-200: -1rem;
+  --ds-space-negative-250: -1.25rem;
+  --ds-space-negative-300: -1.5rem;
+  --ds-space-negative-400: -2rem;
+
+  /* ---------- Radius ---------- */
+  --ds-radius-xsmall: 0.125rem; /* 2px  badges, checkboxes, kbd */
+  --ds-radius-small: 0.25rem; /* 4px  lozenges, tags, tooltips */
+  --ds-radius-medium: 0.375rem; /* 6px  buttons, inputs, nav items */
+  --ds-radius-large: 0.5rem; /* 8px  cards, menus */
+  --ds-radius-xlarge: 0.75rem; /* 12px modals, tables */
+  --ds-radius-full: 624.9375rem; /* avatars, dots */
+
+  /* ---------- Border width ---------- */
+  --ds-border-width: 1px;
+  --ds-border-width-selected: 2px;
+  --ds-border-width-focused: 2px;
+  --ds-focus-ring-offset: 2px;
+
+  /* ---------- Typography ---------- */
+  --ds-font-family-body: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --ds-font-family-heading: var(--ds-font-family-body);
+  --ds-font-family-code: "Geist Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+
+  --ds-font-weight-regular: 400;
+  --ds-font-weight-medium: 500;
+  --ds-font-weight-semibold: 600;
+  --ds-font-weight-bold: 650;
+
+  --ds-font-tracking-tight: -0.011em;
+  --ds-font-tracking-normal: 0em;
+
+  /* font shorthand: weight size/line-height family (como no ADS) */
+  --ds-font-heading-xxlarge: var(--ds-font-weight-bold) 2rem / 2.25rem var(--ds-font-family-heading);
+  --ds-font-heading-xlarge: var(--ds-font-weight-bold) 1.75rem / 2rem var(--ds-font-family-heading);
+  --ds-font-heading-large: var(--ds-font-weight-bold) 1.5rem / 1.75rem var(--ds-font-family-heading);
+  --ds-font-heading-medium: var(--ds-font-weight-bold) 1.25rem / 1.5rem var(--ds-font-family-heading);
+  --ds-font-heading-small: var(--ds-font-weight-bold) 1rem / 1.25rem var(--ds-font-family-heading);
+  --ds-font-heading-xsmall: var(--ds-font-weight-bold) 0.875rem / 1.25rem var(--ds-font-family-heading);
+  --ds-font-heading-xxsmall: var(--ds-font-weight-bold) 0.75rem / 1rem var(--ds-font-family-heading);
+
+  --ds-font-body-large: var(--ds-font-weight-regular) 1rem / 1.5rem var(--ds-font-family-body);
+  --ds-font-body: var(--ds-font-weight-regular) 0.875rem / 1.25rem var(--ds-font-family-body);
+  --ds-font-body-small: var(--ds-font-weight-regular) 0.75rem / 1rem var(--ds-font-family-body);
+
+  --ds-font-metric-large: var(--ds-font-weight-bold) 1.75rem / 2rem var(--ds-font-family-body);
+  --ds-font-metric-medium: var(--ds-font-weight-bold) 1.5rem / 1.75rem var(--ds-font-family-body);
+  --ds-font-metric-small: var(--ds-font-weight-bold) 1rem / 1.25rem var(--ds-font-family-body);
+
+  --ds-font-code: var(--ds-font-weight-regular) 0.8125rem / 1.25rem var(--ds-font-family-code);
+
+  /* ---------- Motion [inferido — página de motion do ADS não analisada] ---------- */
+  --ds-motion-duration-press: 100ms;
+  --ds-motion-duration-hover: 150ms;
+  --ds-motion-duration-menu: 200ms;
+  --ds-motion-duration-panel: 250ms;
+  --ds-motion-duration-skeleton: 1.6s;
+  --ds-motion-duration-spin: 0.7s;
+  --ds-motion-easing-out: cubic-bezier(0.2, 0, 0, 1);
+  --ds-motion-press-scale: 0.97;
+  --ds-motion-enter-scale: 0.97;
+  --ds-motion-flyout-offset: -0.5rem;
+  --ds-motion-panel-offset: 1rem;
+
+  /* ---------- Opacity ---------- */
+  --ds-opacity-disabled: 0.4;
+  --ds-opacity-loading: 0.2;
+  --ds-opacity-loading-pulse: 0.55;
+
+  /* ================================================================
+   * App (--dash-*): layout, tamanhos de controle e camadas
+   * ================================================================ */
+  --dash-topnav-height: 3.5rem; /* 56px */
+  --dash-banner-height: 2.5rem; /* 40px */
+
+  --dash-sidenav-width: 20rem; /* 320px (padrão; o JS sobrescreve com a largura salva) */
+  --dash-sidenav-width-min: 15rem; /* 240px */
+  --dash-sidenav-max-ratio: 0.5; /* 50% da viewport */
+  --dash-sidenav-overlay-width: min(20rem, 90vw);
+  --dash-sidenav-flyout-open-delay: 100ms;
+  --dash-sidenav-flyout-close-delay: 300ms;
+
+  --dash-panel-width: 22.8125rem; /* 365px */
+  --dash-panel-width-min: 17.5rem; /* 280px */
+  --dash-panel-max-ratio: 0.5; /* 50% da área de conteúdo */
+
+  --dash-splitter-hit-area: 0.5rem; /* 8px */
+  --dash-splitter-line: 2px;
+  --dash-splitter-keyboard-step: 1rem; /* 16px por seta */
+
+  --dash-size-icon-small: 1rem; /* 16px */
+  --dash-size-icon-medium: 1.25rem; /* 20px */
+  --dash-size-icon-large: 1.5rem; /* 24px */
+  --dash-size-control: 2rem; /* 32px: botões, filtros, inputs */
+  --dash-size-control-compact: 1.5rem; /* 24px: ações de linha */
+  --dash-size-nav-item: 2rem; /* 32px */
+  --dash-size-row: 2.25rem; /* 36px: linhas da tabela */
+  --dash-size-row-header: 2rem; /* 32px: cabeçalho da tabela */
+  --dash-size-lozenge: 1.25rem; /* 20px */
+  --dash-size-badge: 1rem; /* 16px */
+  --dash-size-checkbox: 0.875rem; /* 14px */
+  --dash-size-avatar-small: 1.5rem; /* 24px */
+  --dash-size-avatar-medium: 2rem; /* 32px */
+  --dash-size-tile: 2rem; /* 32px: logo tile */
+  --dash-size-dot: 0.5rem; /* 8px */
+  --dash-size-status-dot: 0.375rem; /* 6px */
+  --dash-size-segment-width: 0.3125rem; /* 5px */
+  --dash-size-segment-height: 0.875rem; /* 14px */
+  --dash-size-sparkline-bar: 0.25rem; /* 4px */
+  --dash-size-sparkline-height: 1.25rem; /* 20px */
+  --dash-size-empty-icon: 3rem; /* 48px */
+  --dash-size-search-width: 30rem; /* 480px */
+  --dash-size-menu-min: 12rem; /* 192px */
+  --dash-size-popover: 22.5rem; /* 360px */
+  --dash-size-flag: 22.5rem; /* 360px */
+  --dash-size-tooltip-max: 15rem; /* 240px */
+  --dash-size-column-name: 12.5rem; /* 200px */
+  --dash-size-content-max: 125rem; /* 2000px */
+  --dash-size-kbd: 1.25rem; /* 20px */
+  --dash-size-kpi-min: 12.5rem; /* 200px: largura mínima de uma célula de KPI */
+
+  --dash-z-sticky: 1;
+  --dash-z-topnav: 10;
+  --dash-z-banner: 11;
+  --dash-z-panel-overlay: 20;
+  --dash-z-sidenav-overlay: 30;
+  --dash-z-menu: 50;
+  --dash-z-tooltip: 60;
+  --dash-z-flag: 70;
+  --dash-z-skip-link: 80;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    /* Movimento reduzido: mantém transições de cor/opacidade, remove deslocamentos */
+    --ds-motion-duration-press: 0ms;
+    --ds-motion-duration-panel: 0ms;
+    --ds-motion-press-scale: 1;
+    --ds-motion-enter-scale: 1;
+    --ds-motion-flyout-offset: 0rem;
+    --ds-motion-panel-offset: 0rem;
+  }
+}
+
+/* ================================================================
+ * Tema claro
+ * ================================================================ */
+:root,
+[data-color-mode="light"] {
+  color-scheme: light;
+
+  /* ---------- Text ---------- */
+  --ds-text: hsl(215 35% 13%);
+  --ds-text-subtle: hsl(215 18% 32%);
+  --ds-text-subtlest: hsl(215 13% 42%);
+  --ds-text-disabled: hsl(215 10% 62%);
+  --ds-text-inverse: hsl(0 0% 100%);
+  --ds-text-brand: hsl(207 100% 33%);
+  --ds-text-selected: hsl(207 100% 33%);
+  --ds-text-link: hsl(207 100% 33%);
+  --ds-text-link-pressed: hsl(207 100% 25%);
+  --ds-text-information: hsl(207 80% 32%);
+  --ds-text-success: hsl(145 70% 24%);
+  --ds-text-warning: hsl(28 90% 30%);
+  --ds-text-warning-inverse: hsl(215 35% 13%);
+  --ds-text-danger: hsl(0 70% 40%);
+  --ds-text-discovery: hsl(262 50% 42%);
+
+  /* ---------- Icon ---------- */
+  --ds-icon: hsl(215 25% 25%);
+  --ds-icon-subtle: hsl(215 13% 42%);
+  --ds-icon-subtlest: hsl(215 11% 55%);
+  --ds-icon-disabled: hsl(215 10% 70%);
+  --ds-icon-inverse: hsl(0 0% 100%);
+  --ds-icon-brand: hsl(207 100% 35%);
+  --ds-icon-selected: hsl(207 100% 35%);
+  --ds-icon-information: hsl(207 80% 42%);
+  --ds-icon-success: hsl(145 63% 34%);
+  --ds-icon-warning: hsl(36 95% 45%);
+  --ds-icon-danger: hsl(0 72% 48%);
+  --ds-icon-discovery: hsl(262 50% 52%);
+
+  /* ---------- Border ---------- */
+  --ds-border: hsl(215 30% 20% / 0.13);
+  --ds-border-bold: hsl(215 11% 52%);
+  --ds-border-input: hsl(215 11% 56%);
+  --ds-border-focused: hsl(207 100% 42%);
+  --ds-border-selected: hsl(207 100% 35%);
+  --ds-border-brand: hsl(207 100% 35%);
+  --ds-border-disabled: hsl(215 30% 20% / 0.06);
+  --ds-border-inverse: hsl(0 0% 100%);
+  --ds-border-information: hsl(207 80% 42%);
+  --ds-border-success: hsl(145 63% 34%);
+  --ds-border-warning: hsl(36 95% 45%);
+  --ds-border-danger: hsl(0 72% 48%);
+  --ds-border-discovery: hsl(262 50% 52%);
+
+  /* ---------- Background ---------- */
+  --ds-background-disabled: hsl(215 40% 20% / 0.04);
+  --ds-background-input: hsl(0 0% 100%);
+  --ds-background-input-hovered: hsl(210 20% 97.5%);
+  --ds-background-input-pressed: hsl(0 0% 100%);
+
+  --ds-background-neutral: hsl(215 40% 20% / 0.06);
+  --ds-background-neutral-hovered: hsl(215 40% 20% / 0.1);
+  --ds-background-neutral-pressed: hsl(215 40% 20% / 0.16);
+  --ds-background-neutral-subtle: hsl(215 40% 20% / 0);
+  --ds-background-neutral-subtle-hovered: hsl(215 40% 20% / 0.06);
+  --ds-background-neutral-subtle-pressed: hsl(215 40% 20% / 0.12);
+  --ds-background-neutral-bold: hsl(215 25% 25%);
+  --ds-background-neutral-bold-hovered: hsl(215 28% 20%);
+  --ds-background-neutral-bold-pressed: hsl(215 32% 15%);
+
+  --ds-background-brand-subtlest: hsl(207 100% 96%);
+  --ds-background-brand-subtlest-hovered: hsl(207 100% 92%);
+  --ds-background-brand-subtlest-pressed: hsl(207 100% 88%);
+  --ds-background-brand-bold: hsl(207 100% 35%);
+  --ds-background-brand-bold-hovered: hsl(207 100% 29%);
+  --ds-background-brand-bold-pressed: hsl(207 100% 24%);
+  --ds-background-brand-boldest: hsl(210 100% 20%);
+
+  --ds-background-selected: hsl(207 100% 95.5%);
+  --ds-background-selected-hovered: hsl(207 100% 91%);
+  --ds-background-selected-pressed: hsl(207 100% 86%);
+  --ds-background-selected-bold: hsl(207 100% 35%);
+  --ds-background-selected-bold-hovered: hsl(207 100% 29%);
+  --ds-background-selected-bold-pressed: hsl(207 100% 24%);
+
+  --ds-background-information: hsl(207 90% 95%);
+  --ds-background-information-hovered: hsl(207 90% 91%);
+  --ds-background-information-pressed: hsl(207 90% 86%);
+  --ds-background-information-bold: hsl(207 80% 42%);
+  --ds-background-information-bold-hovered: hsl(207 80% 36%);
+  --ds-background-information-bold-pressed: hsl(207 80% 30%);
+
+  --ds-background-success: hsl(140 55% 94%);
+  --ds-background-success-hovered: hsl(140 55% 89%);
+  --ds-background-success-pressed: hsl(140 55% 84%);
+  --ds-background-success-bold: hsl(145 63% 32%);
+  --ds-background-success-bold-hovered: hsl(145 63% 27%);
+  --ds-background-success-bold-pressed: hsl(145 63% 22%);
+
+  --ds-background-warning: hsl(42 100% 91%);
+  --ds-background-warning-hovered: hsl(42 100% 85%);
+  --ds-background-warning-pressed: hsl(42 100% 79%);
+  --ds-background-warning-bold: hsl(40 95% 52%);
+  --ds-background-warning-bold-hovered: hsl(40 95% 46%);
+  --ds-background-warning-bold-pressed: hsl(40 95% 40%);
+
+  --ds-background-danger: hsl(0 90% 95.5%);
+  --ds-background-danger-hovered: hsl(0 90% 91%);
+  --ds-background-danger-pressed: hsl(0 90% 86%);
+  --ds-background-danger-bold: hsl(0 72% 46%);
+  --ds-background-danger-bold-hovered: hsl(0 72% 40%);
+  --ds-background-danger-bold-pressed: hsl(0 72% 34%);
+
+  --ds-background-discovery: hsl(262 80% 96%);
+  --ds-background-discovery-hovered: hsl(262 80% 92%);
+  --ds-background-discovery-pressed: hsl(262 80% 88%);
+  --ds-background-discovery-bold: hsl(262 50% 52%);
+  --ds-background-discovery-bold-hovered: hsl(262 50% 46%);
+  --ds-background-discovery-bold-pressed: hsl(262 50% 40%);
+
+  --ds-background-inverse-subtle: hsl(0 0% 100% / 0.16);
+  --ds-background-inverse-subtle-hovered: hsl(0 0% 100% / 0.24);
+  --ds-background-inverse-subtle-pressed: hsl(0 0% 100% / 0.32);
+
+  /* ---------- Accent (decorativo, sem significado) ---------- */
+  --ds-background-accent-blue-subtlest: hsl(212 80% 96%);
+  --ds-background-accent-blue-subtler: hsl(212 80% 91%);
+  --ds-background-accent-blue-subtle: hsl(212 70% 74%);
+  --ds-background-accent-blue-bolder: hsl(212 70% 40%);
+  --ds-text-accent-blue: hsl(212 75% 32%);
+  --ds-text-accent-blue-bolder: hsl(212 75% 22%);
+  --ds-border-accent-blue: hsl(212 70% 45%);
+  --ds-icon-accent-blue: hsl(212 75% 45%);
+  --ds-background-accent-teal-subtlest: hsl(185 70% 96%);
+  --ds-background-accent-teal-subtler: hsl(185 70% 91%);
+  --ds-background-accent-teal-subtle: hsl(185 70% 74%);
+  --ds-background-accent-teal-bolder: hsl(185 70% 40%);
+  --ds-text-accent-teal: hsl(185 70% 32%);
+  --ds-text-accent-teal-bolder: hsl(185 70% 22%);
+  --ds-border-accent-teal: hsl(185 70% 45%);
+  --ds-icon-accent-teal: hsl(185 70% 45%);
+  --ds-background-accent-green-subtlest: hsl(145 60% 96%);
+  --ds-background-accent-green-subtler: hsl(145 60% 91%);
+  --ds-background-accent-green-subtle: hsl(145 60% 74%);
+  --ds-background-accent-green-bolder: hsl(145 60% 40%);
+  --ds-text-accent-green: hsl(145 60% 32%);
+  --ds-text-accent-green-bolder: hsl(145 60% 22%);
+  --ds-border-accent-green: hsl(145 60% 45%);
+  --ds-icon-accent-green: hsl(145 60% 45%);
+  --ds-background-accent-lime-subtlest: hsl(85 65% 96%);
+  --ds-background-accent-lime-subtler: hsl(85 65% 91%);
+  --ds-background-accent-lime-subtle: hsl(85 65% 74%);
+  --ds-background-accent-lime-bolder: hsl(85 65% 40%);
+  --ds-text-accent-lime: hsl(85 65% 26%);
+  --ds-text-accent-lime-bolder: hsl(85 65% 16%);
+  --ds-border-accent-lime: hsl(85 65% 45%);
+  --ds-icon-accent-lime: hsl(85 65% 45%);
+  --ds-background-accent-yellow-subtlest: hsl(48 90% 96%);
+  --ds-background-accent-yellow-subtler: hsl(48 90% 91%);
+  --ds-background-accent-yellow-subtle: hsl(48 70% 74%);
+  --ds-background-accent-yellow-bolder: hsl(48 70% 40%);
+  --ds-text-accent-yellow: hsl(48 75% 26%);
+  --ds-text-accent-yellow-bolder: hsl(48 75% 16%);
+  --ds-border-accent-yellow: hsl(48 70% 45%);
+  --ds-icon-accent-yellow: hsl(48 75% 45%);
+  --ds-background-accent-orange-subtlest: hsl(25 90% 96%);
+  --ds-background-accent-orange-subtler: hsl(25 90% 91%);
+  --ds-background-accent-orange-subtle: hsl(25 70% 74%);
+  --ds-background-accent-orange-bolder: hsl(25 70% 40%);
+  --ds-text-accent-orange: hsl(25 75% 26%);
+  --ds-text-accent-orange-bolder: hsl(25 75% 16%);
+  --ds-border-accent-orange: hsl(25 70% 45%);
+  --ds-icon-accent-orange: hsl(25 75% 45%);
+  --ds-background-accent-red-subtlest: hsl(0 75% 96%);
+  --ds-background-accent-red-subtler: hsl(0 75% 91%);
+  --ds-background-accent-red-subtle: hsl(0 70% 74%);
+  --ds-background-accent-red-bolder: hsl(0 70% 40%);
+  --ds-text-accent-red: hsl(0 75% 32%);
+  --ds-text-accent-red-bolder: hsl(0 75% 22%);
+  --ds-border-accent-red: hsl(0 70% 45%);
+  --ds-icon-accent-red: hsl(0 75% 45%);
+  --ds-background-accent-magenta-subtlest: hsl(320 65% 96%);
+  --ds-background-accent-magenta-subtler: hsl(320 65% 91%);
+  --ds-background-accent-magenta-subtle: hsl(320 65% 74%);
+  --ds-background-accent-magenta-bolder: hsl(320 65% 40%);
+  --ds-text-accent-magenta: hsl(320 65% 32%);
+  --ds-text-accent-magenta-bolder: hsl(320 65% 22%);
+  --ds-border-accent-magenta: hsl(320 65% 45%);
+  --ds-icon-accent-magenta: hsl(320 65% 45%);
+  --ds-background-accent-purple-subtlest: hsl(265 60% 96%);
+  --ds-background-accent-purple-subtler: hsl(265 60% 91%);
+  --ds-background-accent-purple-subtle: hsl(265 60% 74%);
+  --ds-background-accent-purple-bolder: hsl(265 60% 40%);
+  --ds-text-accent-purple: hsl(265 60% 32%);
+  --ds-text-accent-purple-bolder: hsl(265 60% 22%);
+  --ds-border-accent-purple: hsl(265 60% 45%);
+  --ds-icon-accent-purple: hsl(265 60% 45%);
+  --ds-background-accent-gray-subtlest: hsl(215 14% 96%);
+  --ds-background-accent-gray-subtler: hsl(215 14% 91%);
+  --ds-background-accent-gray-subtle: hsl(215 14% 74%);
+  --ds-background-accent-gray-bolder: hsl(215 14% 40%);
+  --ds-text-accent-gray: hsl(215 14% 32%);
+  --ds-text-accent-gray-bolder: hsl(215 14% 22%);
+  --ds-border-accent-gray: hsl(215 14% 45%);
+  --ds-icon-accent-gray: hsl(215 14% 45%);
+
+  /* ---------- Chart ---------- */
+  --ds-chart-brand: hsl(207 100% 42%);
+  --ds-chart-neutral: hsl(215 16% 80%);
+
+  /* ---------- Elevation ---------- */
+  --ds-surface: hsl(0 0% 100%);
+  --ds-surface-hovered: hsl(210 20% 97%);
+  --ds-surface-pressed: hsl(212 18% 92%);
+  --ds-surface-sunken: hsl(210 25% 97.5%);
+  --ds-surface-raised: hsl(0 0% 100%);
+  --ds-surface-raised-hovered: hsl(210 20% 97%);
+  --ds-surface-raised-pressed: hsl(212 18% 92%);
+  --ds-surface-overlay: hsl(0 0% 100%);
+  --ds-surface-overlay-hovered: hsl(210 20% 97%);
+  --ds-surface-overlay-pressed: hsl(212 18% 92%);
+
+  --ds-shadow-raised: 0 1px 1px hsl(215 40% 12% / 0.2), 0 0 1px hsl(215 40% 12% / 0.3);
+  --ds-shadow-overlay: 0 8px 12px hsl(215 40% 12% / 0.15), 0 0 1px hsl(215 40% 12% / 0.31);
+  --ds-shadow-overflow: 0 0 8px hsl(215 40% 12% / 0.16), 0 0 1px hsl(215 40% 12% / 0.12);
+  --ds-shadow-overflow-spread: hsl(215 40% 12% / 0.16);
+  --ds-shadow-overflow-perimeter: hsl(215 40% 12% / 0.12);
+
+  /* Véu atrás de overlays abaixo de 768px */
+  --ds-blanket: hsl(215 35% 13% / 0.32);
+}
+
+/* ================================================================
+ * Tema escuro — derivado do azul-marinho WEG hsl(210 100% 20%)
+ * Superfícies mais altas são mais claras ("iluminadas pela frente").
+ * ================================================================ */
+[data-color-mode="dark"] {
+  color-scheme: dark;
+
+  /* ---------- Text ---------- */
+  --ds-text: hsl(210 35% 91%);
+  --ds-text-subtle: hsl(212 22% 75%);
+  --ds-text-subtlest: hsl(212 16% 62%);
+  --ds-text-disabled: hsl(212 15% 42%);
+  --ds-text-inverse: hsl(212 50% 8%);
+  --ds-text-brand: hsl(207 100% 72%);
+  --ds-text-selected: hsl(207 100% 72%);
+  --ds-text-link: hsl(207 100% 72%);
+  --ds-text-link-pressed: hsl(207 100% 80%);
+  --ds-text-information: hsl(205 90% 72%);
+  --ds-text-success: hsl(145 55% 62%);
+  --ds-text-warning: hsl(38 95% 62%);
+  --ds-text-warning-inverse: hsl(212 50% 8%);
+  --ds-text-danger: hsl(0 85% 72%);
+  --ds-text-discovery: hsl(262 75% 78%);
+
+  /* ---------- Icon ---------- */
+  --ds-icon: hsl(212 28% 82%);
+  --ds-icon-subtle: hsl(212 18% 66%);
+  --ds-icon-subtlest: hsl(212 14% 52%);
+  --ds-icon-disabled: hsl(212 14% 36%);
+  --ds-icon-inverse: hsl(212 50% 8%);
+  --ds-icon-brand: hsl(207 100% 62%);
+  --ds-icon-selected: hsl(207 100% 66%);
+  --ds-icon-information: hsl(205 85% 62%);
+  --ds-icon-success: hsl(145 50% 52%);
+  --ds-icon-warning: hsl(38 95% 55%);
+  --ds-icon-danger: hsl(0 80% 64%);
+  --ds-icon-discovery: hsl(262 65% 70%);
+
+  /* ---------- Border ---------- */
+  --ds-border: hsl(210 60% 85% / 0.14);
+  --ds-border-bold: hsl(212 16% 55%);
+  --ds-border-input: hsl(212 16% 48%);
+  --ds-border-focused: hsl(207 100% 64%);
+  --ds-border-selected: hsl(207 100% 64%);
+  --ds-border-brand: hsl(207 100% 64%);
+  --ds-border-disabled: hsl(210 60% 85% / 0.06);
+  --ds-border-inverse: hsl(212 50% 8%);
+  --ds-border-information: hsl(205 85% 62%);
+  --ds-border-success: hsl(145 50% 52%);
+  --ds-border-warning: hsl(38 95% 55%);
+  --ds-border-danger: hsl(0 80% 64%);
+  --ds-border-discovery: hsl(262 65% 70%);
+
+  /* ---------- Background ---------- */
+  --ds-background-disabled: hsl(210 60% 85% / 0.05);
+  --ds-background-input: hsl(212 48% 7%);
+  --ds-background-input-hovered: hsl(212 44% 10%);
+  --ds-background-input-pressed: hsl(212 48% 7%);
+
+  --ds-background-neutral: hsl(210 60% 85% / 0.08);
+  --ds-background-neutral-hovered: hsl(210 60% 85% / 0.12);
+  --ds-background-neutral-pressed: hsl(210 60% 85% / 0.18);
+  --ds-background-neutral-subtle: hsl(210 60% 85% / 0);
+  --ds-background-neutral-subtle-hovered: hsl(210 60% 85% / 0.07);
+  --ds-background-neutral-subtle-pressed: hsl(210 60% 85% / 0.12);
+  --ds-background-neutral-bold: hsl(212 28% 82%);
+  --ds-background-neutral-bold-hovered: hsl(212 28% 88%);
+  --ds-background-neutral-bold-pressed: hsl(212 28% 92%);
+
+  --ds-background-brand-subtlest: hsl(207 80% 55% / 0.14);
+  --ds-background-brand-subtlest-hovered: hsl(207 80% 55% / 0.2);
+  --ds-background-brand-subtlest-pressed: hsl(207 80% 55% / 0.26);
+  --ds-background-brand-bold: hsl(207 100% 62%);
+  --ds-background-brand-bold-hovered: hsl(207 100% 68%);
+  --ds-background-brand-bold-pressed: hsl(207 100% 74%);
+  --ds-background-brand-boldest: hsl(210 100% 20%);
+
+  --ds-background-selected: hsl(207 90% 60% / 0.16);
+  --ds-background-selected-hovered: hsl(207 90% 60% / 0.22);
+  --ds-background-selected-pressed: hsl(207 90% 60% / 0.28);
+  --ds-background-selected-bold: hsl(207 100% 62%);
+  --ds-background-selected-bold-hovered: hsl(207 100% 68%);
+  --ds-background-selected-bold-pressed: hsl(207 100% 74%);
+
+  --ds-background-information: hsl(207 60% 16%);
+  --ds-background-information-hovered: hsl(207 60% 20%);
+  --ds-background-information-pressed: hsl(207 60% 24%);
+  --ds-background-information-bold: hsl(205 85% 62%);
+  --ds-background-information-bold-hovered: hsl(205 85% 68%);
+  --ds-background-information-bold-pressed: hsl(205 85% 74%);
+
+  --ds-background-success: hsl(150 45% 14%);
+  --ds-background-success-hovered: hsl(150 45% 18%);
+  --ds-background-success-pressed: hsl(150 45% 22%);
+  --ds-background-success-bold: hsl(145 50% 52%);
+  --ds-background-success-bold-hovered: hsl(145 50% 58%);
+  --ds-background-success-bold-pressed: hsl(145 50% 64%);
+
+  --ds-background-warning: hsl(38 60% 15%);
+  --ds-background-warning-hovered: hsl(38 60% 19%);
+  --ds-background-warning-pressed: hsl(38 60% 23%);
+  --ds-background-warning-bold: hsl(38 95% 55%);
+  --ds-background-warning-bold-hovered: hsl(38 95% 61%);
+  --ds-background-warning-bold-pressed: hsl(38 95% 67%);
+
+  --ds-background-danger: hsl(0 50% 17%);
+  --ds-background-danger-hovered: hsl(0 50% 21%);
+  --ds-background-danger-pressed: hsl(0 50% 25%);
+  --ds-background-danger-bold: hsl(0 80% 66%);
+  --ds-background-danger-bold-hovered: hsl(0 80% 72%);
+  --ds-background-danger-bold-pressed: hsl(0 80% 78%);
+
+  --ds-background-discovery: hsl(262 40% 20%);
+  --ds-background-discovery-hovered: hsl(262 40% 24%);
+  --ds-background-discovery-pressed: hsl(262 40% 28%);
+  --ds-background-discovery-bold: hsl(262 65% 70%);
+  --ds-background-discovery-bold-hovered: hsl(262 65% 76%);
+  --ds-background-discovery-bold-pressed: hsl(262 65% 82%);
+
+  --ds-background-inverse-subtle: hsl(212 50% 8% / 0.16);
+  --ds-background-inverse-subtle-hovered: hsl(212 50% 8% / 0.24);
+  --ds-background-inverse-subtle-pressed: hsl(212 50% 8% / 0.32);
+
+  /* ---------- Accent (decorativo, sem significado) ---------- */
+  --ds-background-accent-blue-subtlest: hsl(212 50% 14%);
+  --ds-background-accent-blue-subtler: hsl(212 50% 20%);
+  --ds-background-accent-blue-subtle: hsl(212 45% 32%);
+  --ds-background-accent-blue-bolder: hsl(212 65% 65%);
+  --ds-text-accent-blue: hsl(212 75% 76%);
+  --ds-text-accent-blue-bolder: hsl(212 75% 86%);
+  --ds-border-accent-blue: hsl(212 65% 58%);
+  --ds-icon-accent-blue: hsl(212 70% 62%);
+  --ds-background-accent-teal-subtlest: hsl(185 50% 14%);
+  --ds-background-accent-teal-subtler: hsl(185 50% 20%);
+  --ds-background-accent-teal-subtle: hsl(185 45% 32%);
+  --ds-background-accent-teal-bolder: hsl(185 65% 65%);
+  --ds-text-accent-teal: hsl(185 70% 76%);
+  --ds-text-accent-teal-bolder: hsl(185 70% 86%);
+  --ds-border-accent-teal: hsl(185 65% 58%);
+  --ds-icon-accent-teal: hsl(185 70% 62%);
+  --ds-background-accent-green-subtlest: hsl(145 50% 14%);
+  --ds-background-accent-green-subtler: hsl(145 50% 20%);
+  --ds-background-accent-green-subtle: hsl(145 45% 32%);
+  --ds-background-accent-green-bolder: hsl(145 60% 65%);
+  --ds-text-accent-green: hsl(145 60% 76%);
+  --ds-text-accent-green-bolder: hsl(145 60% 86%);
+  --ds-border-accent-green: hsl(145 60% 58%);
+  --ds-icon-accent-green: hsl(145 60% 62%);
+  --ds-background-accent-lime-subtlest: hsl(85 50% 14%);
+  --ds-background-accent-lime-subtler: hsl(85 50% 20%);
+  --ds-background-accent-lime-subtle: hsl(85 45% 32%);
+  --ds-background-accent-lime-bolder: hsl(85 65% 65%);
+  --ds-text-accent-lime: hsl(85 65% 76%);
+  --ds-text-accent-lime-bolder: hsl(85 65% 86%);
+  --ds-border-accent-lime: hsl(85 65% 58%);
+  --ds-icon-accent-lime: hsl(85 65% 62%);
+  --ds-background-accent-yellow-subtlest: hsl(48 50% 14%);
+  --ds-background-accent-yellow-subtler: hsl(48 50% 20%);
+  --ds-background-accent-yellow-subtle: hsl(48 45% 32%);
+  --ds-background-accent-yellow-bolder: hsl(48 65% 65%);
+  --ds-text-accent-yellow: hsl(48 75% 76%);
+  --ds-text-accent-yellow-bolder: hsl(48 75% 86%);
+  --ds-border-accent-yellow: hsl(48 65% 58%);
+  --ds-icon-accent-yellow: hsl(48 70% 62%);
+  --ds-background-accent-orange-subtlest: hsl(25 50% 14%);
+  --ds-background-accent-orange-subtler: hsl(25 50% 20%);
+  --ds-background-accent-orange-subtle: hsl(25 45% 32%);
+  --ds-background-accent-orange-bolder: hsl(25 65% 65%);
+  --ds-text-accent-orange: hsl(25 75% 76%);
+  --ds-text-accent-orange-bolder: hsl(25 75% 86%);
+  --ds-border-accent-orange: hsl(25 65% 58%);
+  --ds-icon-accent-orange: hsl(25 70% 62%);
+  --ds-background-accent-red-subtlest: hsl(0 50% 14%);
+  --ds-background-accent-red-subtler: hsl(0 50% 20%);
+  --ds-background-accent-red-subtle: hsl(0 45% 32%);
+  --ds-background-accent-red-bolder: hsl(0 65% 65%);
+  --ds-text-accent-red: hsl(0 75% 76%);
+  --ds-text-accent-red-bolder: hsl(0 75% 86%);
+  --ds-border-accent-red: hsl(0 65% 58%);
+  --ds-icon-accent-red: hsl(0 70% 62%);
+  --ds-background-accent-magenta-subtlest: hsl(320 50% 14%);
+  --ds-background-accent-magenta-subtler: hsl(320 50% 20%);
+  --ds-background-accent-magenta-subtle: hsl(320 45% 32%);
+  --ds-background-accent-magenta-bolder: hsl(320 65% 65%);
+  --ds-text-accent-magenta: hsl(320 65% 76%);
+  --ds-text-accent-magenta-bolder: hsl(320 65% 86%);
+  --ds-border-accent-magenta: hsl(320 65% 58%);
+  --ds-icon-accent-magenta: hsl(320 65% 62%);
+  --ds-background-accent-purple-subtlest: hsl(265 50% 14%);
+  --ds-background-accent-purple-subtler: hsl(265 50% 20%);
+  --ds-background-accent-purple-subtle: hsl(265 45% 32%);
+  --ds-background-accent-purple-bolder: hsl(265 60% 65%);
+  --ds-text-accent-purple: hsl(265 60% 76%);
+  --ds-text-accent-purple-bolder: hsl(265 60% 86%);
+  --ds-border-accent-purple: hsl(265 60% 58%);
+  --ds-icon-accent-purple: hsl(265 60% 62%);
+  --ds-background-accent-gray-subtlest: hsl(215 14% 14%);
+  --ds-background-accent-gray-subtler: hsl(215 14% 20%);
+  --ds-background-accent-gray-subtle: hsl(215 14% 32%);
+  --ds-background-accent-gray-bolder: hsl(215 14% 65%);
+  --ds-text-accent-gray: hsl(215 14% 76%);
+  --ds-text-accent-gray-bolder: hsl(215 14% 86%);
+  --ds-border-accent-gray: hsl(215 14% 58%);
+  --ds-icon-accent-gray: hsl(215 14% 62%);
+
+  /* ---------- Chart ---------- */
+  --ds-chart-brand: hsl(207 100% 62%);
+  --ds-chart-neutral: hsl(212 22% 30%);
+
+  /* ---------- Elevation ---------- */
+  --ds-surface: hsl(212 50% 8%);
+  --ds-surface-hovered: hsl(212 44% 11%);
+  --ds-surface-pressed: hsl(212 40% 14%);
+  --ds-surface-sunken: hsl(212 55% 6%);
+  --ds-surface-raised: hsl(212 42% 11%);
+  --ds-surface-raised-hovered: hsl(212 40% 14%);
+  --ds-surface-raised-pressed: hsl(212 38% 17%);
+  --ds-surface-overlay: hsl(212 38% 15%);
+  --ds-surface-overlay-hovered: hsl(212 36% 18%);
+  --ds-surface-overlay-pressed: hsl(212 34% 21%);
+
+  --ds-shadow-raised: 0 1px 1px hsl(220 60% 2% / 0.26), 0 0 1px hsl(220 60% 2% / 0.5);
+  --ds-shadow-overlay: inset 0 0 0 1px hsl(210 60% 85% / 0.06), 0 8px 12px hsl(220 60% 2% / 0.36),
+    0 0 1px hsl(220 60% 2% / 0.5);
+  --ds-shadow-overflow: 0 0 12px hsl(220 60% 2% / 0.56), 0 0 1px hsl(220 60% 2% / 0.5);
+  --ds-shadow-overflow-spread: hsl(220 60% 2% / 0.56);
+  --ds-shadow-overflow-perimeter: hsl(220 60% 2% / 0.5);
+
+  --ds-blanket: hsl(220 60% 2% / 0.56);
+}

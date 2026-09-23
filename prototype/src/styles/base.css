@@ -1,0 +1,76 @@
+@import "./tokens.css";
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  /* O html mantém o tamanho raiz do navegador (16px): todos os tokens são em rem */
+  html {
+    background-color: var(--ds-surface);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    font-feature-settings: "cv11", "ss03";
+  }
+
+  body {
+    font: var(--ds-font-body);
+    color: var(--ds-text);
+    background-color: var(--ds-surface);
+    min-height: 100dvh;
+  }
+
+  /* Anel de foco ADS: 2px fora do elemento; outline acompanha o border-radius (raio + 2) */
+  :focus-visible {
+    outline: var(--ds-border-width-focused) solid var(--ds-border-focused);
+    outline-offset: var(--ds-focus-ring-offset);
+  }
+  :focus:not(:focus-visible) {
+    outline: none;
+  }
+
+  ::selection {
+    background-color: var(--ds-background-selected-pressed);
+  }
+
+  button {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* Remove o "x" nativo do input de busca (Esc limpa o campo) */
+  input[type="search"]::-webkit-search-cancel-button {
+    appearance: none;
+  }
+}
+
+@layer components {
+  /* Estados de pressionar: escala sutil (sem conflito com mudança de cor) */
+  .ds-pressable {
+    transition-property: background-color, color, border-color, transform;
+    transition-duration: var(--ds-motion-duration-hover), var(--ds-motion-duration-hover),
+      var(--ds-motion-duration-hover), var(--ds-motion-duration-press);
+    transition-timing-function: var(--ds-motion-easing-out);
+  }
+  .ds-pressable:active:not(:disabled):not([aria-disabled="true"]) {
+    transform: scale(var(--ds-motion-press-scale));
+  }
+}
+
+@layer utilities {
+  /* Mostra shadow.overflow só de um lado (dica de conteúdo rolável) */
+  .clip-shadow-bottom {
+    clip-path: inset(0 0 var(--ds-space-negative-200) 0);
+  }
+  .clip-shadow-left {
+    clip-path: inset(0 0 0 var(--ds-space-negative-200));
+  }
+  .clip-shadow-right {
+    clip-path: inset(0 var(--ds-space-negative-200) 0 0);
+  }
+
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: var(--ds-border-bold) transparent;
+  }
+}
