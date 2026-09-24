@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Banco de dados do Dash — 6. Avisos, auditoria e segurança</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap">
+<link rel="stylesheet" href="estilo.css">
+</head>
+<body>
+
+<div class="eyebrow">Dash de Produção · Banco de dados · Caderno 6 de 6</div>
+<h1>Avisos, auditoria e segurança</h1>
+<p class="sub">A parte que ninguém abre quando tudo está bem — e a única que serve quando alguém pergunta "quem mudou isso?".</p>
+<div class="rule"></div>
+
+<section>
+  <h2>1. A auditoria é um livro de tinta permanente</h2>
+  <div class="analogy"><p><b>Analogia:</b> é o <b>livro de ocorrências da portaria</b>. Você escreve, assina e não arranca folha. Se errou, escreve embaixo que errou — a linha anterior fica.</p></div>
+  <p>Toda escrita importante no banco gera uma linha nessa tabela: quem fez, quando, em que ficha, e <b>como estava antes e como ficou depois</b>. Os dois lados são guardados, porque "a meta mudou" sem o valor antigo não explica nada.</p>
+  <p>A regra mais forte do sistema está aqui: <b>ninguém pode alterar nem apagar uma linha da auditoria</b>. Nem o administrador. A permissão existe só para escrever e para ler; não há política que permita mexer no que já foi escrito.</p>
+
+  <figure>
+    <svg viewBox="0 0 780 260" role="img" aria-label="Uma alteração de meta gera uma linha de auditoria com valor antes e depois; a tabela só aceita inserir e ler, nunca alterar nem apagar.">
+      <defs>
+        <marker id="s" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="currentColor"/>
+        </marker>
+      </defs>
+
+      <rect x="16" y="52" width="180" height="60" rx="8" fill="#003366"/>
+      <text x="106" y="76" font-size="12" font-weight="700" text-anchor="middle" fill="#fff">gestor muda a meta</text>
+      <text x="106" y="94" font-size="10" text-anchor="middle" fill="#C9DCEC">7.000 → 8.000</text>
+
+      <line x1="200" y1="82" x2="272" y2="82" stroke="currentColor" marker-end="url(#s)"/>
+      <text x="236" y="74" font-size="9.5" text-anchor="middle" fill="#4A5A6A">gera</text>
+
+      <rect x="280" y="34" width="330" height="140" rx="8" fill="#F4F7FA" stroke="#003366" stroke-width="1.5"/>
+      <text x="298" y="58" font-size="11.5" font-weight="700" fill="#003366">LINHA DE AUDITORIA</text>
+      <line x1="298" y1="68" x2="592" y2="68" stroke="#003366" stroke-opacity=".25"/>
+      <text x="298" y="88" font-size="10" fill="#4A5A6A">quem</text>
+      <text x="592" y="88" font-size="10.5" font-weight="700" text-anchor="end" fill="#15202B">Maria (gestora)</text>
+      <text x="298" y="108" font-size="10" fill="#4A5A6A">quando</text>
+      <text x="592" y="108" font-size="10.5" font-weight="700" text-anchor="end" fill="#15202B">21/09 14:32</text>
+      <text x="298" y="128" font-size="10" fill="#4A5A6A">onde</text>
+      <text x="592" y="128" font-size="10.5" font-weight="700" text-anchor="end" fill="#15202B">meta · Horizontal 1</text>
+      <text x="298" y="148" font-size="10" fill="#4A5A6A">antes → depois</text>
+      <text x="592" y="148" font-size="10.5" font-weight="700" text-anchor="end" fill="#15202B">7.000 → 8.000</text>
+      <text x="298" y="166" font-size="10" fill="#4A5A6A">de onde partiu</text>
+      <text x="592" y="166" font-size="10.5" font-weight="700" text-anchor="end" fill="#15202B">app / rede</text>
+
+      <rect x="640" y="52" width="124" height="104" rx="8" fill="#E6F6EC" stroke="#186A3B" stroke-opacity=".5"/>
+      <text x="702" y="76" font-size="11" font-weight="700" text-anchor="middle" fill="#186A3B">permitido</text>
+      <text x="702" y="94" font-size="10.5" text-anchor="middle" fill="#15202B">inserir · ler</text>
+      <line x1="656" y1="104" x2="748" y2="104" stroke="#186A3B" stroke-opacity=".3"/>
+      <text x="702" y="124" font-size="11" font-weight="700" text-anchor="middle" fill="#8A5200">impossível</text>
+      <text x="702" y="142" font-size="10.5" text-anchor="middle" fill="#15202B">alterar · apagar</text>
+
+      <text x="390" y="212" font-size="10.5" text-anchor="middle" fill="#4A5A6A">Quem pode ler a auditoria inteira: gestor e administrador.</text>
+      <text x="390" y="230" font-size="10.5" text-anchor="middle" fill="#4A5A6A">As demais pessoas veem apenas as próprias ações.</text>
+    </svg>
+    <figcaption>A auditoria não é opcional nem "modo debug": é o que sustenta qualquer conversa sobre número divergente, meta alterada ou apontamento corrigido.</figcaption>
+  </figure>
+</section>
+
+<section class="pagebreak">
+  <h2>2. Os avisos</h2>
+  <div class="analogy"><p><b>Analogia:</b> é o <b>recado no vidro da sala</b>: fica lá até alguém ler e tirar. Não é e-mail, não é mensagem — vive dentro do sistema.</p></div>
+  <p>Hoje o uso principal é o cadastro pendente: quando alguém se cadastra, o gestor e o administrador recebem um aviso para aprovar. O aviso guarda quem recebe, o texto, o tipo, um destino (a tela de usuários) e se já foi lido.</p>
+  <p>Cada pessoa só vê os avisos dela, e só ela pode marcar como lido. Quem cria aviso é o próprio banco, num gatilho: ao aparecer perfil pendente, os avisos são gerados sem o app precisar lembrar de fazer isso.</p>
+  <p><b>Trade-off do gatilho:</b> ganha que nunca esquece, mesmo se o cadastro vier por outro caminho. Custa que a lógica fica em dois lugares (banco e app), e quem depurar precisa saber que o banco também age por conta.</p>
+</section>
+
+<section>
+  <h2>3. As três camadas de segurança</h2>
+  <figure>
+    <svg viewBox="0 0 760 210" role="img" aria-label="Três camadas: o app esconde botões, o banco tranca as tabelas com políticas, e as funções privilegiadas rodam com caminho de busca fixo.">
+      <rect x="20" y="30" width="230" height="110" rx="9" fill="#FFF" stroke="var(--line)"/>
+      <text x="135" y="56" font-size="11.5" font-weight="700" text-anchor="middle" fill="#7C8B9A">1 · O APP</text>
+      <text x="135" y="80" font-size="10.5" text-anchor="middle" fill="#4A5A6A">esconde botão e menu</text>
+      <text x="135" y="98" font-size="10.5" text-anchor="middle" fill="#4A5A6A">conforme o papel</text>
+      <text x="135" y="124" font-size="10" text-anchor="middle" fill="#8A5200">conveniência, não garantia</text>
+
+      <rect x="266" y="30" width="230" height="110" rx="9" fill="#EEF3F8" stroke="#0066B3"/>
+      <text x="381" y="56" font-size="11.5" font-weight="700" text-anchor="middle" fill="#003366">2 · O BANCO</text>
+      <text x="381" y="80" font-size="10.5" text-anchor="middle" fill="#4A5A6A">cada tabela tem política</text>
+      <text x="381" y="98" font-size="10.5" text-anchor="middle" fill="#4A5A6A">de ler, criar, alterar, apagar</text>
+      <text x="381" y="124" font-size="10" text-anchor="middle" fill="#186A3B">esta é a garantia</text>
+
+      <rect x="512" y="30" width="230" height="110" rx="9" fill="#EEF3F8" stroke="#0066B3"/>
+      <text x="627" y="56" font-size="11.5" font-weight="700" text-anchor="middle" fill="#003366">3 · AS FUNÇÕES</text>
+      <text x="627" y="80" font-size="10.5" text-anchor="middle" fill="#4A5A6A">operações em lote rodam</text>
+      <text x="627" y="98" font-size="10.5" text-anchor="middle" fill="#4A5A6A">com poder emprestado</text>
+      <text x="627" y="124" font-size="10" text-anchor="middle" fill="#8A5200">checam permissão por dentro</text>
+
+      <text x="380" y="176" font-size="10.5" text-anchor="middle" fill="#4A5A6A">Tirar a camada 1 deixa a interface feia. Tirar a camada 2 abre o banco para qualquer pessoa com a chave pública.</text>
+      <text x="380" y="194" font-size="10.5" text-anchor="middle" fill="#4A5A6A">Por isso as políticas foram testadas tentando, de propósito, furar cada uma delas.</text>
+    </svg>
+    <figcaption>A segurança real está na camada 2. A camada 1 existe para a pessoa não bater numa porta trancada.</figcaption>
+  </figure>
+  <p>A camada 3 merece uma palavra. Algumas operações — alterar 200 apontamentos de uma vez, consultar dados de outra pessoa para checar permissão — precisam de mais poder do que a pessoa tem. Essas funções recebem esse poder emprestado, e por isso três cuidados foram tomados: elas <b>verificam a permissão por dentro</b> antes de agir, têm o <b>caminho de busca fixo</b> (ninguém consegue enganá-las criando uma tabela com nome parecido), e nunca aceitam texto que vá direto para dentro de uma consulta.</p>
+</section>
+
+<section class="pagebreak">
+  <h2>4. Uma falha que os testes pegaram</h2>
+  <div class="analogy"><p><b>Analogia:</b> a regra dizia "pode editar se você for o autor". Para um apontamento <b>sem autor</b>, a resposta não era "não" — era <b>"não sei"</b>. E "não sei" estava deixando passar.</p></div>
+  <p>Acontece com os apontamentos importados e os de demonstração, que não têm autor. A verificação devolvia um valor indefinido em vez de uma negativa, e o banco tratava isso como liberação. Um operador conseguia editar apontamento que não era dele.</p>
+  <p>A correção foi de uma linha: quando a resposta é indefinida, vale <b>não</b>. Antes de corrigir, foi escrito um teste que reproduz a falha — ele reprovou, a correção entrou, e ele passou. Está na versão 0.10.3 do banco.</p>
+  <p class="note">É por isso que existem os 47 testes automáticos (24 de funções, 23 de políticas). Eles rodam dentro de uma transação que é sempre desfeita no fim: testam no banco real sem deixar nada para trás.</p>
+</section>
+
+<section>
+  <h2>5. O que este caderno não cobre</h2>
+  <div class="tiles">
+    <div class="tile"><b>Limpeza da auditoria</b><span>A tabela só cresce. Um dia vai precisar de arquivamento — mover o antigo para outro lugar, nunca apagar. Ainda não é problema.</span></div>
+    <div class="tile"><b>Aviso fora do sistema</b><span>Nada sai por e-mail ou WhatsApp. Quem não abrir o sistema não fica sabendo do cadastro pendente.</span></div>
+    <div class="tile"><b>Painel de auditoria</b><span>Os dados estão lá, mas não há tela para consultá-los. Hoje só por consulta direta ao banco.</span></div>
+    <div class="tile"><b>Backup e restauração</b><span>Vem do plano do Supabase e não foi configurado nem testado neste projeto de testes.</span></div>
+  </div>
+</section>
+
+<section>
+  <h2>6. Fechando os seis cadernos</h2>
+  <table>
+    <tr><th>Caderno</th><th>Em uma frase</th></tr>
+    <tr><td class="k">1 · Visão geral</td><td>Quatro áreas, e o apontamento no centro de tudo</td></tr>
+    <tr><td class="k">2 · Máquinas e metas</td><td>A meta tem linha do tempo, e o passado não é reescrito</td></tr>
+    <tr><td class="k">3 · Apontamentos</td><td>Capa e folhas; retrabalho e hora extra fora da meta</td></tr>
+    <tr><td class="k">4 · Calendário</td><td>Separar "não rodou" de "rodou mal"</td></tr>
+    <tr><td class="k">5 · Pessoas</td><td>Permissão, não cargo; cadastro aprovado por alguém</td></tr>
+    <tr><td class="k">6 · Auditoria</td><td>O que foi escrito não se apaga</td></tr>
+  </table>
+  <p class="note">Se algo aqui não corresponde ao seu dia a dia na fábrica, é sinal de que o desenho está errado — não o dia a dia. Vale registrar como decisão nova em <code>docs/database/03-decisoes.md</code>.</p>
+</section>
+
+</body>
+</html>

@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Banco de dados do Dash — 4. Calendário e paradas</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap">
+<link rel="stylesheet" href="estilo.css">
+</head>
+<body>
+
+<div class="eyebrow">Dash de Produção · Banco de dados · Caderno 4 de 6</div>
+<h1>Calendário e paradas</h1>
+<p class="sub">A parte que responde a uma pergunta desconfortável: quando a máquina não roda, o indicador deveria cair?</p>
+<div class="rule"></div>
+
+<section>
+  <h2>1. O problema do zero</h2>
+  <div class="analogy"><p><b>Analogia:</b> é a diferença entre um aluno que <b>fez a prova e tirou zero</b> e um aluno que <b>estava de atestado no dia da prova</b>. Os dois têm zero na planilha. Só um merece contar na média.</p></div>
+  <p>Na planilha, um turno com zero peças é só um zero. Ele pode significar cinco coisas bem diferentes: feriado, máquina em manutenção, falta de material, a máquina ainda não existia em Itajaí, ou o turno realmente não produziu nada. Todos entram na média igual, e o indicador fica injusto.</p>
+  <p>O calendário existe para separar essas situações. Ele é a lista de dias em que <b>não se esperava produção</b>.</p>
+</section>
+
+<section>
+  <h2>2. Como o calendário funciona</h2>
+  <div class="analogy"><p><b>Analogia:</b> é o <b>quadro de avisos na parede da fábrica</b>: "25/12 — Natal, nenhum turno", "14/03 — manutenção geral, T2 e T3". Quem olha o quadro sabe o que não vai rodar antes de chegar lá.</p></div>
+
+  <figure>
+    <svg viewBox="0 0 800 300" role="img" aria-label="Um evento do calendário tem data, tipo, escopo e a lista de turnos afetados; ele entra no cálculo do indicador retirando aquele dia da conta de dias esperados.">
+      <defs>
+        <marker id="c" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="currentColor"/>
+        </marker>
+      </defs>
+
+      <rect x="20" y="30" width="250" height="190" rx="9" fill="#EEF3F8" stroke="#0066B3"/>
+      <text x="145" y="56" font-size="13" font-weight="700" text-anchor="middle" fill="#003366">EVENTO DO CALENDÁRIO</text>
+      <line x1="40" y1="68" x2="250" y2="68" stroke="#0066B3" stroke-opacity=".4"/>
+      <text x="40" y="90" font-size="10.5" fill="#4A5A6A">data</text>
+      <text x="250" y="90" font-size="11" font-weight="700" text-anchor="end" fill="#15202B">14/03/2026</text>
+      <text x="40" y="112" font-size="10.5" fill="#4A5A6A">tipo</text>
+      <text x="250" y="112" font-size="11" font-weight="700" text-anchor="end" fill="#15202B">manutenção</text>
+      <text x="40" y="134" font-size="10.5" fill="#4A5A6A">alcance</text>
+      <text x="250" y="134" font-size="11" font-weight="700" text-anchor="end" fill="#15202B">uma máquina</text>
+      <text x="40" y="156" font-size="10.5" fill="#4A5A6A">turnos</text>
+      <text x="250" y="156" font-size="11" font-weight="700" text-anchor="end" fill="#15202B">T2 e T3</text>
+      <text x="40" y="178" font-size="10.5" fill="#4A5A6A">anula a meta?</text>
+      <text x="250" y="178" font-size="11" font-weight="700" text-anchor="end" fill="#186A3B">sim</text>
+      <text x="40" y="200" font-size="10.5" fill="#4A5A6A">motivo</text>
+      <text x="250" y="200" font-size="11" font-weight="700" text-anchor="end" fill="#15202B">texto livre</text>
+
+      <line x1="272" y1="125" x2="370" y2="125" stroke="currentColor" marker-end="url(#c)"/>
+      <text x="321" y="116" font-size="9.5" text-anchor="middle" fill="#4A5A6A">o cálculo consulta</text>
+
+      <rect x="380" y="46" width="400" height="76" rx="8" fill="#FFF" stroke="var(--line)"/>
+      <text x="398" y="70" font-size="11" font-weight="700" fill="#8A5200">SEM calendário</text>
+      <text x="398" y="90" font-size="10.5" fill="#4A5A6A">31 dias no mês · 2 dias parados contam como zero</text>
+      <text x="398" y="110" font-size="11" fill="#15202B">atingimento do mês: <tspan font-weight="700">88%</tspan></text>
+
+      <rect x="380" y="136" width="400" height="76" rx="8" fill="#E6F6EC" stroke="#186A3B" stroke-opacity=".5"/>
+      <text x="398" y="160" font-size="11" font-weight="700" fill="#186A3B">COM calendário</text>
+      <text x="398" y="180" font-size="10.5" fill="#4A5A6A">29 dias esperados · os 2 parados saem da conta</text>
+      <text x="398" y="200" font-size="11" fill="#15202B">atingimento do mês: <tspan font-weight="700">94%</tspan></text>
+
+      <text x="400" y="256" font-size="10.5" text-anchor="middle" fill="#4A5A6A">A produção é a mesma nos dois casos. O que muda é <tspan font-weight="700">contra o que</tspan> ela é comparada.</text>
+      <text x="400" y="274" font-size="10.5" text-anchor="middle" fill="#4A5A6A">Um dia anulado não "some": ele deixa de ser cobrado.</text>
+    </svg>
+    <figcaption>O evento diz <b>quando</b>, <b>em que máquina</b>, <b>em quais turnos</b> e <b>se anula a meta</b>. Sem ele, todo dia parado vira nota baixa.</figcaption>
+  </figure>
+</section>
+
+<section class="pagebreak">
+  <h2>3. Os tipos de evento</h2>
+  <table>
+    <tr><th>Tipo</th><th>O que significa</th><th>Anula a meta?</th></tr>
+    <tr><td class="k">feriado</td><td>Feriado nacional, estadual ou municipal</td><td>Normalmente sim</td></tr>
+    <tr><td class="k">dia anulado</td><td>Parada geral decidida pela fábrica</td><td>Sim</td></tr>
+    <tr><td class="k">manutenção</td><td>Máquina fora por manutenção programada ou corretiva</td><td>Sim</td></tr>
+    <tr><td class="k">observação</td><td>Só um recado no calendário</td><td>Não</td></tr>
+  </table>
+  <p>Cada evento diz também <b>até onde</b> alcança: a fábrica toda ou uma máquina específica. Uma manutenção na Horizontal 3 não deveria zerar a cobrança das outras dezessete.</p>
+  <p class="note"><b>Limitação honesta:</b> hoje o evento aponta para <b>uma</b> máquina ou para a fábrica inteira. Parar cinco máquinas de um setor exige cinco eventos. Se isso virar rotina, vale criar grupos de máquinas — mas é trabalho a mais e não foi feito.</p>
+</section>
+
+<section>
+  <h2>4. Turno por turno, não só dia por dia</h2>
+  <div class="analogy"><p><b>Analogia:</b> a manutenção que começa às 14h não apaga o turno da manhã. Marcar "o dia 14/03 inteiro" perdoaria um turno que <b>rodou</b> e devia ser cobrado.</p></div>
+  <p>Por isso cada evento tem uma lista de turnos afetados, guardada numa ficha separada. Se a lista vem vazia, vale para os três. É a mesma ideia das ordens dentro do apontamento: uma capa, várias folhas.</p>
+  <p>E uma regra simples: o mesmo turno não pode aparecer duas vezes no mesmo evento. O banco recusa.</p>
+</section>
+
+<section>
+  <h2>5. Quem mexe no calendário</h2>
+  <table>
+    <tr><th>Ação</th><th>Quem pode</th></tr>
+    <tr><td class="k">Ver o calendário</td><td>Todos, inclusive a TV</td></tr>
+    <tr><td class="k">Criar, alterar, apagar evento</td><td>Distribuidor para cima (quem tem a permissão de calendário)</td></tr>
+  </table>
+  <p>Aqui, diferente da meta, <b>apagar é permitido</b>. Um evento é uma anotação sobre o que se esperava, não um dado de produção: se foi marcado por engano, o certo é tirar. A auditoria registra a remoção.</p>
+</section>
+
+<section class="pagebreak">
+  <h2>6. Onde isso ainda não fecha</h2>
+  <div class="tiles">
+    <div class="tile"><b>A máquina que ainda não existia</b><span>Zeros de janeiro numa máquina que chegou em maio não são parada: ela não estava lá. Precisa de uma data de início por máquina, ou de eventos cobrindo o período. Está na decisão D35.</span></div>
+    <div class="tile"><b>Falta de material e falta de gente</b><span>Hoje entram como "dia anulado" ou ficam sem marcação. Separar os motivos daria um indicador de causa de parada — útil, mas é assunto novo.</span></div>
+    <div class="tile"><b>O histórico da planilha não tem calendário</b><span>Os anos anteriores têm zeros sem explicação. Migrar esses dados sem o calendário deixaria o passado parecendo pior do que foi.</span></div>
+    <div class="tile"><b>Dois indicadores, não um</b><span>A decisão D36 propõe separar "atingimento" (quando rodou, quanto bateu) de "disponibilidade" (quantos turnos rodaram). Um número só esconde os dois.</span></div>
+  </div>
+  <p><span class="pill">Já existe</span> o calendário com tipos, alcance e turnos. <span class="pill q">A definir</span> a data de início das máquinas e a separação dos indicadores.</p>
+  <p class="note">Próximo caderno: <b>pessoas e acesso</b> — perfis, crachá, cadastro pendente e quem pode o quê.</p>
+</section>
+
+</body>
+</html>

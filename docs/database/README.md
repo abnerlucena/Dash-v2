@@ -14,6 +14,7 @@ Ela registra **o que existe, como funciona, por que foi decidido assim e o que m
 | [02-referencia-tecnica.md](02-referencia-tecnica.md) | Desenvolvedores, TI, DBA | Dicionário de dados, constraints, índices, triggers, funções, RLS |
 | [03-decisoes.md](03-decisoes.md) | Todos | Registro de decisões (ADR): contexto, escolha e consequências |
 | [CHANGELOG.md](CHANGELOG.md) | Todos | Ata de mudanças do schema, versão por versão |
+| [cadernos/](cadernos/README.md) | Quem quer entender sem ser técnico | Seis PDFs curtos com analogias e diagramas, uma área do banco por caderno |
 
 ## Normas de manutenção
 

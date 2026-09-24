@@ -1,0 +1,43 @@
+/* Estilo comum dos cadernos do banco de dados (impressão A4 via Chromium). */
+@page { size: A4; margin: 16mm 14mm 18mm; }
+:root{
+  --navy:#003366; --blue:#0066B3; --ink:#15202B; --ink-2:#4A5A6A; --ink-3:#7C8B9A;
+  --line:#D8DFE6; --soft:#EEF3F8; --warn-bg:#FDF3E2; --warn-ink:#8A5200; --ok-bg:#E6F6EC; --ok-ink:#186A3B;
+  --font:"Plus Jakarta Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+*{box-sizing:border-box}
+body{margin:0;font:11.2pt/1.55 var(--font);color:var(--ink)}
+h1{font-size:23pt;line-height:1.12;margin:0 0 4pt;color:var(--navy);letter-spacing:-.01em}
+h2{font-size:14pt;margin:0 0 6pt;color:var(--navy);break-after:avoid}
+h3{font-size:11.6pt;margin:0 0 3pt;break-after:avoid}
+p{margin:0 0 8pt;max-width:62em}
+ul{margin:0 0 8pt;padding-left:16pt}
+li{margin-bottom:3pt}
+.eyebrow{font-size:8.6pt;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-3)}
+.sub{color:var(--ink-2);font-size:11.6pt;margin-bottom:14pt}
+section{margin-bottom:16pt;break-inside:avoid}
+.rule{height:3px;background:var(--navy);margin:8pt 0 14pt;border-radius:2px}
+
+.analogy{background:var(--soft);border-left:3px solid var(--blue);padding:9pt 12pt;border-radius:0 6px 6px 0;margin:0 0 10pt}
+.analogy b{color:var(--navy)}
+.analogy p{margin:0}
+
+table{border-collapse:collapse;width:100%;font-size:10.2pt;margin:2pt 0 10pt}
+th{background:var(--soft);text-align:left;font-size:8.6pt;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-2);padding:5pt 7pt;border-bottom:1px solid var(--line)}
+td{padding:5pt 7pt;border-bottom:1px solid var(--line);vertical-align:top}
+td.k{font-weight:700;white-space:nowrap}
+td.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+code{font-family:"Consolas","Courier New",monospace;font-size:.92em;background:var(--soft);padding:1px 4px;border-radius:3px}
+
+figure{margin:10pt 0 12pt;break-inside:avoid}
+svg{max-width:100%;height:auto;display:block;margin:0 auto}
+figcaption{font-size:9.6pt;color:var(--ink-2);margin-top:5pt;text-align:center;max-width:52em;margin-inline:auto}
+
+.tiles{display:grid;grid-template-columns:1fr 1fr;gap:8pt;margin:4pt 0 10pt}
+.tile{border:1px solid var(--line);border-radius:7px;padding:8pt 10pt}
+.tile b{display:block;color:var(--navy);font-size:10.6pt}
+.tile span{font-size:10pt;color:var(--ink-2)}
+.note{font-size:10pt;color:var(--ink-2);border-top:1px solid var(--line);padding-top:7pt}
+.pill{display:inline-block;font-size:8.6pt;font-weight:700;padding:1.5pt 7pt;border-radius:999px;background:var(--ok-bg);color:var(--ok-ink)}
+.pill.q{background:var(--warn-bg);color:var(--warn-ink)}
+.pagebreak{break-before:page}
