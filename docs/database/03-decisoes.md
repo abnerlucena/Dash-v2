@@ -43,6 +43,13 @@ Status possíveis: `Aprovada` · `Assumida` (sem confirmação explícita) · `S
 | D34 | Gestão de metas por linha do tempo (painel do gestor) | Proposta | 21/09/2026 |
 | D35 | Migração do histórico da planilha Excel | Proposta | 21/09/2026 |
 | D36 | Atingimento × disponibilidade (máquinas contínuas e sob demanda) | Proposta | 21/09/2026 |
+| D37 | Centro de trabalho e processo (montagem/embalagem) | Aprovada | 25/09/2026 |
+| D38 | Metas reais e centros por demanda | Aprovada | 25/09/2026 |
+| D39 | Base da meta: por turno ou por operador | Aprovada | 25/09/2026 |
+| D40 | Capacidade como alarme, não como cálculo da meta | Aprovada | 25/09/2026 |
+| D41 | Máquina planejada e data de entrada em operação | Aprovada | 25/09/2026 |
+| D42 | Tempo útil por turno guardado no banco | Aprovada | 25/09/2026 |
+| D43 | Destino do histórico das máquinas renomeadas e divididas | Aprovada | 25/09/2026 |
 
 ---
 
@@ -267,3 +274,60 @@ Status possíveis: `Aprovada` · `Assumida` (sem confirmação explícita) · `S
 - **No dia a dia:** máquina contínua sem apontamento num turno normal gera aviso ("Horizontal 1 sem apontamento no T2 de ontem"); quem aponta informa o motivo ou lança a produção esquecida.
 - **Alternativas rejeitadas:** ignorar zeros em todas; contar zeros em todas; misturar paradas no atingimento das contínuas (um número só esconde se a máquina está lenta ou parada).
 - **Relação:** amplia a D05 (paradas de máquina) — `machine_downtimes` passará a ter motivos como falta de material e falta de operador.
+
+---
+
+> **Fonte das decisões D37 a D43:** planilha `ITAJAÍ_TI_CAPACIDADE_VS_PESSOAS 2026_2027_REV01.xlsx` (atualizada em 09/09/2026) somada às confirmações do usuário em 25/09/2026. O desenho resultante está em `cadernos/07-mapa-da-fabrica.pdf`.
+
+### D37 — Centro de trabalho e processo (montagem/embalagem)
+- **Status:** Aprovada (25/09/2026).
+- **Contexto:** o banco tem 18 "máquinas" numa lista plana, com nomes que não correspondem aos da fábrica. A planilha de capacidade mostra a fábrica organizada em dois processos, e o usuário confirmou: "cada nome é um centro de trabalho que deve ser contado e interpretado no contexto".
+- **Decisão:** a ficha da máquina passa a representar um **centro de trabalho** e ganha o campo **processo**: `montagem` ou `embalagem`. São **22 centros ativos** — 13 em montagem, 9 em embalagem.
+- **Por quê:** resolve três necessidades com um campo só — indicador por processo, parada de um setor inteiro no calendário com um evento (hoje exigiria um evento por máquina) e desambiguação de nomes (a "Embaladora Kit Parafusos" pertence a **montagem**, apesar do nome).
+- **Alternativas rejeitadas:** grupo livre de máquinas criado pelo gestor (flexível demais para dois valores que a fábrica trata como fixos); nenhum agrupamento (mantém o problema das paradas de setor).
+- **Custo:** um campo obrigatório a mais no cadastro. Se um dia a fábrica ganhar um terceiro processo, é um valor novo na lista, não uma migração.
+
+### D38 — Metas reais e centros por demanda
+- **Status:** Aprovada (25/09/2026). Substitui os valores de reserva do seed (`MACHINES_DEFAULT`, 150 a 600), que nunca foram reais.
+- **Decisão:** **12 centros com meta** (peças por turno): Horizontais N°1 e N°2 **10.000**; 4x2 Suportes/Placas N°1 e N°2 **7.500**; Vertical Módulos N°1 e N°2 **13.000**; Vertical Conjuntos N°1 e N°2 **5.000**; A Granel **25.000 por pessoa**; Tomadas Composé–AUMAQ **12.500**; Plugue Slin–AUMAQ **6.500**; Interruptores Composé N°1 **4.500**.
+- **10 centros por demanda**, sem meta (`has_target = false`), todos em montagem: Kit Parafusos N°1 e N°2, Bancadas N°1 a N°5, Prensa Inserção Contatos, Prensa Tox e Prensa Placa Refinatto. Motivo informado pelo usuário: são máquinas por demanda de fábrica, onde a meta não faz sentido.
+- **Consequência que o gestor precisa saber:** o atingimento passa a falar de **12 centros, não de 22**. O número não fica pior nem melhor de propósito — fica sobre outra coisa. A produção dos 10 continua somando no total.
+- **Relação:** confirma a classificação sugerida na **D36** (sob demanda = kits, Refinatto, Teste Interruptores, Diversos e demais montagens), que estava marcada como "a revisar pelo gestor".
+
+### D39 — Base da meta: por turno ou por operador
+- **Status:** Aprovada (25/09/2026).
+- **Contexto:** A Granel é medida em **25.000 peças por pessoa no turno**; todas as outras são um número fixo por turno.
+- **Decisão:** a meta ganha o campo **base**: `por_turno` (padrão, 11 centros) ou `por_operador` (A Granel). Quando a base é por operador, a meta efetiva do apontamento é `quantidade × número de operadores informado`.
+- **Alternativa rejeitada:** guardar 25.000 como meta fixa e dividir depois na tela — some a intenção do dado e cada leitor precisa lembrar da exceção.
+- **Custo:** o cálculo de atingimento deixa de ser uma comparação direta e passa a depender do número de operadores do apontamento, que hoje é opcional. Apontamento de A Granel **sem operadores informados** precisa cair na lotação padrão da máquina.
+
+### D40 — Capacidade como alarme, não como cálculo da meta
+- **Status:** Aprovada (25/09/2026).
+- **Contexto:** a planilha calcula, por centro, `peças por minuto × tempo útil do turno = capacidade técnica`, e `× eficiência (0,60 a 0,90) = capacidade realista`. Era tentador derivar a meta desse número.
+- **Decisão:** guardar **peças por minuto** e **eficiência** na ficha da máquina e usá-los **só como alarme** — meta acima da capacidade técnica é fisicamente impossível, e o sistema avisa no momento em que o gestor digita. A meta continua sendo digitada por ele.
+- **Por que não derivar:** as metas acordadas ficam entre **62% e 86%** da capacidade técnica, sem fator único (Horizontais 62%, Placas 71%, Conjuntos 73%, Interruptores 77%, A Granel 79%, Módulos 83%, Plugue 83%, Tomadas 86%). Qualquer fórmula automática seria uma solução que só parece resolver.
+- **Custo:** dois campos que alguém precisa manter atualizados. Desatualizados, o alarme fica errado — é o caso suspeito da Plugue Slin, cuja eficiência de 0,60 na planilha não bate com a meta acordada.
+
+### D41 — Máquina planejada e data de entrada em operação
+- **Status:** Aprovada (25/09/2026).
+- **Contexto:** sete centros aparecem em amarelo na planilha — já previstos ou comprados, sem funcionamento real hoje: Interruptores (Nova Base), Plugue Fêmea, Tomadas N°2, Lufati Klin Padrão, Lufati PL+SUP 4x4, Vertical Plugues e Vertical Conjuntos N°3.
+- **Decisão:** a situação da máquina ganha o valor **`planejada`**, e a ficha ganha uma **data de entrada em operação**. Centro planejado não aparece na tela de apontamento nem entra em nenhum indicador; antes da data de entrada, os turnos não são cobrados.
+- **Por quê:** cadastrar hoje uma máquina que chega em março faria o indicador contar dezenas de turnos zerados de um equipamento inexistente. É o mesmo remédio do problema dos zeros antigos levantado na **D35**.
+- **Alternativa rejeitada:** cadastrar só quando a máquina chegar — perde-se o planejamento e o cadastro vira correria no dia da instalação.
+
+### D42 — Tempo útil por turno guardado no banco
+- **Status:** Aprovada (25/09/2026).
+- **Contexto:** os três turnos têm tempos bem diferentes. T1 04:55–14:18, **493 min úteis**; T2 14:18–23:24, **481**; T3 23:24–05:00, **271**. Os descontos são iguais nos três: 30 de refeição, 10 de ginástica laboral, 10 de intervalo e 15 de troca de turno e limpeza.
+- **Decisão:** guardar **minutos brutos** e **minutos úteis** na ficha do turno agora, mesmo sem uso imediato. O horário continua informativo e **não precisa fechar por subtração** com o tempo útil: no T1, os 5 minutos entre 04:55 e 05:00 são entrada e preparação, não produção.
+- **Por quê:** o T3 hoje só existe como hora extra, que já fica fora do cálculo de meta — então a regra atual (uma meta única, igual para os três turnos) não machuca ninguém. Quando o T3 virar turno normal, ele terá **271 minutos contra 493 do T1 (55%)** e nascerá reprovado com a mesma meta. Com o tempo útil já no banco, a correção vira uma conta; sem ele, vira migração de emergência.
+- **Alternativa rejeitada:** esperar o T3 virar turno normal para tratar o assunto.
+- **Pendente de propósito:** a regra de proporcionalidade (meta do turno = meta base × minutos úteis do turno ÷ minutos úteis do T1) **não** será implementada agora, só quando o T3 entrar em operação normal.
+
+### D43 — Destino do histórico das máquinas renomeadas e divididas
+- **Status:** Aprovada (25/09/2026).
+- **Contexto:** três centros do banco não correspondem um-para-um aos 22 da fábrica. Máquina com produção **não pode ser apagada** — o caminho é inativar (D05) —, então renomear preserva o histórico — mas é preciso dizer para onde ele vai.
+- **Decisão:**
+  - `MONTAGEM TOMADAS MANUAL` e `FECHAMENTO TECLA INTERRUPTORES`, renomeadas e readequadas na fábrica, têm todo o histórico levado para **BANCADA N°3 — DIVERSOS**.
+  - `MONTAGEM DIVERSOS`, que virou dois centros na fábrica (Bancadas N°3 e N°4), tem todo o histórico levado para **BANCADA N°4 — DIVERSOS**.
+- **Custo assumido:** a produção antiga de três centros fica concentrada em duas bancadas e **não tem como ser separada depois** — a planilha nunca registrou essa distinção. Vale só para o passado; a partir da migração, cada bancada recebe o seu próprio apontamento.
+- **Alternativas rejeitadas:** criar centros "legado" só para segurar o histórico (polui a lista de apontamento para sempre); descartar o histórico (perde produção real).
