@@ -194,6 +194,7 @@ export type Database = {
       }
       machine_targets: {
         Row: {
+          basis: string
           created_at: string
           created_by: string | null
           id: string
@@ -202,6 +203,7 @@ export type Database = {
           valid_from: string
         }
         Insert: {
+          basis?: string
           created_at?: string
           created_by?: string | null
           id?: string
@@ -210,6 +212,7 @@ export type Database = {
           valid_from: string
         }
         Update: {
+          basis?: string
           created_at?: string
           created_by?: string | null
           id?: string
@@ -238,10 +241,14 @@ export type Database = {
         Row: {
           created_at: string
           created_by: string | null
+          efficiency: number | null
           has_target: boolean
           id: number
           name: string
+          pieces_per_minute: number | null
+          process: string | null
           standard_operator_count: number | null
+          started_on: string | null
           status: string
           status_updated_at: string | null
           updated_at: string
@@ -250,10 +257,14 @@ export type Database = {
         Insert: {
           created_at?: string
           created_by?: string | null
+          efficiency?: number | null
           has_target?: boolean
           id?: never
           name: string
+          pieces_per_minute?: number | null
+          process?: string | null
           standard_operator_count?: number | null
+          started_on?: string | null
           status?: string
           status_updated_at?: string | null
           updated_at?: string
@@ -262,10 +273,14 @@ export type Database = {
         Update: {
           created_at?: string
           created_by?: string | null
+          efficiency?: number | null
           has_target?: boolean
           id?: never
           name?: string
+          pieces_per_minute?: number | null
+          process?: string | null
           standard_operator_count?: number | null
+          started_on?: string | null
           status?: string
           status_updated_at?: string | null
           updated_at?: string
@@ -612,24 +627,30 @@ export type Database = {
       shifts: {
         Row: {
           end_time: string | null
+          gross_minutes: number | null
           id: number
           is_active: boolean
           name: string
           start_time: string | null
+          useful_minutes: number | null
         }
         Insert: {
           end_time?: string | null
+          gross_minutes?: number | null
           id: number
           is_active?: boolean
           name: string
           start_time?: string | null
+          useful_minutes?: number | null
         }
         Update: {
           end_time?: string | null
+          gross_minutes?: number | null
           id?: number
           is_active?: boolean
           name?: string
           start_time?: string | null
+          useful_minutes?: number | null
         }
         Relationships: []
       }
@@ -680,6 +701,7 @@ export type Database = {
     Views: {
       current_machine_targets: {
         Row: {
+          basis: string | null
           created_at: string | null
           created_by: string | null
           machine_id: number | null

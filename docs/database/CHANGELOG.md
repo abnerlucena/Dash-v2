@@ -18,7 +18,7 @@ Formato de cada entrada:
 ---
 
 ## [0.11.0] — 25/09/2026 — Processo, capacidade, tempo de turno e base da meta
-- Status: Desenhado (migration escrita e testada em transação desfeita; **ainda não aplicada** no projeto de testes)
+- Status: **Implementado** — aplicada no Supabase (projeto de testes) em 25/09/2026. Dados intactos: 18 máquinas, 18 metas, 842 apontamentos. Suítes 01 (24/24), 02 (23/23) e 03 (9/9) passando.
 - Commit/PR: PR #15
 - Migration: `supabase/migrations/20260925100000_capacity_process_and_target_basis.sql`
 - Testes: `supabase/tests/03_capacidade.sql` — 9 casos, 9 passando
@@ -48,6 +48,10 @@ metas reais.
 - **Nenhum agora.** Todas as colunas são opcionais ou têm valor padrão; as 18 metas existentes passaram automaticamente a `per_shift` e continuam se comportando como antes.
 - A tela de máquinas ganhará os campos de processo, capacidade e data de entrada quando as partes 2 e 3 entrarem.
 - Quando a meta por operador for usada de verdade, o cálculo de atingimento deixa de ser comparação direta: `meta efetiva = quantity_per_shift × operadores do apontamento`, caindo na lotação padrão da máquina quando o apontamento não informar. Ainda **não implementado**.
+
+### Corrigido junto
+- `_consolidado.sql` deixava de ser idempotente: rodá-lo num banco com a 0013 aplicada falhava com `cannot drop columns from view`, porque o `create or replace` da 0009 tentava remover a coluna `basis`. Agora a view é derrubada antes de ser recriada (nada depende dela). Verificado rodando o consolidado inteiro em transação desfeita.
+- `src/lib/database.types.ts` regerado do banco: 22 linhas acrescentadas, nenhuma removida. `tsc --noEmit` limpo e 9/9 testes do app passando.
 
 ### Observação encontrada nos testes
 Alterar a `basis` de uma meta **já vigente** é recusado pelo gatilho da D15 ("metas que já entraram em vigor não podem ser alteradas"). A parte 3 terá de inserir um **degrau novo** com a base correta — que é como a linha do tempo de metas deve funcionar mesmo (D13, D34).
