@@ -197,7 +197,7 @@ export function EntryPage({ notify }: EntryPageProps) {
 
       <PageBody>
         {/* ---------- Contexto: data, turno, busca, progresso ---------- */}
-        <div className="flex flex-wrap items-end gap-200 rounded-large bg-surface-sunken p-200">
+        <div className="flex flex-wrap items-start gap-x-300 gap-y-200 rounded-large bg-surface-sunken p-200">
           <DateField
             label="Data"
             value={date}
@@ -209,16 +209,16 @@ export function EntryPage({ notify }: EntryPageProps) {
           />
           <div className="flex flex-col gap-050">
             <span id="entry-shift" className="font-body-small font-semibold text-subtle">
-              Turno
+              Turno <span className="font-normal text-subtlest">· {SHIFT_META[shift].hours}</span>
             </span>
             <SegmentedControl
               label="Turno"
+              size="control"
               iconOnly={false}
               value={String(shift)}
               onChange={(v) => switchContext({ date, shift: Number(v) as Shift })}
               options={SHIFTS.map((s) => ({ value: String(s), label: SHIFT_META[s].label }))}
             />
-            <span className="font-body-small text-subtlest">{SHIFT_META[shift].hours}</span>
           </div>
           <TextField
             label="Filtrar máquinas"
@@ -228,11 +228,12 @@ export function EntryPage({ notify }: EntryPageProps) {
             elemAfter={<Search aria-hidden className="size-icon-small" />}
             className="min-w-column-name flex-1"
           />
-          <div className="flex min-w-column-name flex-col gap-075" aria-live="polite">
-            <span className="font-body-small text-subtle">
-              <span className="font-semibold tabular-nums text-default">{filled}</span> de {MACHINES.length} máquinas com
-              produção
-            </span>
+          <div className="flex min-w-column-name flex-col gap-050" aria-live="polite">
+            <span className="font-body-small font-semibold text-subtle">Máquinas com produção</span>
+            <span className="flex h-control flex-col justify-center gap-050">
+              <span className="font-body-small text-subtle">
+                <span className="font-semibold tabular-nums text-default">{filled}</span> de {MACHINES.length}
+              </span>
             <span
               role="progressbar"
               aria-label="Máquinas com produção"
@@ -242,6 +243,7 @@ export function EntryPage({ notify }: EntryPageProps) {
               className="flex h-075 overflow-hidden rounded-full bg-neutral"
             >
               <span className="h-full rounded-full bg-brand-bold" style={{ width: `${(filled / MACHINES.length) * 100}%` }} />
+              </span>
             </span>
           </div>
         </div>

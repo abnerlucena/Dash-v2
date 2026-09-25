@@ -125,6 +125,14 @@ await shot("22-graficos-escuro", {
     await page.mouse.move(box.x + box.width * 0.4, box.y + box.height / 2);
   },
 });
+await shot("22b-graficos-echarts", {
+  height: 1200,
+  act: async (page) => {
+    await tab("Gráficos")(page);
+    await page.getByRole("radio", { name: "Apache ECharts" }).click();
+    await page.waitForTimeout(600);
+  },
+});
 await shot("23-graficos-turno2-tabela", {
   height: 1200,
   act: async (page) => {
