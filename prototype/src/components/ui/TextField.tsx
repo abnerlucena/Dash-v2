@@ -2,7 +2,7 @@ import { CircleAlert, TriangleAlert } from "lucide-react";
 import { forwardRef, useId, type InputHTMLAttributes, type ReactNode, type TextareaHTMLAttributes } from "react";
 import { cn } from "@/lib/utils";
 
-interface FieldProps {
+export interface FieldProps {
   label: string;
   /** Esconde o rótulo visualmente (continua acessível) — ex.: campos dentro de tabela */
   hideLabel?: boolean;
@@ -13,10 +13,10 @@ interface FieldProps {
   className?: string;
 }
 
-const inputBase =
+export const inputBase =
   "w-full min-w-0 rounded-medium border bg-input font-body text-default transition-colors duration-hover ease-out placeholder:text-subtlest hover:bg-input-hovered focus:border-focused disabled:cursor-not-allowed disabled:border-disabled disabled:bg-disabled disabled:text-disabled";
 
-function FieldShell({
+export function FieldShell({
   id,
   label,
   hideLabel,

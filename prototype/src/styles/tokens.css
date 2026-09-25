@@ -143,6 +143,9 @@
   --dash-splitter-line: 2px;
   --dash-splitter-keyboard-step: 1rem; /* 16px por seta */
 
+  /* Traço dos ícones (lucide): 1.5 acompanha o peso do texto regular (400) */
+  --dash-icon-stroke: 1.5;
+  --dash-icon-stroke-bold: 3; /* marca do checkbox, lida em 12px */
   --dash-size-icon-small: 1rem; /* 16px */
   --dash-size-icon-medium: 1.25rem; /* 20px */
   --dash-size-icon-large: 1.5rem; /* 24px */

@@ -23,6 +23,7 @@ import { Modal } from "@/components/ui/Modal";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { TagGroup } from "@/components/ui/Tag";
 import { TextArea, TextField } from "@/components/ui/TextField";
+import { DateField } from "@/components/ui/DateField";
 
 /* ---------- Modelo do formulário ---------- */
 interface OpRow {
@@ -197,13 +198,13 @@ export function EntryPage({ notify }: EntryPageProps) {
       <PageBody>
         {/* ---------- Contexto: data, turno, busca, progresso ---------- */}
         <div className="flex flex-wrap items-end gap-200 rounded-large bg-surface-sunken p-200">
-          <TextField
+          <DateField
             label="Data"
-            type="date"
             value={date}
             min="2026-03-01"
             max="2026-03-31"
-            onChange={(e) => e.target.value && switchContext({ date: e.target.value, shift })}
+            today="2026-03-27"
+            onChange={(d) => switchContext({ date: d, shift })}
             className="w-1000 min-w-column-name"
           />
           <div className="flex flex-col gap-050">

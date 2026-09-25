@@ -27,6 +27,7 @@ import { Avatar } from "@/components/ui/Misc";
 import { Modal } from "@/components/ui/Modal";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { TextField } from "@/components/ui/TextField";
+import { DateField } from "@/components/ui/DateField";
 
 const initialValues = () => Object.fromEntries(MACHINES.map((m) => [m.id, String(metaPerShift(m))]));
 const dateTime = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
@@ -261,12 +262,11 @@ function CurrentMetas({ notify, history, setHistory }: CurrentMetasProps) {
                 options={[1, 2, 3].map((n) => ({ value: String(n), label: `${n} ${n === 1 ? "turno" : "turnos"}` }))}
               />
             </div>
-            <TextField
+            <DateField
               label="Vale a partir de"
-              type="date"
               value={effective}
               min={MIN_EFFECTIVE}
-              onChange={(e) => setEffective(e.target.value)}
+              onChange={setEffective}
               error={effectiveError}
               isRequired
               className="w-column-name"

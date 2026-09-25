@@ -26,6 +26,7 @@ import { Menu, MenuContent, MenuItem, MenuLabel, MenuRadioGroup, MenuRadioItem, 
 import { Modal } from "@/components/ui/Modal";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { TextArea, TextField } from "@/components/ui/TextField";
+import { DateField } from "@/components/ui/DateField";
 import { Tooltip } from "@/components/ui/Tooltip";
 
 const PLANT_TARGET = MACHINES.reduce((s, m) => s + m.target, 0);
@@ -369,14 +370,14 @@ export function HistoryPage({ notify }: { notify: Notify }) {
         <p className="mb-200 text-subtle">
           {dialog?.kind === "move" && plural(dialog.ids.length)} de {formatLongDate(date)}. O turno e as quantidades não mudam.
         </p>
-        <TextField
+        <DateField
           label="Nova data"
-          type="date"
           min="2026-03-01"
           max="2026-03-27"
+          today="2026-03-27"
           isRequired
           value={dialog?.kind === "move" ? dialog.day : ""}
-          onChange={(e) => dialog?.kind === "move" && setDialog({ ...dialog, day: e.target.value })}
+          onChange={(day) => dialog?.kind === "move" && setDialog({ ...dialog, day })}
           error={dialog?.kind === "move" && dialog.day ? moveError : null}
         />
       </Modal>

@@ -10,6 +10,7 @@ import { Lozenge } from "@/components/ui/Lozenge";
 import { Modal } from "@/components/ui/Modal";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { TextField } from "@/components/ui/TextField";
+import { DateField } from "@/components/ui/DateField";
 import { Tooltip } from "@/components/ui/Tooltip";
 import {
   BASELINE,
@@ -716,12 +717,11 @@ export function CapacitySimulator({ notify, onPublished }: CapacitySimulatorProp
         <p className="text-default">
           A meta por turno de cada processo passa a ser a capacidade com eficiência deste cenário.
         </p>
-        <TextField
+        <DateField
           label="Vale a partir de"
-          type="date"
           min="2026-09-26"
           value={effective}
-          onChange={(e) => setEffective(e.target.value)}
+          onChange={setEffective}
           isRequired
           className="mt-200 w-column-name"
         />

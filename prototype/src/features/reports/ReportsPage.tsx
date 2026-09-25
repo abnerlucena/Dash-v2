@@ -16,7 +16,7 @@ import { Checkbox } from "@/components/ui/Checkbox";
 import { Lozenge } from "@/components/ui/Lozenge";
 import { WegMark } from "@/components/ui/Misc";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
-import { TextField } from "@/components/ui/TextField";
+import { DateField } from "@/components/ui/DateField";
 
 type ReportType = "production" | "entries" | "rework" | "metas";
 const TYPES: Record<ReportType, { title: string; description: string; icon: LucideIcon }> = {
@@ -212,14 +212,14 @@ export function ReportsPage({ notify }: { notify: Notify }) {
 
             <fieldset className="flex flex-wrap gap-200">
               <legend className="pb-100 font-heading-small text-default">Período</legend>
-              <TextField label="De" type="date" min="2026-03-01" max="2026-03-27" value={from} onChange={(e) => setFrom(e.target.value)} className="w-column-name" />
-              <TextField
+              <DateField label="De" min="2026-03-01" max="2026-03-27" today="2026-03-27" value={from} onChange={setFrom} className="w-column-name" />
+              <DateField
                 label="Até"
-                type="date"
                 min="2026-03-01"
                 max="2026-03-27"
+                today="2026-03-27"
                 value={to}
-                onChange={(e) => setTo(e.target.value)}
+                onChange={setTo}
                 error={periodError}
                 className="w-column-name"
               />

@@ -34,7 +34,8 @@ interface FeedbacksPageProps {
 
 /**
  * Feedbacks = observações que os operadores deixam no apontamento.
- * Não lidos ficam marcados com ponto e "Novo"; o contador do menu acompanha.
+ * Não lidos: um ponto azul e o texto em negrito (lidos ficam em cor mais suave);
+ * o contador do menu acompanha.
  */
 export function FeedbacksPage({ unread, onReadChange, notify }: FeedbacksPageProps) {
   const [items, setItems] = useState<ProductionOrder[]>(FEEDBACKS);
@@ -162,7 +163,7 @@ export function FeedbacksPage({ unread, onReadChange, notify }: FeedbacksPagePro
                     return (
                       <li
                         key={note.id}
-                        className={cn("flex gap-150 border-t px-200 py-150 first:border-t-0", isUnread && "bg-brand-subtlest")}
+                        className="flex gap-150 border-t px-200 py-150 first:border-t-0"
                       >
                         <Avatar name={note.author} size="medium" accent={AVATAR_BY_SHIFT[o.shift]} />
                         <article className="min-w-0 flex-1" aria-label={`${isUnread ? "Novo. " : ""}${note.author}, ${machineById(o.machineId).name}`}>
@@ -174,7 +175,6 @@ export function FeedbacksPage({ unread, onReadChange, notify }: FeedbacksPagePro
                               {SHIFT_META[o.shift].label}
                             </span>
                             <span className="font-body-small text-subtlest">{time.format(o.recordedAt)}</span>
-                            {isUnread && <Lozenge appearance="discovery">Novo</Lozenge>}
                           </p>
                           <p className="mt-025 font-body-small text-subtle">
                             {machineById(o.machineId).name} · <span className="font-code">{o.id}</span>
@@ -206,7 +206,7 @@ export function FeedbacksPage({ unread, onReadChange, notify }: FeedbacksPagePro
                               </span>
                             </div>
                           ) : (
-                            <p className={cn("mt-075 text-default", isUnread && "font-medium")}>{note.text}</p>
+                            <p className={cn("mt-075", isUnread ? "font-semibold text-default" : "text-subtle")}>{note.text}</p>
                           )}
                         </article>
                         <div className="flex shrink-0 items-start gap-050">

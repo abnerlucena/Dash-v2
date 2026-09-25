@@ -37,8 +37,7 @@ export function Checkbox({ isIndeterminate, label, className, checked, disabled,
       {filled && (
         <Icon
           aria-hidden
-          strokeWidth={3}
-          className="pointer-events-none absolute inset-0 m-auto size-checkbox p-025 text-icon-inverse"
+          className="pointer-events-none [stroke-width:var(--dash-icon-stroke-bold)] absolute inset-0 m-auto size-checkbox p-025 text-icon-inverse"
         />
       )}
     </span>
