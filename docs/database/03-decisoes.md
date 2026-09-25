@@ -245,7 +245,7 @@ Status possíveis: `Aprovada` · `Assumida` (sem confirmação explícita) · `S
 - **Alternativas rejeitadas:** metas com data de fim obrigatória (não dá para prever quando haverá meta nova); preservar correções avulsas em apontamentos (criaria metas "escondidas" diferentes do gráfico); permissão separada para alterar o passado (o usuário preferiu manter só gestor/admin).
 
 ### D35 — Migração do histórico da planilha Excel
-- **Status:** Proposta (21/09/2026) — **revisão do gestor concluída em 25/09/2026** (ver D35.1). Datas de entrada em operação confirmadas e cruzamento coluna a coluna feito (D35.3). Falta só saber se a Bancada N°2 (ex-Manual Interruptor) foi desativada.
+- **Status:** Proposta (21/09/2026) — **revisão do gestor concluída em 25/09/2026** (ver D35.1). Datas de entrada em operação confirmadas e cruzamento coluna a coluna feito (D35.3). **Sem pendências de informação** — falta implementar.
 - **Contexto:** o histórico real está na planilha `ITAJAI - CONTROLE DE PRODUÇÃO 2026.xlsx` (20/12/2025 em diante, uma aba por mês, linha = data + turno, coluna = máquina, sem nº de OP). O app atual (Google Sheets + Apps Script) registra a **mesma** produção e será abandonado quando o sistema novo estiver em uso.
 - **Decisão (pontos confirmados pelo usuário):**
   1. **Fonte única do histórico = a planilha Excel.** O Google Sheets do app serve só para conferência (importar os dois contaria em dobro).
@@ -392,15 +392,23 @@ mas o custo de importar é zero e o dado é real: Prensa Tox (2 turnos próprios
 Bancada N°2 (10). Ficam no sistema como registro histórico, não como base de
 média.
 
-##### Pendência aberta
+##### Pendência fechada em 25/09/2026
 
 A folha de revisão perguntava sobre a `MANUAL INTERRUPTOR`: *"Produziu em
-dez/jan e uma vez em 05/06; depois só zeros. Foi desativada?"* — e essa
-resposta **não voltou marcada**. A diferença importa: se foi desativada, os
-283 zeros são "o centro não existia mais" e a Bancada N°2 precisa de uma data
-de saída de operação; se não foi, são "sob demanda sem pedido" e ficam como
-estão. Enquanto não houver resposta, valem como sob demanda — que é a hipótese
-que não inventa nada.
+dez/jan e uma vez em 05/06; depois só zeros. Foi desativada?"*. Resposta do
+usuário: **não foi desativada — ela é sob demanda**, e a produção dela vai
+para o centro correspondente, a **Bancada N°2 - Montagem Interruptores**
+(o mapeamento que já estava registrado).
+
+Consequências:
+- os **283 zeros são descartados** (turno sem pedido não é parada);
+- a Bancada N°2 **não precisa de data de saída** de operação;
+- os 10 turnos com produção entram normalmente no histórico dela.
+
+Com isso **todas as pendências da D35 estão fechadas**: as 23 colunas têm
+destino, as datas de entrada em operação estão confirmadas e os casos
+especiais foram revisados um a um. O que falta é construir — área de preparo,
+script de extração e carga em lote reversível.
 
 ### D36 — Atingimento × disponibilidade (máquinas contínuas e sob demanda)
 - **Status:** Proposta (21/09/2026) — opção escolhida pelo usuário; **a classificação das máquinas precisa ser revisada pelo gestor**.
