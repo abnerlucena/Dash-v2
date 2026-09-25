@@ -17,6 +17,41 @@ Formato de cada entrada:
 
 ---
 
+## [0.11.0] — 25/09/2026 — Processo, capacidade, tempo de turno e base da meta
+- Status: Desenhado (migration escrita e testada em transação desfeita; **ainda não aplicada** no projeto de testes)
+- Commit/PR: PR #15
+- Migration: `supabase/migrations/20260925100000_capacity_process_and_target_basis.sql`
+- Testes: `supabase/tests/03_capacidade.sql` — 9 casos, 9 passando
+- Decisões: D37, D39, D40, D41, D42
+
+Parte **1 de 3** da adequação ao desenho real da fábrica de Itajaí
+(`cadernos/07-mapa-da-fabrica.pdf`). Esta parte só cria campos: não altera
+nenhum dado existente. A parte 2 traz os 22 centros de trabalho e a parte 3 as
+metas reais.
+
+### Adicionado
+- `machines.process` — `assembly` | `packaging`. Aceita nulo por enquanto; a parte 2 preenche. [D37]
+- `machines.pieces_per_minute` e `machines.efficiency` — da planilha de capacidade, usados **só como alarme** de meta impossível, nunca para calcular a meta. [D40]
+- `machines.started_on` — data de entrada em operação; turnos anteriores a ela não são cobrados da máquina. [D41, D35]
+- `shifts.gross_minutes` e `shifts.useful_minutes` — o tempo que realmente produz (T1 558/493, T2 546/481, T3 336/271). Os valores entram na parte 2. [D42]
+- `machine_targets.basis` — `per_shift` (padrão) | `per_operator`, para a meta da Bancada A Granel, que é por pessoa. [D39]
+
+### Alterado
+- `machines_status_check` passa a aceitar **`planned`** (máquina prevista que ainda não existe na fábrica). É uma troca que só amplia: os quatro valores anteriores continuam válidos e nenhuma linha existente é afetada. [D41]
+- Nova restrição `shifts_useful_within_gross`: o tempo útil não pode passar do bruto. Turnos com os campos vazios passam normalmente.
+- View `current_machine_targets` passa a expor `basis` (coluna acrescentada no fim, para não mudar a ordem das existentes). [D39]
+
+### Removido
+- Nada.
+
+### Impacto no frontend
+- **Nenhum agora.** Todas as colunas são opcionais ou têm valor padrão; as 18 metas existentes passaram automaticamente a `per_shift` e continuam se comportando como antes.
+- A tela de máquinas ganhará os campos de processo, capacidade e data de entrada quando as partes 2 e 3 entrarem.
+- Quando a meta por operador for usada de verdade, o cálculo de atingimento deixa de ser comparação direta: `meta efetiva = quantity_per_shift × operadores do apontamento`, caindo na lotação padrão da máquina quando o apontamento não informar. Ainda **não implementado**.
+
+### Observação encontrada nos testes
+Alterar a `basis` de uma meta **já vigente** é recusado pelo gatilho da D15 ("metas que já entraram em vigor não podem ser alteradas"). A parte 3 terá de inserir um **degrau novo** com a base correta — que é como a linha do tempo de metas deve funcionar mesmo (D13, D34).
+
 ## [0.10.3] — 21/09/2026 — Correção: apontamento sem autor
 
 - **Status:** Implementado no Supabase (projeto de testes) em 21/09/2026
