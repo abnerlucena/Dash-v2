@@ -17,6 +17,52 @@ Formato de cada entrada:
 
 ---
 
+## [0.12.0] — 25/09/2026 — Os 22 centros de trabalho reais
+- Status: Desenhado (migration escrita e testada em transação desfeita; **ainda não aplicada** no projeto de testes)
+- Commit/PR: PR #15
+- Migration: `supabase/migrations/20260925110000_centros_de_trabalho_reais.sql`
+- Seed: `supabase/seed/01_estrutural.sql` — bloco de máquinas reescrito
+- Decisões: D37, D38 (só a marca "tem meta"), D40, D41, D42, D43
+
+Parte **2 de 3** da adequação ao desenho real da fábrica. Não altera schema:
+preenche os campos criados na 0.11.0 e acerta o cadastro de centros.
+
+### Alterado
+- **Turnos** ganham horário e tempo útil: T1 04:55–14:18 (558 bruto / 493 útil), T2 14:18–23:24 (546 / 481), T3 23:24–05:00 (336 / 271). Horário e tempo útil **não fecham por subtração** de propósito — no T1, 04:55 às 05:00 é entrada e preparação. [D42]
+- **17 centros renomeados no lugar**, preservando o `id` e portanto o histórico de apontamentos. Dois deles seguem a D43: `MONTAGEM DIVERSOS` → `BANCADA N°3 - DIVERSOS` é o id 15, e `BANCADA N°4 - DIVERSOS` é o id 11.
+- Todos os centros ganham **processo**, **peças por minuto**, **eficiência** e **lotação** (a do 1º turno).
+- **`has_target`** passa a refletir a D38: 12 centros cobrados por meta, 10 por demanda (todos em montagem).
+- `FECHAMENTO TECLA INTERRUPTORES` (id 18) fica **inativo** — o centro foi renomeado e readequado na fábrica. Nunca apagado: o histórico da planilha aponta para este id. Não havia apontamento para mover (zero registros). [D43]
+
+### Adicionado
+- **5 centros que existiam na fábrica e nunca foram cadastrados:** Embaladora Vertical Conjuntos N°1 e N°2, Máquina de Plugue Slin – AUMAQ, Bancada N°5 – Eletrônicos e Prensa Tox.
+- **7 centros planejados** (`status = 'planned'`), previstos ou comprados e sem funcionamento real. Ficam fora da tela de apontamento e de todos os indicadores. [D41]
+
+### Removido
+- Nada. Nenhuma máquina apagada, nenhum apontamento tocado, nenhuma meta alterada.
+
+### Como fica
+| | |
+|---|---|
+| Centros ativos | **22** — 13 montagem + 9 embalagem |
+| Cobrados por meta | 12 |
+| Por demanda | 10 (todos em montagem) |
+| Planejados | 7 |
+| Inativos | 1 |
+
+### Impacto no frontend
+- **Os nomes das máquinas mudam nas telas.** É a mudança mais visível: quem estava acostumado com "HORIZONTAL 1" passa a ver "EMBALADORA HORIZONTAL N°1". Os nomes agora são os que a fábrica usa.
+- A lista de apontamento passa de 18 para 22 opções; os 7 planejados **não** aparecem.
+- Os 10 centros por demanda saem do cálculo de atingimento e continuam somando na produção total.
+
+### Estado transitório (some com a parte 3)
+Três centros novos que são cobrados por meta — Conjuntos N°1, Conjuntos N°2 e Plugue Slin — ficam **com `has_target` e sem meta** até a parte 3 rodar. Os outros nove seguem com as metas de reserva antigas. Rodar a parte 3 em seguida.
+
+### Cuidado de ordem, resolvido
+A migration é uma **transformação guardada**: só age se os nomes do legado estiverem presentes. Num projeto novo, quem cria os 30 centros já com o nome certo é o seed. Sem essa guarda, um projeto novo rodando o consolidado **e** o seed terminaria com 30 máquinas erradas. O seed também passou a checar nome além de id, para não esbarrar no índice de nome único quando rodado depois da migration.
+
+Testado em transação desfeita: migration + seed **três vezes seguidas** dão sempre 30 centros (22 ativos, 7 planejados, 1 inativo), com 842 apontamentos e 18 metas intactos e nenhum nome duplicado.
+
 ## [0.11.0] — 25/09/2026 — Processo, capacidade, tempo de turno e base da meta
 - Status: **Implementado** — aplicada no Supabase (projeto de testes) em 25/09/2026. Dados intactos: 18 máquinas, 18 metas, 842 apontamentos. Suítes 01 (24/24), 02 (23/23) e 03 (9/9) passando.
 - Commit/PR: PR #15

@@ -80,32 +80,75 @@ select r.id, m.permission_code
 on conflict do nothing;
 
 
--- ─── 4. Máquinas reais ──────────────────────────────────────────────────────
--- Fonte: MACHINES_DEFAULT em src/lib/api.ts (= MACHINE_DEFS do Main.gs).
--- Os ids do legado são mantidos (1 a 18) para que a migração dos apontamentos
--- antigos case direto. "overriding system value" permite informar o id numa
+-- ─── 4. Centros de trabalho reais ───────────────────────────────────────────
+-- Fonte: planilha ITAJAÍ_TI_CAPACIDADE_VS_PESSOAS 2026_2027_REV01.xlsx
+-- (09/09/2026) e confirmações do gestor em 25/09/2026. Ver as decisões D37 a
+-- D43 e o caderno docs/database/cadernos/07-mapa-da-fabrica.pdf.
+--
+-- 30 linhas: 22 centros ativos (13 montagem + 9 embalagem), 7 planejados
+-- (previstos, ainda não existem na fábrica) e 1 inativo.
+--
+-- Os ids 1 a 18 são os do legado, preservados para a migração dos apontamentos
+-- antigos casar direto. "overriding system value" permite informar o id numa
 -- coluna que normalmente é numerada pelo banco.
-insert into public.machines (id, name, has_target, status)
+--
+-- peças/minuto e eficiência vêm da planilha de capacidade e servem só como
+-- alarme de meta impossível (D40). A lotação é a do 1º turno — a planilha tem
+-- lotação por turno, que o banco ainda não guarda.
+-- Guarda dupla: pula a linha se o ID ja existir (on conflict) OU se o NOME ja
+-- existir com outro id. Sem a segunda, rodar o seed depois da migration 0014
+-- -- que cria os mesmos centros com ids escolhidos pelo banco -- poderia
+-- esbarrar no indice de nome unico.
+insert into public.machines
+      (id, name, process, pieces_per_minute, efficiency, standard_operator_count, has_target, status)
 overriding system value
-values
-  (1,  'HORIZONTAL 1',                      true, 'active'),
-  (2,  'HORIZONTAL 2',                      true, 'active'),
-  (3,  'VERTICAL PLACAS / SUP. 1',          true, 'active'),
-  (4,  'VERTICAL PLACAS / SUP. 2',          true, 'active'),
-  (5,  'VERTICAL MÓDULOS 1',                true, 'active'),
-  (6,  'VERTICAL MÓDULOS 2',                true, 'active'),
-  (7,  'A GRANEL',                          true, 'active'),
-  (8,  'MÁQUINA INTERRUPTOR',               true, 'active'),
-  (9,  'TESTE INTERRUPTORES',               true, 'active'),
-  (10, 'MANUAL INTERRUPTOR',                true, 'active'),
-  (11, 'MONTAGEM DIVERSOS',                 true, 'active'),
-  (12, 'MONTAGEM PLACA REFINATTO',          true, 'active'),
-  (13, 'KIT 1 PARAFUSO',                    true, 'active'),
-  (14, 'KIT 2 PARAFUSO',                    true, 'active'),
-  (15, 'MONTAGEM TOMADAS MANUAL',           true, 'active'),
-  (16, 'MÁQUINA DE TOMADAS AUTOMÁTICA',     true, 'active'),
-  (17, 'INSERÇÃO DOS CONTATOS INTERRUPTOR', true, 'active'),
-  (18, 'FECHAMENTO TECLA INTERRUPTORES',    true, 'active')
+select v.id, v.name, v.process, v.ppm, v.efic, v.ops, v.tem_meta, v.status
+  from (values
+  -- ── Embalagem: 9 centros, todos cobrados por meta ────────────────────────
+  ( 1::integer, 'EMBALADORA HORIZONTAL N°1'::text, 'packaging'::text, 33.330::numeric, 0.70::numeric, 4::smallint, true, 'active'::text),
+  ( 2, 'EMBALADORA HORIZONTAL N°2',              'packaging', 33.330, 0.70, 4, true,  'active'),
+  ( 3, 'EMBALADORA 4X2 SUPORTES/PLACAS N°1',     'packaging', 21.739, 0.70, 2, true,  'active'),
+  ( 4, 'EMBALADORA 4X2 SUPORTES/PLACAS N°2',     'packaging', 21.739, 0.70, 2, true,  'active'),
+  ( 5, 'EMBALADORA VERTICAL MÓDULOS N°1',        'packaging', 32.258, 0.80, 2, true,  'active'),
+  ( 6, 'EMBALADORA VERTICAL MÓDULOS N°2',        'packaging', 32.258, 0.80, 1, true,  'active'),
+  ( 7, 'BANCADA EMBALAGEM A GRANÉL',             'packaging', 65.000, 0.70, 1, true,  'active'),
+  (19, 'EMBALADORA VERTICAL CONJUNTOS N°1',      'packaging', 14.000, 0.70, 2, true,  'active'),
+  (20, 'EMBALADORA VERTICAL CONJUNTOS N°2',      'packaging', 14.000, 0.70, 2, true,  'active'),
+
+  -- ── Montagem: 13 centros, 3 cobrados por meta e 10 por demanda (D38) ─────
+  ( 8, 'MÁQUINA DE INTERRUPTORES COMPOSÉ N°1',   'assembly',  12.048, 0.90, 1, true,  'active'),
+  (16, 'MÁQUINA DE TOMADAS COMPOSÉ - AUMAQ',     'assembly',  30.000, 0.85, 1, true,  'active'),
+  (21, 'MÁQUINA DE PLUGUE SLIN - AUMAQ',         'assembly',  16.000, 0.60, 1, true,  'active'),
+  (13, 'EMBALADORA KIT PARAFUSOS N°1',           'assembly',  30.000, 0.60, 1, false, 'active'),
+  (14, 'EMBALADORA KIT PARAFUSOS N°2',           'assembly',  30.000, 0.60, 1, false, 'active'),
+  ( 9, 'BANCADA N°1 - TESTE INTERRUPTORES',      'assembly',  13.000, 0.60, 1, false, 'active'),
+  (10, 'BANCADA N°2 - MONTAGEM INTERRUPTORES',   'assembly',   4.000, 0.60, 1, false, 'active'),
+  (15, 'BANCADA N°3 - DIVERSOS',                 'assembly',   6.000, 0.60, 1, false, 'active'),
+  (11, 'BANCADA N°4 - DIVERSOS',                 'assembly',   6.000, 0.60, 1, false, 'active'),
+  (22, 'BANCADA N°5 - ELETRÔNICOS',              'assembly',   4.000, 0.60, 1, false, 'active'),
+  (17, 'PRENSA INSERÇÃO CONTATOS INTERRUPTORES', 'assembly',   4.000, 0.60, 2, false, 'active'),
+  (23, 'PRENSA TOX',                             'assembly',   6.000, 0.60, 1, false, 'active'),
+  (12, 'PRENSA PLACA REFINATTO',                 'assembly',   6.000, 0.60, 1, false, 'active'),
+
+  -- ── Planejados: previstos ou comprados, sem funcionamento real (D41) ─────
+  -- Ao chegarem: mudar para 'active', preencher started_on e, se forem
+  -- cobrados, marcar has_target e definir a meta na tela de Metas.
+  (24, 'MÁQUINA DE INTERRUPTORES (NOVA BASE)',   'assembly',  null,   null, 1, false, 'planned'),
+  (25, 'MÁQUINA DE PLUGUE FÊMEA',                'assembly',  null,   null, 1, false, 'planned'),
+  (26, 'MÁQUINA DE TOMADAS N°2',                 'assembly',  null,   null, 1, false, 'planned'),
+  (27, 'EMBALADORA VERTICAL LUFATI KLIN PADRÃO', 'packaging', 40.000, 0.70, 1, false, 'planned'),
+  (28, 'EMBALADORA VERTICAL LUFATI PL+SUP 4X4',  'packaging', 40.000, 0.70, 2, false, 'planned'),
+  (29, 'EMBALADORA VERTICAL PLUGUES',            'packaging', 25.000, 0.70, 1, false, 'planned'),
+  (30, 'EMBALADORA VERTICAL CONJUNTOS N°3',      'packaging', 25.000, 0.70, 1, false, 'planned'),
+
+  -- ── Inativo: centro renomeado e readequado na fábrica (D43) ──────────────
+  -- O que era feito aqui hoje é feito na Bancada N°3. Nunca apagar: o
+  -- histórico da planilha aponta para este id.
+  (18, 'FECHAMENTO TECLA INTERRUPTORES',         'assembly',  null,   null, null, false, 'inactive')
+  ) as v(id, name, process, ppm, efic, ops, tem_meta, status)
+ where not exists (
+   select 1 from public.machines m where lower(m.name) = lower(v.name)
+ )
 on conflict (id) do nothing;
 
 -- Acerta o contador de ids: a próxima máquina cadastrada pelo app recebe
@@ -117,6 +160,8 @@ select setval(
 
 
 -- ─── 5. Metas vigentes ──────────────────────────────────────────────────────
+-- ATENÇÃO: este bloco ainda tem as metas de RESERVA (150 a 600), que nunca
+-- foram reais. As metas verdadeiras (D38) entram na parte 3 da adequação.
 -- Fonte: defaultMeta de MACHINES_DEFAULT. ATENÇÃO: podem não ser as metas
 -- reais atuais (as reais estão na aba "Metas" da planilha). Conferir e, se
 -- preciso, ajustar pela tela de Metas — que cria uma nova vigência.
