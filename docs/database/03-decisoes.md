@@ -41,7 +41,7 @@ Status possíveis: `Aprovada` · `Assumida` (sem confirmação explícita) · `S
 | D32 | Meta de datas anteriores ao histórico | Aprovada em parte — regra geral mantida na D34 | 21/09/2026 |
 | D33 | Autor lê os próprios apontamentos (ligado à permissão) | Aprovada | 21/09/2026 |
 | D34 | Gestão de metas por linha do tempo (painel do gestor) | Proposta | 21/09/2026 |
-| D35 | Migração do histórico da planilha Excel | Proposta | 21/09/2026 |
+| D35 | Migração do histórico da planilha Excel | Proposta (gestor revisou em 25/09) | 21/09/2026 |
 | D36 | Atingimento × disponibilidade (máquinas contínuas e sob demanda) | Proposta | 21/09/2026 |
 | D37 | Centro de trabalho e processo (montagem/embalagem) | Aprovada | 25/09/2026 |
 | D38 | Metas reais e centros por demanda | Aprovada | 25/09/2026 |
@@ -245,7 +245,7 @@ Status possíveis: `Aprovada` · `Assumida` (sem confirmação explícita) · `S
 - **Alternativas rejeitadas:** metas com data de fim obrigatória (não dá para prever quando haverá meta nova); preservar correções avulsas em apontamentos (criaria metas "escondidas" diferentes do gráfico); permissão separada para alterar o passado (o usuário preferiu manter só gestor/admin).
 
 ### D35 — Migração do histórico da planilha Excel
-- **Status:** Proposta (21/09/2026) — combinada com o usuário; depende da revisão do gestor (datas de entrada em operação, tipo de máquina, pendências).
+- **Status:** Proposta (21/09/2026) — **revisão do gestor concluída em 25/09/2026** (ver D35.1). Falta a data de entrada em operação por máquina e a pendência da Rebitagem Pinos; o restante está fechado.
 - **Contexto:** o histórico real está na planilha `ITAJAI - CONTROLE DE PRODUÇÃO 2026.xlsx` (20/12/2025 em diante, uma aba por mês, linha = data + turno, coluna = máquina, sem nº de OP). O app atual (Google Sheets + Apps Script) registra a **mesma** produção e será abandonado quando o sistema novo estiver em uso.
 - **Decisão (pontos confirmados pelo usuário):**
   1. **Fonte única do histórico = a planilha Excel.** O Google Sheets do app serve só para conferência (importar os dois contaria em dobro).
@@ -262,6 +262,70 @@ Status possíveis: `Aprovada` · `Assumida` (sem confirmação explícita) · `S
   12. **OP:** apontamentos importados entram sem nº de OP ("importado da planilha"). A OP informada passa a ser boa prática nova, com integração futura ao SAP.
 - **Impacto no banco (a implementar):** data de entrada/saída de operação em `machines`; origem e lote em `production_records`; tabela da área de preparo; tipo da máquina (D36). Tudo aditivo.
 - **Alternativas rejeitadas:** importar também o Google Sheets (duplicaria); tratar todo zero como "não rodou" (misturaria máquinas que ainda não existiam); gravar direto nas tabelas de produção sem área de preparo (sem revisão nem desfazer).
+
+
+#### D35.1 — Devolutivas do gestor (25/09/2026)
+
+O relatório de pré-importação voltou revisado. As 17 pendências que dependiam
+dele estão fechadas; o que segue é o que vale na importação.
+
+**Hora extra — em qual turno cada caso aconteceu.** Nenhum caiu no T3, o que
+bate com o T3 ainda ser só hora extra de madrugada.
+
+| Data | Rótulo na planilha | Turno |
+|---|---|---|
+| sáb 10/01/2026 | aba separada, "T1" | hora extra, **T1** |
+| sáb 16/05/2026 | "HORA EXTRA" | T1 |
+| sáb 23/05/2026 | "HORA EXTRA" | T1 |
+| sex 05/06/2026 | "EXTRA 2°T" | T2 |
+| seg 15/06/2026 | "EXTRA 1°T" | T1 |
+| seg 15/06/2026 | "EXTRA 2°T" | T2 |
+| sáb 27/06/2026 | "H. EXTRA" | T1 |
+| sáb 11/07/2026 | "H. EXTRA" | T1 |
+| dom 12/07/2026 | "H. EXTRA" | T1 |
+
+**Textos no lugar de números.** Os quatro viram parada de máquina no turno,
+com o motivo que a planilha escreveu:
+
+| Data · turno | Célula | Escrito | Vira |
+|---|---|---|---|
+| qua 04/03 · T1 | `MAR 26!I10` | "Preventiva" | parada por manutenção preventiva — 4x2 Suportes/Placas N°2 |
+| sex 06/03 · T1 | `MAR 26!F14` | "Manutenção" | parada por manutenção — Horizontal N°1 |
+| seg 09/03 · T1 | `MAR 26!F16` | "Preventiva" | parada por manutenção preventiva — Horizontal N°1 |
+| sex 13/03 · T1 | `MAR 26!F24` | "Manutenção" | parada por manutenção — Horizontal N°1 |
+
+**Retrabalho e observações.**
+
+| Célula | Escrito | Vira |
+|---|---|---|
+| `ABR 26!AN42` | "Retrabalho Refinatto 4.510" | 4.510 peças de retrabalho na Prensa Placa Refinatto, 27/04 · T1 |
+| `SET 26!AB8` | "H 01 - 4800" | 4.800 peças de retrabalho na Embaladora Horizontal N°1 |
+| `SET 26!AB30` | "Colagem de etiqueta de correção nas embalagens da modulo 02" | **observação do dia, sem quantidade**, na Vertical Módulos N°2 |
+
+**Número cortado.** `AGO 26!X38` trazia "10." na Máquina de Tomadas
+Automática, 25/08 · T1. O gestor confirmou: **10.000 peças**.
+
+#### D35.2 — O que as decisões D37 a D43 mudaram nesta decisão
+
+O desenho da fábrica foi refeito **depois** que a D35 foi escrita, então dois
+pontos dela ficaram desatualizados:
+
+- **Item 10 está superado.** Ele dizia que a `PRENSA TOX` entraria como
+  "Montagem Diversos". Pela D37 ela é um **centro de trabalho próprio** e já
+  está cadastrada. O mesmo vale para as duas Conjuntos e para a "Máquina de
+  Plug Automática", que hoje é a `MÁQUINA DE PLUGUE SLIN - AUMAQ`.
+- **Mapeamento das colunas da planilha** passa a seguir a D43: a coluna de
+  `MONTAGEM DIVERSOS` vai para a **Bancada N°4**, e as de `MONTAGEM TOMADAS
+  MANUAL` e `FECHAMENTO TECLA INTERRUPTORES` vão para a **Bancada N°3**.
+- **Item 9 continua valendo** para os degraus do **passado** (horizontais
+  8.000, placas 7.000, a granel 15.000). As metas de **hoje** já estão no
+  banco pela D38 e não vêm mais da planilha.
+
+**Ponta ainda aberta:** a planilha de produção tem uma coluna `REBITAGEM PINOS`
+que **não aparece** nos 22 centros de trabalho confirmados pelo gestor. Antes
+da importação é preciso saber se ela foi renomeada, se deixou de existir, ou se
+ficou de fora da lista por engano — sem isso, a produção dessa coluna não tem
+onde ser lançada.
 
 ### D36 — Atingimento × disponibilidade (máquinas contínuas e sob demanda)
 - **Status:** Proposta (21/09/2026) — opção escolhida pelo usuário; **a classificação das máquinas precisa ser revisada pelo gestor**.
