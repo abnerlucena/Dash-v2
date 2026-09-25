@@ -159,20 +159,51 @@ select setval(
 );
 
 
--- ─── 5. Metas vigentes ──────────────────────────────────────────────────────
--- ATENÇÃO: este bloco ainda tem as metas de RESERVA (150 a 600), que nunca
--- foram reais. As metas verdadeiras (D38) entram na parte 3 da adequação.
--- Fonte: defaultMeta de MACHINES_DEFAULT. ATENÇÃO: podem não ser as metas
--- reais atuais (as reais estão na aba "Metas" da planilha). Conferir e, se
--- preciso, ajustar pela tela de Metas — que cria uma nova vigência.
+-- ─── 5. Metas vigentes ───────────────────────────────────────────
+-- Metas REAIS, confirmadas com o gestor em 25/09/2026 (D38). Substituem os
+-- valores de reserva de 150 a 600 que vieram do código do app e nunca foram
+-- reais.
+--
+-- Onze centros têm meta fixa por turno. A Bancada Embalagem A Granél é medida
+-- POR PESSOA: 25.000 × número de operadores do apontamento (D39).
+--
+-- Os dez centros por demanda entram com meta 0 e "tem meta = não": a marca na
+-- ficha da máquina é o que manda no cálculo; o zero evita que o histórico de
+-- metas mostre um valor que nunca existiu.
+--
 -- Só insere para máquina que ainda não tem NENHUMA meta: rodar de novo não
--- altera metas já existentes. Vigência: hoje (fuso de Brasília).
-insert into public.machine_targets (machine_id, quantity_per_shift, valid_from)
-select v.machine_id, v.quantity, (now() at time zone 'America/Sao_Paulo')::date
+-- altera metas já existentes, porque a meta é histórico e não se sobrescreve.
+-- Vigência: hoje (fuso de Brasília).
+--
+-- ATENÇÃO: aqui só estão as metas de HOJE. Os degraus do passado (horizontais
+-- 8.000, placas 7.000, a granel 15.000) entram com a importação do histórico
+-- da planilha (D35).
+insert into public.machine_targets (machine_id, quantity_per_shift, valid_from, basis)
+select m.id, v.quantidade, (now() at time zone 'America/Sao_Paulo')::date, v.base
   from (values
-    (1, 500), (2, 500), (3, 400), (4, 400), (5, 350), (6, 350),
-    (7, 600), (8, 300), (9, 250), (10, 200), (11, 150), (12, 180),
-    (13, 220), (14, 220), (15, 160), (16, 500), (17, 0), (18, 0)
-  ) as v(machine_id, quantity)
- where exists (select 1 from public.machines m where m.id = v.machine_id)
-   and not exists (select 1 from public.machine_targets t where t.machine_id = v.machine_id);
+    ('EMBALADORA HORIZONTAL N°1',              10000, 'per_shift'   ),
+    ('EMBALADORA HORIZONTAL N°2',              10000, 'per_shift'   ),
+    ('EMBALADORA 4X2 SUPORTES/PLACAS N°1',      7500, 'per_shift'   ),
+    ('EMBALADORA 4X2 SUPORTES/PLACAS N°2',      7500, 'per_shift'   ),
+    ('EMBALADORA VERTICAL MÓDULOS N°1',        13000, 'per_shift'   ),
+    ('EMBALADORA VERTICAL MÓDULOS N°2',        13000, 'per_shift'   ),
+    ('EMBALADORA VERTICAL CONJUNTOS N°1',       5000, 'per_shift'   ),
+    ('EMBALADORA VERTICAL CONJUNTOS N°2',       5000, 'per_shift'   ),
+    ('BANCADA EMBALAGEM A GRANÉL',             25000, 'per_operator'),
+    ('MÁQUINA DE TOMADAS COMPOSÉ - AUMAQ',     12500, 'per_shift'   ),
+    ('MÁQUINA DE PLUGUE SLIN - AUMAQ',          6500, 'per_shift'   ),
+    ('MÁQUINA DE INTERRUPTORES COMPOSÉ N°1',    4500, 'per_shift'   ),
+    -- por demanda: meta 0, fora do cálculo de atingimento
+    ('EMBALADORA KIT PARAFUSOS N°1',               0, 'per_shift'   ),
+    ('EMBALADORA KIT PARAFUSOS N°2',               0, 'per_shift'   ),
+    ('BANCADA N°1 - TESTE INTERRUPTORES',           0, 'per_shift'   ),
+    ('BANCADA N°2 - MONTAGEM INTERRUPTORES',        0, 'per_shift'   ),
+    ('BANCADA N°3 - DIVERSOS',                      0, 'per_shift'   ),
+    ('BANCADA N°4 - DIVERSOS',                      0, 'per_shift'   ),
+    ('BANCADA N°5 - ELETRÔNICOS',                   0, 'per_shift'   ),
+    ('PRENSA INSERÇÃO CONTATOS INTERRUPTORES',      0, 'per_shift'   ),
+    ('PRENSA TOX',                                  0, 'per_shift'   ),
+    ('PRENSA PLACA REFINATTO',                      0, 'per_shift'   )
+  ) as v(nome, quantidade, base)
+  join public.machines m on lower(m.name) = lower(v.nome)
+ where not exists (select 1 from public.machine_targets t where t.machine_id = m.id);

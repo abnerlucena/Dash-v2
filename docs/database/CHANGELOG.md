@@ -17,8 +17,53 @@ Formato de cada entrada:
 
 ---
 
+## [0.13.0] — 25/09/2026 — As metas reais
+- Status: **Implementado** — aplicada no Supabase (projeto de testes) em 25/09/2026
+- Commit/PR: PR #15
+- Migration: `supabase/migrations/20260925120000_metas_reais.sql`
+- Seed: `supabase/seed/01_estrutural.sql` — bloco de metas reescrito
+- Testes: 01 (24/24), 02 (23/23), 03 (9/9)
+- Decisões: D38, D39, D13
+
+Parte **3 de 3** da adequação ao desenho real da fábrica. Fecha o estado
+transitório deixado pela 0.12.0.
+
+### Adicionado
+- **21 degraus novos** na linha do tempo de metas, com vigência de hoje: 12 com as metas reais e 9 com zero (o décimo centro por demanda já estava zerado, e a guarda corretamente não criou degrau à toa).
+
+| Centro | Meta por turno |
+|---|---|
+| Embaladora Horizontal N°1 e N°2 | 10.000 |
+| Embaladora 4x2 Suportes/Placas N°1 e N°2 | 7.500 |
+| Embaladora Vertical Módulos N°1 e N°2 | 13.000 |
+| Embaladora Vertical Conjuntos N°1 e N°2 | 5.000 |
+| Bancada Embalagem A Granél | **25.000 por pessoa** |
+| Máquina de Tomadas Composé – AUMAQ | 12.500 |
+| Máquina de Plugue Slin – AUMAQ | 6.500 |
+| Máquina de Interruptores Composé N°1 | 4.500 |
+
+### Alterado
+- Nada. **Nenhuma meta foi sobrescrita**: cada valor novo é um degrau com a data em que passa a valer. Os 16 valores de reserva antigos (150 a 600) continuam na tabela como histórico — é o que impede o passado de ser reescrito. [D13]
+- `machine_targets` passa de 18 para 39 linhas; `current_machine_targets` mostra os 22 centros ativos.
+
+### Removido
+- Nada. Nenhum apontamento tocado: cada um guarda a meta que valia no seu dia.
+
+### Testes ajustados (três estavam presos a dados do seed antigo)
+Nenhum era regressão — todos assumiam o cadastro de 18 máquinas:
+- `máquina duplicada recusada` tentava criar `'horizontal 1'`, nome que deixou de existir. Passou a usar um centro atual em minúsculas, o que também prova que a proteção ignora maiúsculas (D02).
+- `metas: só a que mudou` contava com a meta 500 do seed. Passou a definir valores conhecidos antes de testar.
+- `op1 lê máquinas e metas vigentes` tinha `count(*) = 18` fixo. Passou a conferir o que realmente importa: a view devolve **uma linha por máquina com meta**, sem duplicar.
+
+### Impacto no frontend
+- As metas nas telas passam a ser as reais. A diferença é grande: a Horizontal 1 sai de 500 para 10.000.
+- **A Granél ainda não é calculada certo.** A base `per_operator` está gravada, mas o cálculo de atingimento continua tratando a meta como fixa do turno. Enquanto isso não for implementado, ela aparece com meta 25.000 em vez de 25.000 × operadores. Pendência conhecida, não é regressão.
+
+### O que ainda falta
+Os **degraus do passado**. A planilha de produção mostra metas menores antes (horizontais 8.000, placas 7.000, a granel 15.000). Sem eles, os meses antigos seriam medidos com a meta de hoje. Entram junto com a importação do histórico (D35).
+
 ## [0.12.0] — 25/09/2026 — Os 22 centros de trabalho reais
-- Status: Desenhado (migration escrita e testada em transação desfeita; **ainda não aplicada** no projeto de testes)
+- Status: **Implementado** — aplicada no Supabase (projeto de testes) em 25/09/2026
 - Commit/PR: PR #15
 - Migration: `supabase/migrations/20260925110000_centros_de_trabalho_reais.sql`
 - Seed: `supabase/seed/01_estrutural.sql` — bloco de máquinas reescrito

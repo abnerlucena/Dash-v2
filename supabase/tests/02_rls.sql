@@ -13,7 +13,12 @@ select public.save_production_record('2026-09-19'::date, 1::smallint, 18, '[{"or
 insert into results(test, ok, info) select 'op1 vê o próprio apontamento', count(*) = 1, count(*)::text from public.production_records where machine_id = 18;
 insert into results(test, ok, info) select 'op1 vê as próprias ordens', count(*) = 2, count(*)::text from public.production_orders o join public.production_records r on r.id = o.production_record_id where r.machine_id = 18;
 insert into results(test, ok, info) select 'op1 vê resumo com boa x retrabalho', bool_and(good_quantity = 400 and rework_quantity = 100 and target_quantity = public.machine_target_on(18, '2026-09-19')), string_agg(format('boa=%s retr=%s meta=%s', good_quantity, rework_quantity, target_quantity), ';') from public.production_summary where machine_id = 18;
-insert into results(test, ok, info) select 'op1 lê máquinas e metas vigentes', count(*) = 18, count(*)::text from public.current_machine_targets;
+-- Uma linha por maquina que tem meta: a view escolhe o degrau vigente e nao
+-- duplica. Comparar com um numero fixo quebraria a cada centro novo.
+insert into results(test, ok, info) select 'op1 lê máquinas e metas vigentes',
+  count(*) = (select count(distinct machine_id) from public.machine_targets
+               where valid_from <= (now() at time zone 'America/Sao_Paulo')::date),
+  count(*)::text from public.current_machine_targets;
 insert into results(test, ok, info) select 'op1 vê só o próprio profile', count(*) = 1, count(*)::text from public.profiles;
 insert into results(test, ok, info) select 'op1 NÃO vê auditoria', count(*) = 0, count(*)::text from public.audit_logs;
 do $$ begin

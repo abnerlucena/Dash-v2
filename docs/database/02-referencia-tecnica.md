@@ -1,6 +1,6 @@
 # Referência Técnica do Schema
 
-> Versão do schema: `v0.11.0` · Última atualização: 25/09/2026 · Status: **implementado no Supabase** (projeto de testes). Colunas marcadas 🕐 existem no banco mas ainda estão vazias — os dados vêm nas partes 2 e 3. Dados de produção seguem no Google Sheets.
+> Versão do schema: `v0.13.0` · Última atualização: 25/09/2026 · Status: **implementado no Supabase** (projeto de testes). Dados de produção seguem no Google Sheets.
 > SGBD: PostgreSQL (Supabase) · Schema: `public` (+ `auth`, gerenciado pelo Supabase)
 > Decisões citadas como `[Dxx]` estão em [03-decisoes.md](03-decisoes.md).
 
@@ -52,13 +52,13 @@ Legenda: **PK** chave primária · **FK** chave estrangeira · **NN** not null �
 | `id` | `integer` | PK, `generated always as identity` | [D01] |
 | `name` | `text` | NN, CHECK não vazio; UQ em `lower(name)` (`machines_name_lower_key`) | [D02] |
 | `has_target` | `boolean` | NN, default `true` | Participa do cálculo de meta |
-| `status` | `text` | NN, default `'active'`, CHECK `active`/`inactive`/`maintenance`/`preventive_maintenance`/`planned` 🕐 | `planned` = prevista, ainda não existe na fábrica [D05, D41] |
+| `status` | `text` | NN, default `'active'`, CHECK `active`/`inactive`/`maintenance`/`preventive_maintenance`/`planned` | `planned` = prevista, ainda não existe na fábrica [D05, D41] |
 | `status_updated_at` | `timestamptz` | | Última mudança de status (gatilho `set_machine_status_updated_at`) |
 | `standard_operator_count` | `smallint` | CHECK `>= 0` | Lotação padrão [D12] |
-| `process` 🕐 | `text` | CHECK `assembly`/`packaging` | Processo do centro de trabalho. Nulo nas 18 máquinas antigas até a parte 2 [D37] |
-| `pieces_per_minute` 🕐 | `numeric(10,3)` | CHECK `> 0` | Da planilha de capacidade. Só alarme de meta impossível, nunca cálculo da meta [D40] |
-| `efficiency` 🕐 | `numeric(4,3)` | CHECK `> 0 e <= 1` | Eficiência esperada (a fábrica usa 0,60 a 0,90) [D40] |
-| `started_on` 🕐 | `date` | | Entrada em operação; turnos anteriores não são cobrados [D41, D35] |
+| `process` | `text` | CHECK `assembly`/`packaging` | Processo do centro de trabalho. Nulo nas 18 máquinas antigas até a parte 2 [D37] |
+| `pieces_per_minute` | `numeric(10,3)` | CHECK `> 0` | Da planilha de capacidade. Só alarme de meta impossível, nunca cálculo da meta [D40] |
+| `efficiency` | `numeric(4,3)` | CHECK `> 0 e <= 1` | Eficiência esperada (a fábrica usa 0,60 a 0,90) [D40] |
+| `started_on` | `date` | | Entrada em operação; turnos anteriores não são cobrados [D41, D35] |
 | `created_by`, `updated_by` | `uuid` | FK `profiles`; `created_by` default `auth.uid()` | [D04] |
 | `created_at`, `updated_at` | `timestamptz` | NN, default `now()` | |
 
@@ -70,8 +70,8 @@ Exclusão física bloqueada por FK quando houver produção; desativar via `stat
 | `id` | `smallint` | PK | 1, 2, 3 |
 | `name` | `text` | NN, UQ, CHECK não vazio | "TURNO 1" |
 | `start_time`, `end_time` | `time` | | Turno 3 atravessa a meia-noite (`end_time < start_time`) |
-| `gross_minutes` 🕐 | `smallint` | CHECK `> 0` | Duração bruta segundo a planilha de capacidade. Informativo |
-| `useful_minutes` 🕐 | `smallint` | CHECK `> 0`; CHECK de tabela `shifts_useful_within_gross` (`useful <= gross`) | Minutos que realmente produzem. T1 493, T2 481, T3 271 [D42] |
+| `gross_minutes` | `smallint` | CHECK `> 0` | Duração bruta segundo a planilha de capacidade. Informativo |
+| `useful_minutes` | `smallint` | CHECK `> 0`; CHECK de tabela `shifts_useful_within_gross` (`useful <= gross`) | Minutos que realmente produzem. T1 493, T2 481, T3 271 [D42] |
 | `is_active` | `boolean` | NN, default `true` | Substitui `localStorage.turnosAtivos` [D06] |
 
 > **Regra: `start_time`/`end_time` são descritivos.** O turno de um apontamento vem SEMPRE do `shift_id` escolhido por quem aponta, nunca do relógio. Apontadores costumam trabalhar além do horário do turno (passagem de turno, organização interna), então inferir o turno pelo horário produziria dado errado. `created_at` registra *quando* o apontamento foi feito; `shift_id` registra *a que turno* a produção pertence. [D06]
@@ -129,7 +129,7 @@ UQ `machine_downtimes_source_external_id_key (source, external_id)` (idempotênc
 | `id` | `uuid` | PK | |
 | `machine_id` | `integer` | NN, FK `machines` | |
 | `quantity_per_shift` | `integer` | NN, CHECK `>= 0` | Igual para todos os turnos [D14] |
-| `basis` 🕐 | `text` | NN, default `'per_shift'`, CHECK `per_shift`/`per_operator` | Como ler a quantidade: meta do turno ou meta por pessoa (A Granel) [D39] |
+| `basis` | `text` | NN, default `'per_shift'`, CHECK `per_shift`/`per_operator` | Como ler a quantidade: meta do turno ou meta por pessoa (A Granel) [D39] |
 | `valid_from` | `date` | NN; gatilho recusa data < hoje (SP) em INSERT e UPDATE | [D15] |
 | `created_by` | `uuid` | FK `profiles`, default `auth.uid()` | |
 | `created_at` | `timestamptz` | NN, default `now()` | |
@@ -250,7 +250,7 @@ PK `(user_id, permission_code)` · Índice `(permission_code)`. Permissões efet
 | View | Retorna |
 |---|---|
 | `production_summary` | Colunas de `production_records` + `shift_name`, `machine_name`, `good_quantity` (ordens sem retrabalho), `rework_quantity`, `total_quantity`, `order_count`, `staffing_ratio` (= `operator_count / standard_operator_count`), `adjusted_target` (= meta × lotação), `is_excluded_day` (existe `excluded_day` na data, para o dia inteiro ou para o turno) e `counts_toward_target` (= `work_mode = 'regular'` **e** não anulado) [D11, D12, D16, D27] |
-| `current_machine_targets` | `machine_id`, `target_id`, `quantity_per_shift`, `valid_from`, `created_by`, `created_at`, `basis` 🕐 — meta vigente hoje (SP) por máquina: maior `valid_from <= hoje` |
+| `current_machine_targets` | `machine_id`, `target_id`, `quantity_per_shift`, `valid_from`, `created_by`, `created_at`, `basis` — meta vigente hoje (SP) por máquina: maior `valid_from <= hoje` |
 
 Ambas criadas com `security_invoker = true`: respeitam o RLS de quem consulta.
 

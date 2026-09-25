@@ -80,11 +80,14 @@ do $$ begin
 exception when others then insert into results(test, ok, info) values ('colisão em massa recusada', true, sqlerrm); end $$;
 -- 11. metas: gestora salva; só grava o que mudou; corrige no mesmo dia; passado recusado
 select pg_temp.as_user('00000000-0000-0000-0000-0000000000a1');
-do $$ declare c int; c2 int; begin
-  c := public.save_machine_targets('{"1": 550, "2": 500}'::jsonb);
-  c2 := public.save_machine_targets('{"1": 560}'::jsonb);
-  insert into results(test, ok, info) values ('metas: só a que mudou + correção no dia', c = 1 and c2 = 1,
-    format('gravadas=%s, depois=%s', c, c2));
+do $$ declare c0 int; c int; c2 int; begin
+  -- parte de valores conhecidos, em vez de supor o que o seed deixou
+  c0 := public.save_machine_targets('{"1": 550, "2": 560}'::jsonb);   -- as duas mudam
+  c  := public.save_machine_targets('{"1": 550, "2": 500}'::jsonb);   -- so a 2 muda
+  c2 := public.save_machine_targets('{"1": 560}'::jsonb);             -- correcao no mesmo dia
+  insert into results(test, ok, info) values ('metas: só a que mudou + correção no dia',
+    c0 = 2 and c = 1 and c2 = 1,
+    format('definiu=%s, so a que mudou=%s, correcao=%s', c0, c, c2));
 exception when others then insert into results(test, ok, info) values ('metas: só a que mudou', false, sqlerrm); end $$;
 do $$ begin perform public.save_machine_targets('{"1": 1}'::jsonb, '2020-01-01'::date);
   insert into results(test, ok, info) values ('meta no passado recusada', false, 'aceitou!');
@@ -94,7 +97,7 @@ do $$ declare v int; begin
   v := public.create_machine('Máquina Teste Noturno', 321);
   insert into results(test, ok, info) values ('create_machine', v > 18, format('id=%s', v));
 exception when others then insert into results(test, ok, info) values ('create_machine', false, sqlerrm); end $$;
-do $$ begin perform public.create_machine('horizontal 1', 1);
+do $$ begin perform public.create_machine('embaladora horizontal n°1', 1);
   insert into results(test, ok, info) values ('máquina duplicada recusada', false, 'aceitou!');
 exception when others then insert into results(test, ok, info) values ('máquina duplicada recusada', true, sqlerrm); end $$;
 -- 13. nomes para exibição e exclusão
