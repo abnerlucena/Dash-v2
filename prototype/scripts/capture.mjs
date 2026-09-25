@@ -161,6 +161,15 @@ await shot("28-metas-edicao", {
     await page.getByRole("textbox", { name: "Meta por turno de HORIZONTAL 1" }).fill("7500");
   },
 });
+await shot("28b-metas-simulador", {
+  route: "metas",
+  height: 1100,
+  act: async (page) => {
+    await page.getByRole("tab", { name: "Simulador de capacidade" }).click();
+    await page.getByRole("radio", { name: "Montagem" }).click();
+    await page.getByRole("textbox", { name: "Eficiência de Prensa Tox" }).fill("75");
+  },
+});
 await shot("29-historico", { route: "historico" });
 await shot("30-ranking", { route: "ranking" });
 await shot("31-retrabalho", { route: "retrabalho", height: 1300 });

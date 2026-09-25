@@ -117,6 +117,8 @@ const sizeKeys = [
   "field-op",
   "calendar",
   "field-quantity",
+  "field-count",
+  "field-rate",
   "modal-max-height",
   "modal-gutter",
   "kpi-min",
@@ -294,6 +296,7 @@ export default {
       gridTemplateColumns: {
         // nome da máquina | trilho da barra
         attainment: "minmax(0, var(--dash-size-column-name)) minmax(0, 1fr) var(--dash-size-attainment-value)",
+        "attainment-wide": "minmax(0, var(--dash-size-bar-label-wide)) minmax(0, 1fr) var(--dash-size-attainment-value)",
         tv: "minmax(0, var(--dash-size-tv-label)) minmax(0, 1fr) var(--dash-size-tv-value)",
       },
       transformOrigin: {

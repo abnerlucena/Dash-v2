@@ -15,7 +15,13 @@ export default defineConfig({
     },
   },
   resolve: {
-    alias: { "@": path.resolve(__dirname, "src") },
+    alias: [
+      // Dados reais da planilha só em builds privados (arquivo local, fora do Git)
+      ...(process.env.CAPACITY_DATA === "real"
+        ? [{ find: /^\.\/capacityBaseline$/, replacement: path.resolve(__dirname, "src/features/capacity/capacityBaseline.local.ts") }]
+        : []),
+      { find: "@", replacement: path.resolve(__dirname, "src") },
+    ],
   },
   server: { port: 8090, strictPort: true },
   build: { outDir: path.resolve(__dirname, "dist"), emptyOutDir: true },

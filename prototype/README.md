@@ -34,6 +34,13 @@ prototype/
 └── screenshots/              ← capturas dos estados (claro, escuro, flyout, mobile…)
 ```
 
+## Dados do simulador de capacidade
+
+O repositório é público: `capacityBaseline.ts` traz valores **fictícios** com a mesma estrutura
+da planilha. Para gerar um build privado com os números reais, crie
+`src/features/capacity/capacityBaseline.local.ts` (ignorado pelo Git) e rode o build com
+`CAPACITY_DATA=real`.
+
 ## Tokens
 
 - Nomes ADS: `--ds-[property]-[role]-[emphasis]-[state]`,
@@ -54,7 +61,7 @@ prototype/
 | Dashboard | Tela Máquinas (abas abaixo) |
 | Apontamento | Data + turno, máquinas por linha, várias OPs por máquina, retrabalho, observação, validação e Ctrl+S |
 | Histórico | Calendário do mês no tom do status; editar, mover, alterar turno e excluir (em lote), com Desfazer |
-| Metas | Meta por turno × turnos ativos × dias úteis; edição em lote com vigência futura e confirmação |
+| Metas | Duas abas. **Metas vigentes**: meta por turno × turnos ativos × dias úteis, edição em lote com vigência futura e histórico. **Simulador de capacidade**: modelo da planilha Capacidade vs Pessoas (jornada, peças/min, eficiência, regime, pessoas), meta por turno recalculada ao vivo, pontos de atenção da planilha e publicação no histórico |
 | Feedbacks | Observações dos operadores; lido/não lido (o contador do menu acompanha), editar e excluir |
 | Relatórios | Montador (tipo, período, máquinas, turnos, formato, seções) com pré-visualização; CSV real |
 | Linhas / Turnos | A tela Máquinas com recorte fixo por linha ou por turno |

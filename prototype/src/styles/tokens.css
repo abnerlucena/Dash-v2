@@ -176,6 +176,8 @@
   --dash-size-field-op: 10rem; /* 160px: campo Nº da OP */
   --dash-size-calendar: 26rem; /* 416px: calendário do histórico */
   --dash-size-field-quantity: 9rem; /* 144px: campo de quantidade */
+  --dash-size-field-count: 4.5rem; /* 72px: pessoas por turno */
+  --dash-size-field-rate: 7rem; /* 112px: peças/min, eficiência */
   --dash-size-modal-max-height: calc(100dvh - 2 * var(--ds-space-600));
   --dash-size-modal-gutter: calc(100vw - 2 * var(--ds-space-200));
   --dash-size-kpi-min: 12.5rem; /* 200px: largura mínima de uma célula de KPI */
@@ -184,6 +186,7 @@
   --dash-size-chart-axis: 3.5rem; /* 56px: calha do eixo Y */
   --dash-chart-label-gap: 3.5rem; /* 56px: distância mínima entre rótulos do eixo X */
   --dash-size-attainment-value: 8.5rem; /* 136px: coluna de valor + status */
+  --dash-size-bar-label-wide: 20rem; /* 320px: rótulos longos (nomes de processos) */
   --dash-size-chart-card-min: 26rem; /* 416px: largura mínima de um card de gráfico lado a lado */
   --dash-size-bar-max: 1.5rem; /* 24px: espessura máxima de barra */
   --dash-size-heat-cell: 3.25rem; /* 52px: célula da grade diária */

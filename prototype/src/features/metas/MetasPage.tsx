@@ -17,7 +17,10 @@ import { formatNumber, readToken, type Notify } from "@/lib/utils";
 import { DataTable, type Column } from "@/components/data/DataTable";
 import { KpiStrip, type KpiItem } from "@/components/data/KpiStrip";
 import { SegmentedBar } from "@/components/data/SegmentedBar";
-import { PageBody, PageHeader } from "@/components/layout/PageHeader";
+import * as Tabs from "@radix-ui/react-tabs";
+import { PageBody, PageHeader, PAGE_GUTTER } from "@/components/layout/PageHeader";
+import { CapacitySimulator } from "@/features/capacity/CapacitySimulator";
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/Button";
 import { Lozenge } from "@/components/ui/Lozenge";
 import { Avatar } from "@/components/ui/Misc";
@@ -32,7 +35,14 @@ const dateOnly = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-di
 /** Vigência mínima: dia seguinte à data de referência (metas nunca mudam o passado) */
 const MIN_EFFECTIVE = "2026-03-28";
 
-export function MetasPage({ notify }: { notify: Notify }) {
+interface CurrentMetasProps {
+  notify: Notify;
+  history: MetaChange[];
+  setHistory: React.Dispatch<React.SetStateAction<MetaChange[]>>;
+}
+
+/** Aba "Metas vigentes": meta por turno de cada máquina, edição manual com vigência e histórico */
+function CurrentMetas({ notify, history, setHistory }: CurrentMetasProps) {
   const [editing, setEditing] = useState(false);
   const [saved, setSaved] = useState(initialValues);
   const [values, setValues] = useState(initialValues);
@@ -41,7 +51,6 @@ export function MetasPage({ notify }: { notify: Notify }) {
   const [effective, setEffective] = useState("2026-04-01");
   const [confirming, setConfirming] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [history, setHistory] = useState<MetaChange[]>(META_CHANGES);
 
   const perShift = (id: string) => Number(values[id]) || 0;
   const errorOf = (id: string) => {
@@ -193,12 +202,19 @@ export function MetasPage({ notify }: { notify: Notify }) {
 
   return (
     <>
-      <PageHeader
-        title="Metas"
-        lozenge={editing ? <Lozenge appearance="discovery">Editando</Lozenge> : <Lozenge>Vigente desde {dateOnly.format(META_EFFECTIVE_FROM)}</Lozenge>}
-        description="A meta é definida por turno. Meta por dia = meta por turno × turnos ativos. Meta do mês = meta por dia × dias úteis."
-        actions={
-          editing ? (
+      <div className={cn(PAGE_GUTTER, "flex flex-wrap items-center justify-between gap-200 pt-300")}>
+        <span className="flex min-w-0 flex-1 basis-kpi-min flex-wrap items-center gap-100">
+          {editing ? (
+            <Lozenge appearance="discovery">Editando</Lozenge>
+          ) : (
+            <Lozenge>Vigente desde {dateOnly.format(META_EFFECTIVE_FROM)}</Lozenge>
+          )}
+          <span className="text-subtle">
+            Meta por dia = meta por turno × turnos ativos. Meta do mês = meta por dia × dias úteis.
+          </span>
+        </span>
+        <span className="flex flex-wrap gap-100">
+          {editing ? (
             <>
               <Button appearance="subtle" onClick={cancel}>
                 Cancelar
@@ -215,9 +231,9 @@ export function MetasPage({ notify }: { notify: Notify }) {
             <Button appearance="primary" iconBefore={Pencil} onClick={startEdit}>
               Editar metas
             </Button>
-          )
-        }
-      />
+          )}
+        </span>
+      </div>
 
       <PageBody>
         <KpiStrip items={kpis} label="Resumo das metas" />
@@ -319,5 +335,48 @@ export function MetasPage({ notify }: { notify: Notify }) {
         </ul>
       </Modal>
     </>
+  );
+}
+
+const TAB_CLASS =
+  "flex shrink-0 items-center gap-075 whitespace-nowrap border-b-thick border-transparent pb-100 pt-050 font-body font-medium text-subtle transition-colors duration-hover ease-out hover:text-default data-[state=active]:border-selected data-[state=active]:text-selected";
+
+/**
+ * Metas: a aba "Metas vigentes" mostra e edita a meta por turno de cada máquina;
+ * o "Simulador de capacidade" recalcula metas a partir da planilha de capacidade.
+ * Publicar no simulador registra a alteração no histórico das metas vigentes.
+ */
+export function MetasPage({ notify }: { notify: Notify }) {
+  const [tab, setTab] = useState("vigentes");
+  const [history, setHistory] = useState<MetaChange[]>(META_CHANGES);
+
+  return (
+    <Tabs.Root value={tab} onValueChange={setTab}>
+      <PageHeader title="Metas" description="Metas por turno de cada máquina e a capacidade que as sustenta.">
+        <Tabs.List aria-label="Visões de metas" className="mt-200 flex gap-300 overflow-x-auto overflow-y-hidden border-b">
+          <Tabs.Trigger value="vigentes" className={TAB_CLASS}>
+            Metas vigentes
+          </Tabs.Trigger>
+          <Tabs.Trigger value="capacidade" className={TAB_CLASS}>
+            Simulador de capacidade
+          </Tabs.Trigger>
+        </Tabs.List>
+      </PageHeader>
+      <Tabs.Content value="vigentes" className="outline-none data-[state=inactive]:hidden">
+        <CurrentMetas notify={notify} history={history} setHistory={setHistory} />
+      </Tabs.Content>
+      {/* forceMount: o cenário simulado continua ao trocar de aba */}
+      <Tabs.Content value="capacidade" forceMount className="outline-none data-[state=inactive]:hidden">
+        <CapacitySimulator
+          notify={notify}
+          onPublished={(summary, when) =>
+            setHistory((h) => [
+              { id: `cap-${Date.now()}`, date: new Date(), author: "Rafael Souza", summary: `${summary} · vigência ${when}` },
+              ...h,
+            ])
+          }
+        />
+      </Tabs.Content>
+    </Tabs.Root>
   );
 }
