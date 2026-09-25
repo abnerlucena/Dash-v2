@@ -1,6 +1,6 @@
 # Cadernos do banco de dados
 
-Seis PDFs curtos que explicam o banco **em linguagem comum**, com analogias e
+Sete PDFs curtos que explicam o banco **em linguagem comum**, com analogias e
 diagramas. São material de leitura, não especificação: quem precisa do detalhe
 técnico (nomes de colunas, tipos, índices, políticas) continua em
 [`../02-referencia-tecnica.md`](../02-referencia-tecnica.md).
@@ -13,6 +13,7 @@ técnico (nomes de colunas, tipos, índices, políticas) continua em
 | 4 | [Calendário e paradas](04-calendario-e-paradas.pdf) | Separar "não rodou" de "rodou mal" |
 | 5 | [Pessoas e acesso](05-pessoas-e-acesso.pdf) | Perfis, permissões e cadastro pendente |
 | 6 | [Avisos, auditoria e segurança](06-avisos-auditoria-seguranca.pdf) | O registro do que aconteceu e quem fez |
+| 7 | [O mapa da fábrica](07-mapa-da-fabrica.pdf) | Os 22 centros de trabalho reais, turnos e metas confirmadas com o gestor |
 
 Cada caderno marca com `Já existe` / `A construir` o que está pronto no banco e o
 que ainda é decisão em aberto, e tem uma seção honesta sobre limitações.
@@ -20,7 +21,7 @@ que ainda é decisão em aberto, e tem uma seção honesta sobre limitações.
 ## Como editar
 
 A fonte é o HTML ao lado do PDF. O estilo (fontes, cores, quebras de página, A4)
-é comum e fica em `estilo.css` — mexer nele muda os seis.
+é comum e fica em `estilo.css` — mexer nele muda os sete.
 
 Depois de editar, gere os PDFs de novo:
 

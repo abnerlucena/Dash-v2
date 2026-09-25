@@ -41,3 +41,4 @@ figcaption{font-size:9.6pt;color:var(--ink-2);margin-top:5pt;text-align:center;m
 .pill{display:inline-block;font-size:8.6pt;font-weight:700;padding:1.5pt 7pt;border-radius:999px;background:var(--ok-bg);color:var(--ok-ink)}
 .pill.q{background:var(--warn-bg);color:var(--warn-ink)}
 .pagebreak{break-before:page}
+.flow{break-inside:auto}
