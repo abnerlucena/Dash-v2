@@ -31,8 +31,17 @@ export function KpiStrip({
       {/* gap de 1px sobre o fundo da borda = divisórias; flex-wrap segue o espaço real, não a viewport */}
       <dl className="flex flex-wrap gap-px bg-border" aria-busy={isLoading || undefined}>
         {items.map((item) => (
-          <div key={item.id} className="flex min-w-0 flex-1 basis-kpi-min flex-col gap-050 bg-surface-raised px-250 py-200">
-            <dt className={cn("font-body text-subtle transition-opacity duration-hover ease-out", item.isDimmed && "opacity-disabled")}>
+          // Mobile: 2 por linha, número menor e menos respiro; ≥ 768px: tamanho normal
+          <div
+            key={item.id}
+            className="flex min-w-0 flex-1 basis-kpi-min-compact flex-col gap-050 bg-surface-raised px-200 py-150 s:basis-kpi-min s:px-250 s:py-200"
+          >
+            <dt
+              className={cn(
+                "font-body-small text-subtle transition-opacity duration-hover ease-out s:font-body",
+                item.isDimmed && "opacity-disabled",
+              )}
+            >
               {item.label}
             </dt>
             {isLoading ? (
@@ -49,7 +58,7 @@ export function KpiStrip({
                   )}
                 >
                   {/* número grande isolado: algarismos proporcionais (tabular só em colunas) */}
-                  <span className="font-metric-medium text-default">{item.value}</span>
+                  <span className="font-metric-small text-default s:font-metric-medium">{item.value}</span>
                   {item.aside}
                 </dd>
                 {item.footer && <dd className="font-body-small text-subtlest">{item.footer}</dd>}

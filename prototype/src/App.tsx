@@ -1,7 +1,6 @@
 import * as Popover from "@radix-ui/react-popover";
 import {
   Bell,
-  ChevronsUpDown,
   CircleHelp,
   ClipboardList,
   Columns3,
@@ -67,7 +66,7 @@ import { ReportsPage } from "@/features/reports/ReportsPage";
 import { TvMode } from "@/features/tv/TvMode";
 import { HelpPage } from "@/features/help/HelpPage";
 import { useColorMode, type ColorModePreference } from "@/lib/hooks";
-import { cn, readToken, storageGet, storageSet, type Notify } from "@/lib/utils";
+import { cn, plural, readToken, storageGet, storageSet, type Notify } from "@/lib/utils";
 
 /* ---------- Navegação ---------- */
 type NavEntry = { id: string; label: string; icon?: LucideIcon; count?: number; dot?: string };
@@ -132,11 +131,9 @@ const SHIFT_ROUTES: Record<string, { title: string; breadcrumbs: string[]; prese
     ]),
   );
 
-const PLANTS = [
-  { id: "jaragua", label: "Jaraguá do Sul" },
-  { id: "itajai", label: "Itajaí" },
-  { id: "guaramirim", label: "Guaramirim" },
-];
+/** O Dash atende uma única seção: Produção Tomadas & Interruptores, em Itajaí */
+const SECTION_LABEL = "Tomadas & Interruptores · Itajaí";
+
 
 const USER = { name: "Rafael Souza", role: "Gestor" };
 
@@ -156,7 +153,6 @@ export default function App() {
   const colorMode = useColorMode();
   const [search, setSearch] = useState("");
   const [demoState, setDemoState] = useState<DemoState>("live");
-  const [plant, setPlant] = useState("jaragua");
   const [flags, setFlags] = useState<FlagData[]>([]);
   const [bannerOpen, setBannerOpen] = useState(() => !storageGet("dash-proto.banner.dismissed", false));
   const flagId = useRef(0);
@@ -182,7 +178,6 @@ export default function App() {
     return () => window.clearTimeout(t);
   }, [demoState]);
 
-  const plantLabel = PLANTS.find((p) => p.id === plant)?.label ?? "";
 
   // Modo TV ocupa a tela inteira, sem navegação
   if (route === "tv")
@@ -210,23 +205,31 @@ export default function App() {
         }
         topNav={
           <TopNav>
-            <TopNavStartArea plantLabel={plantLabel} plant={plant} onPlantChange={setPlant} />
+            <TopNavStartArea />
             <TopNavContent>
               <TopNavMiddle>
                 <SearchField value={search} onChange={setSearch} />
               </TopNavMiddle>
               <TopNavEnd>
-                <Notifications />
-                <IconButton icon={CircleHelp} label="Ajuda" onClick={() => (window.location.hash = "/ajuda")} />
-                <ThemeMenu preference={colorMode.preference} resolved={colorMode.resolved} onChange={colorMode.setPreference} />
-                <DemoMenu value={demoState} onChange={setDemoState} />
-                <UserMenu />
+                <Notifications unreadFeedbacks={unread.size} />
+                {/* No mobile, ajuda fica no menu lateral e tema/estados vão para o menu do avatar */}
+                <span className="hidden items-center gap-050 s:flex">
+                  <IconButton icon={CircleHelp} label="Ajuda" onClick={() => (window.location.hash = "/ajuda")} />
+                  <ThemeMenu preference={colorMode.preference} resolved={colorMode.resolved} onChange={colorMode.setPreference} />
+                  <DemoMenu value={demoState} onChange={setDemoState} />
+                </span>
+                <UserMenu
+                  colorMode={colorMode.preference}
+                  onColorModeChange={colorMode.setPreference}
+                  demoState={demoState}
+                  onDemoStateChange={setDemoState}
+                />
               </TopNavEnd>
             </TopNavContent>
           </TopNav>
         }
         sideNav={
-          <SideNav header={<PlantSwitcher plant={plant} plantLabel={plantLabel} onChange={setPlant} />}>
+          <SideNav header={<SectionBrand />}>
             <SideNavBody>
               <SideNavSection>
                 {NAV_MAIN.map((n) => (
@@ -309,15 +312,7 @@ export default function App() {
 }
 
 /* ---------- Top nav: início ---------- */
-function TopNavStartArea({
-  plant,
-  plantLabel,
-  onPlantChange,
-}: {
-  plant: string;
-  plantLabel: string;
-  onPlantChange: (p: string) => void;
-}) {
+function TopNavStartArea() {
   const { isSideNavInline, isMedium } = useLayout();
   return (
     <TopNavStart>
@@ -325,7 +320,7 @@ function TopNavStartArea({
         // Expandida: o cabeçalho da side nav sobe para cá → barra lateral de altura total
         <>
           <div className="min-w-0 flex-1">
-            <PlantSwitcher plant={plant} plantLabel={plantLabel} onChange={onPlantChange} />
+            <SectionBrand />
           </div>
           <SideNavToggleButton />
         </>
@@ -342,35 +337,20 @@ function TopNavStartArea({
   );
 }
 
-function PlantSwitcher({ plant, plantLabel, onChange }: { plant: string; plantLabel: string; onChange: (p: string) => void }) {
-  const L = useLayout();
+/** Identificação da seção (única): logo, nome do produto e a seção atendida */
+function SectionBrand() {
   return (
-    <Menu onOpenChange={L.setSideNavMenuOpen}>
-      <MenuTrigger asChild>
-        <button
-          type="button"
-          aria-label={`Dash de Produção, fábrica ${plantLabel}. Trocar unidade`}
-          className="ds-pressable flex w-full min-w-0 items-center gap-100 rounded-medium p-050 text-left hover:bg-neutral-subtle-hovered active:bg-neutral-subtle-pressed data-[state=open]:bg-neutral-subtle-pressed"
-        >
-          <WegTile />
-          <span className="flex min-w-0 flex-1 flex-col">
-            <span className="truncate font-heading-xsmall text-default">Dash de Produção</span>
-            <span className="truncate font-body-small text-subtle">Fábrica · {plantLabel}</span>
-          </span>
-          <ChevronsUpDown aria-hidden className="size-icon-small shrink-0 text-icon-subtle" />
-        </button>
-      </MenuTrigger>
-      <MenuContent className="min-w-sidenav-flyout max-w-popover">
-        <MenuLabel>Unidades</MenuLabel>
-        <MenuRadioGroup value={plant} onValueChange={onChange}>
-          {PLANTS.map((p) => (
-            <MenuRadioItem key={p.id} value={p.id}>
-              Fábrica · {p.label}
-            </MenuRadioItem>
-          ))}
-        </MenuRadioGroup>
-      </MenuContent>
-    </Menu>
+    <a
+      href="#/dashboard"
+      aria-label={`Dash de Produção, ${SECTION_LABEL}. Ir para o início`}
+      className="ds-pressable flex w-full min-w-0 items-center gap-100 rounded-medium p-050 hover:bg-neutral-subtle-hovered active:bg-neutral-subtle-pressed"
+    >
+      <WegTile />
+      <span className="flex min-w-0 flex-1 flex-col">
+        <span className="truncate font-heading-xsmall text-default">Dash de Produção</span>
+        <span className="truncate font-body-small text-subtle">{SECTION_LABEL}</span>
+      </span>
+    </a>
   );
 }
 
@@ -447,15 +427,31 @@ function SearchField({ value, onChange }: { value: string; onChange: (v: string)
 /* ---------- Top nav: fim ---------- */
 const NOTIFICATIONS = [
   { id: 1, dot: "bg-icon-danger", status: "Crítico", title: "Meta de março em risco", body: "Atingimento geral em 49% a 2 dias úteis do fim do mês.", time: "há 12 min" },
-  { id: 2, dot: "bg-icon-brand", status: "Novo", title: "12 novos feedbacks", body: "Operadores do Turno 2 comentaram a linha Horizontais.", time: "há 1 h" },
   { id: 3, dot: "bg-icon-warning", status: "Atenção", title: "Turno 3 sem apontamento", body: "HORIZONTAL 1 não registrou produção no Turno 3 em 26/03.", time: "ontem" },
 ];
 
-function Notifications() {
+function Notifications({ unreadFeedbacks }: { unreadFeedbacks: number }) {
+  // O aviso de feedbacks acompanha o mesmo contador de não lidos do menu
+  const items = [
+    ...NOTIFICATIONS.slice(0, 1),
+    ...(unreadFeedbacks > 0
+      ? [
+          {
+            id: 2,
+            dot: "bg-icon-brand",
+            status: "Novo",
+            title: plural(unreadFeedbacks, "feedback novo", "feedbacks novos"),
+            body: "Observações dos operadores aguardando leitura.",
+            time: "há 1 h",
+          },
+        ]
+      : []),
+    ...NOTIFICATIONS.slice(1),
+  ];
   return (
     <Popover.Root>
       <Popover.Trigger asChild>
-        <IconButton icon={Bell} label={`Notificações, ${NOTIFICATIONS.length} não lidas`} className="data-[state=open]:bg-neutral-subtle-pressed">
+        <IconButton icon={Bell} label={`Notificações, ${plural(items.length, "não lida", "não lidas")}`} className="data-[state=open]:bg-neutral-subtle-pressed">
           <span aria-hidden className="absolute right-075 top-075 size-status-dot rounded-full border-thick border-surface bg-icon-danger" />
         </IconButton>
       </Popover.Trigger>
@@ -468,10 +464,10 @@ function Notifications() {
         >
           <div className="flex items-center justify-between border-b px-200 py-150">
             <h2 className="font-heading-small">Notificações</h2>
-            <span className="font-body-small text-subtlest">{NOTIFICATIONS.length} não lidas</span>
+            <span className="font-body-small text-subtlest">{plural(items.length, "não lida", "não lidas")}</span>
           </div>
           <ul className="py-050">
-            {NOTIFICATIONS.map((n) => (
+            {items.map((n) => (
               <li key={n.id} className="flex gap-150 px-200 py-150 transition-colors duration-hover ease-out hover:bg-neutral-subtle-hovered">
                 <span aria-hidden className={cn("mt-075 size-dot shrink-0 rounded-full", n.dot)} />
                 <div className="min-w-0 flex-1">
@@ -559,7 +555,15 @@ function UserMenuItems() {
   );
 }
 
-function UserMenu() {
+interface UserMenuProps {
+  colorMode: ColorModePreference;
+  onColorModeChange: (p: ColorModePreference) => void;
+  demoState: DemoState;
+  onDemoStateChange: (s: DemoState) => void;
+}
+
+function UserMenu({ colorMode, onColorModeChange, demoState, onDemoStateChange }: UserMenuProps) {
+  const { isMedium } = useLayout();
   return (
     <Menu>
       <MenuTrigger asChild>
@@ -572,6 +576,25 @@ function UserMenu() {
         </button>
       </MenuTrigger>
       <MenuContent align="end">
+        {!isMedium && (
+          <>
+            <MenuLabel>Tema</MenuLabel>
+            <MenuRadioGroup value={colorMode} onValueChange={(v) => onColorModeChange(v as ColorModePreference)}>
+              <MenuRadioItem value="light">Claro</MenuRadioItem>
+              <MenuRadioItem value="dark">Escuro</MenuRadioItem>
+              <MenuRadioItem value="auto">Igual ao sistema</MenuRadioItem>
+            </MenuRadioGroup>
+            <MenuSeparator />
+            <MenuLabel>Estados do protótipo</MenuLabel>
+            <MenuRadioGroup value={demoState} onValueChange={(v) => onDemoStateChange(v as DemoState)}>
+              <MenuRadioItem value="live">Normal</MenuRadioItem>
+              <MenuRadioItem value="loading">Carregando</MenuRadioItem>
+              <MenuRadioItem value="empty">Vazio</MenuRadioItem>
+              <MenuRadioItem value="error">Erro</MenuRadioItem>
+            </MenuRadioGroup>
+            <MenuSeparator />
+          </>
+        )}
         <UserMenuItems />
       </MenuContent>
     </Menu>

@@ -69,7 +69,7 @@ export function FlagStack({ flags, onDismiss }: { flags: FlagData[]; onDismiss: 
   return (
     <div
       aria-live="polite"
-      className="pointer-events-none fixed bottom-300 left-300 z-flag flex w-flag max-w-full flex-col gap-100"
+      className="pointer-events-none fixed bottom-1000 left-200 right-200 z-flag flex max-w-flag flex-col gap-100 s:bottom-300 s:left-300 s:right-auto s:w-flag"
     >
       {flags.map((f) => (
         <Flag key={f.id} flag={f} onDismiss={() => onDismiss(f.id)} />

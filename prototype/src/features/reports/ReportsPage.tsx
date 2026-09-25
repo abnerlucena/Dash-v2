@@ -307,7 +307,7 @@ export function ReportsPage({ notify }: { notify: Notify }) {
                   <div>
                     <p className="font-heading-small text-default">{TYPES[type].title}</p>
                     <p className="mt-025 font-body-small text-subtle">
-                      {br(from)} a {br(to)} · Fábrica Jaraguá do Sul
+                      {br(from)} a {br(to)} · Tomadas &amp; Interruptores · Itajaí
                     </p>
                   </div>
                   <WegMark className="w-500 text-brand" />

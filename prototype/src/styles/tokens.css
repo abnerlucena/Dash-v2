@@ -110,7 +110,7 @@
   --ds-motion-duration-skeleton: 1.6s;
   --ds-motion-duration-spin: 0.7s;
   --ds-motion-easing-out: cubic-bezier(0.2, 0, 0, 1);
-  --ds-motion-press-scale: 0.97;
+  --ds-motion-press-scale: 0.96;
   --ds-motion-enter-scale: 0.97;
   --ds-motion-flyout-offset: -0.5rem;
   --ds-motion-panel-offset: 1rem;
@@ -181,6 +181,7 @@
   --dash-size-modal-max-height: calc(100dvh - 2 * var(--ds-space-600));
   --dash-size-modal-gutter: calc(100vw - 2 * var(--ds-space-200));
   --dash-size-kpi-min: 12.5rem; /* 200px: largura mínima de uma célula de KPI */
+  --dash-size-kpi-min-compact: 8.5rem; /* 136px: KPI no mobile (2 por linha) */
   --dash-size-chart: 15rem; /* 240px: altura de gráfico */
   --dash-size-chart-large: 17.5rem; /* 280px */
   --dash-size-chart-axis: 3.5rem; /* 56px: calha do eixo Y */

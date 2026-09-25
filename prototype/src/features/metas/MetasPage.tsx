@@ -18,7 +18,7 @@ import { DataTable, type Column } from "@/components/data/DataTable";
 import { KpiStrip, type KpiItem } from "@/components/data/KpiStrip";
 import { SegmentedBar } from "@/components/data/SegmentedBar";
 import * as Tabs from "@radix-ui/react-tabs";
-import { PageBody, PageHeader, PAGE_GUTTER } from "@/components/layout/PageHeader";
+import { PageActions, PageBody, PageHeader, PAGE_GUTTER } from "@/components/layout/PageHeader";
 import { CapacitySimulator } from "@/features/capacity/CapacitySimulator";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/Button";
@@ -107,7 +107,7 @@ function CurrentMetas({ notify, history, setHistory }: CurrentMetasProps) {
         align: "end",
         cell: (m) =>
           editing ? (
-            <span className="flex items-center justify-end gap-100 py-050">
+            <span className="flex items-center justify-end gap-100">
               {values[m.id] !== saved[m.id] && !errorOf(m.id) && <Lozenge appearance="discovery">Alterada</Lozenge>}
               <TextField
                 label={`Meta por turno de ${m.name}`}
@@ -117,6 +117,7 @@ function CurrentMetas({ notify, history, setHistory }: CurrentMetasProps) {
                 onChange={(e) => setValues((v) => ({ ...v, [m.id]: e.target.value.replace(/[^\d]/g, "") }))}
                 error={errorOf(m.id)}
                 inputClassName="text-right tabular-nums"
+                spacing="compact"
                 className="w-field-quantity"
               />
             </span>
@@ -213,7 +214,7 @@ function CurrentMetas({ notify, history, setHistory }: CurrentMetasProps) {
             Meta por dia = meta por turno × turnos ativos. Meta do mês = meta por dia × dias úteis.
           </span>
         </span>
-        <span className="flex flex-wrap gap-100">
+        <PageActions>
           {editing ? (
             <>
               <Button appearance="subtle" onClick={cancel}>
@@ -232,7 +233,7 @@ function CurrentMetas({ notify, history, setHistory }: CurrentMetasProps) {
               Editar metas
             </Button>
           )}
-        </span>
+        </PageActions>
       </div>
 
       <PageBody>

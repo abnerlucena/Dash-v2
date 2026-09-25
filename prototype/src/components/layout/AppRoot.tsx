@@ -52,7 +52,7 @@ function AppRootInner({ banner, topNav, sideNav, children }: AppRootProps) {
 
 export function Main({ children }: { children: ReactNode }) {
   return (
-    <main id={MAIN_ID} tabIndex={-1} className="scrollbar-thin min-w-0 flex-1 outline-none m:overflow-y-auto">
+    <main id={MAIN_ID} tabIndex={-1} className="scrollbar-thin min-w-0 flex-1 pb-800 outline-none s:pb-0 m:overflow-y-auto">
       {children}
     </main>
   );

@@ -4,7 +4,7 @@ import { cn, formatNumber, plural, readToken, storageGet, storageSet, type Notif
 import { BarList } from "@/components/data/BarList";
 import { DataTable, type Column } from "@/components/data/DataTable";
 import { KpiStrip, type KpiItem } from "@/components/data/KpiStrip";
-import { PageBody, PAGE_GUTTER } from "@/components/layout/PageHeader";
+import { PageActions, PageBody, PAGE_GUTTER } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/Button";
 import { Lozenge } from "@/components/ui/Lozenge";
 import { Modal } from "@/components/ui/Modal";
@@ -218,7 +218,8 @@ export function CapacitySimulator({ notify, onPublished }: CapacitySimulatorProp
             max={1000}
             changed={p.rate !== baseOf(p).rate}
             onChange={(v) => update((s) => (s.processes[idx(p)].rate = v))}
-            className="ml-auto w-field-rate py-050"
+            compact
+            className="ml-auto w-field-rate"
           />
         ),
       },
@@ -233,7 +234,8 @@ export function CapacitySimulator({ notify, onPublished }: CapacitySimulatorProp
             max={50}
             changed={p.people[i] !== baseOf(p).people[i]}
             onChange={(v) => update((s) => (s.processes[idx(p)].people[i] = v ?? 0))}
-            className="ml-auto w-field-count py-050"
+            compact
+            className="ml-auto w-field-count"
           />
         ),
         footer: <span className="font-semibold tabular-nums text-default">{areaRows.reduce((s, p) => s + p.people[i], 0)}</span>,
@@ -265,7 +267,8 @@ export function CapacitySimulator({ notify, onPublished }: CapacitySimulatorProp
             suffix="%"
             changed={p.efficiency !== baseOf(p).efficiency}
             onChange={(v) => v != null && update((s) => (s.processes[idx(p)].efficiency = v / 100))}
-            className="ml-auto w-field-rate py-050"
+            compact
+            className="ml-auto w-field-rate"
           />
         ),
       },
@@ -392,14 +395,14 @@ export function CapacitySimulator({ notify, onPublished }: CapacitySimulatorProp
           Seção Tomadas &amp; Interruptores · Itajaí. Base: planilha Capacidade vs Pessoas 2026–2027 (revisão 01). Edite os
           parâmetros e a meta por turno de cada processo se recalcula.
         </p>
-        <span className="flex flex-wrap gap-100">
+        <PageActions>
           <Button appearance="subtle" iconBefore={RotateCcw} isDisabled={changes.length === 0} onClick={() => setConfirmReset(true)}>
             Restaurar planilha
           </Button>
           <Button appearance="primary" iconBefore={Send} isDisabled={metaChanges.length === 0} onClick={() => setPublishing(true)}>
             Publicar metas
           </Button>
-        </span>
+        </PageActions>
       </div>
 
       <div className={cn(PAGE_GUTTER, "pt-300")}>
@@ -566,13 +569,14 @@ export function CapacitySimulator({ notify, onPublished }: CapacitySimulatorProp
                       <td className="px-150 pl-200 font-medium text-default">{r.area === "apoio" ? "Apoio" : "Injeção"}</td>
                       <td className="whitespace-nowrap px-150 text-default">{r.name}</td>
                       {r.people.map((n, i) => (
-                        <td key={i} className="px-150 py-050">
+                        <td key={i} className="px-150">
                           <NumberField
                             label={`${r.name}: pessoas (${i < 3 ? SHIFT_SHORT[i] : "normal"})`}
                             value={n}
                             max={50}
                             changed={n !== BASELINE.support[idx].people[i]}
                             onChange={(v) => update((s) => (s.support[idx].people[i] = v ?? 0))}
+                            compact
                             className="ml-auto w-field-count"
                           />
                         </td>

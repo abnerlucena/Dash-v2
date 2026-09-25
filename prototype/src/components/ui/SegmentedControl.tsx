@@ -54,7 +54,8 @@ export function SegmentedControl({ label, value, options, onChange, iconOnly = t
               "ds-pressable inline-flex h-control-compact items-center justify-center gap-050 rounded-small font-body-small font-medium",
               iconOnly ? "w-control-compact" : "px-100",
               selected
-                ? "bg-surface-raised text-default shadow-raised"
+                ? // tratamento "selecionado" do sistema: legível no claro e no escuro
+                  "bg-selected text-selected hover:bg-selected-hovered"
                 : "text-subtle hover:bg-neutral-subtle-hovered hover:text-default",
             )}
           >

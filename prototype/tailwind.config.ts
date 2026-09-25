@@ -122,6 +122,7 @@ const sizeKeys = [
   "modal-max-height",
   "modal-gutter",
   "kpi-min",
+  "kpi-min-compact",
   "chart",
   "chart-large",
   "chart-axis",

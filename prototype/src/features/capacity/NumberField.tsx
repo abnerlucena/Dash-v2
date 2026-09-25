@@ -19,6 +19,8 @@ interface NumberFieldProps {
   allowEmpty?: boolean;
   className?: string;
   showLabel?: boolean;
+  /** 24px, para tabelas */
+  compact?: boolean;
 }
 
 /**
@@ -37,6 +39,7 @@ export function NumberField({
   allowEmpty,
   className,
   showLabel,
+  compact,
 }: NumberFieldProps) {
   const [text, setText] = useState(fmt(value, decimals));
   const [focused, setFocused] = useState(false);
@@ -79,6 +82,7 @@ export function NumberField({
       }}
       error={error}
       elemAfter={suffix}
+      spacing={compact ? "compact" : "default"}
       inputClassName={cn("text-right tabular-nums", changed && !error && "border-discovery")}
       className={className}
     />

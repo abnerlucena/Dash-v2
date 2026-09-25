@@ -191,7 +191,7 @@ export function TvMode({ onExit }: { onExit: () => void }) {
           <WegTile />
           <span className="flex flex-col">
             <span className="font-heading-small">Dash de Produção</span>
-            <span className="font-body-small text-subtle">Fábrica · Jaraguá do Sul</span>
+            <span className="font-body-small text-subtle">Tomadas &amp; Interruptores · Itajaí</span>
           </span>
         </span>
         <h1 className="min-w-0 flex-1 truncate text-center font-tv-title">{current.title}</h1>
