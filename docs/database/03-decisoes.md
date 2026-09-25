@@ -245,7 +245,7 @@ Status possíveis: `Aprovada` · `Assumida` (sem confirmação explícita) · `S
 - **Alternativas rejeitadas:** metas com data de fim obrigatória (não dá para prever quando haverá meta nova); preservar correções avulsas em apontamentos (criaria metas "escondidas" diferentes do gráfico); permissão separada para alterar o passado (o usuário preferiu manter só gestor/admin).
 
 ### D35 — Migração do histórico da planilha Excel
-- **Status:** Proposta (21/09/2026) — **revisão do gestor concluída em 25/09/2026** (ver D35.1). Falta a data de entrada em operação por máquina e a pendência da Rebitagem Pinos; o restante está fechado.
+- **Status:** Proposta (21/09/2026) — **revisão do gestor concluída em 25/09/2026** (ver D35.1). Datas de entrada em operação confirmadas e cruzamento coluna a coluna feito (D35.3). Falta só saber se a Bancada N°2 (ex-Manual Interruptor) foi desativada.
 - **Contexto:** o histórico real está na planilha `ITAJAI - CONTROLE DE PRODUÇÃO 2026.xlsx` (20/12/2025 em diante, uma aba por mês, linha = data + turno, coluna = máquina, sem nº de OP). O app atual (Google Sheets + Apps Script) registra a **mesma** produção e será abandonado quando o sistema novo estiver em uso.
 - **Decisão (pontos confirmados pelo usuário):**
   1. **Fonte única do histórico = a planilha Excel.** O Google Sheets do app serve só para conferência (importar os dois contaria em dobro).
@@ -321,11 +321,86 @@ pontos dela ficaram desatualizados:
   8.000, placas 7.000, a granel 15.000). As metas de **hoje** já estão no
   banco pela D38 e não vêm mais da planilha.
 
-**Ponta ainda aberta:** a planilha de produção tem uma coluna `REBITAGEM PINOS`
-que **não aparece** nos 22 centros de trabalho confirmados pelo gestor. Antes
-da importação é preciso saber se ela foi renomeada, se deixou de existir, ou se
-ficou de fora da lista por engano — sem isso, a produção dessa coluna não tem
-onde ser lançada.
+**Resolvido em 25/09/2026:** a coluna `REBITAGEM PINOS` vai para a **Prensa Tox**. Todas as 23 colunas da planilha passam a ter destino — ver D35.3.
+
+
+#### D35.3 — Cruzamento coluna a coluna (25/09/2026)
+
+As 23 colunas da planilha de produção contra os 22 centros de trabalho. As
+datas de entrada em operação foram confirmadas pelo gestor; o resto vem da
+leitura da planilha (20/12/2025 a 21/09/2026, 2.505 turnos-máquina com
+produção).
+
+| Coluna da planilha | Vira o centro | Entrou em operação | Turnos c/ produção | Zeros depois |
+|---|---|---|---|---|
+| VERTICAL PLACAS / SUP. 2 | Embaladora 4X2 Suportes/Placas N°2 | 20/12/2025 | 305 | 22 |
+| A GRANEL | Bancada Embalagem A Granél | 20/12/2025 | 279 | 34 |
+| MANUAL INTERRUPTOR | Bancada N°2 - Montagem Interruptores | 20/12/2025 | **10** | 283 |
+| MONTAGEM DIVERSOS | Bancada N°4 - Diversos | 20/12/2025 | 224 | 90 |
+| KIT 2 PARAFUSO | Embaladora Kit Parafusos N°2 | 22/12/2025 | 148 | 155 |
+| TESTE INTERRUPTORES | Bancada N°1 - Teste Interruptores | 05/01/2026 | 116 | 135 |
+| MONTAGEM PLACA REFINATTO | Prensa Placa Refinatto | 05/01/2026 | 95 | 199 |
+| HORIZONTAL 1 | Embaladora Horizontal N°1 | 03/02/2026 | 273 | 16 |
+| KIT 1 PARAFUSO | Embaladora Kit Parafusos N°1 | 22/04/2026 | 58 | 150 |
+| VERTICAL PLACAS / SUP. 1 | Embaladora 4X2 Suportes/Placas N°1 | 30/04/2026 | 194 | 11 |
+| VERTICAL MÓDULOS 2 | Embaladora Vertical Módulos N°2 | 21/05/2026 | 167 | 12 |
+| VERTICAL MÓDULOS 1 | Embaladora Vertical Módulos N°1 | 29/05/2026 | 157 | 9 |
+| 2 CONJUNTOS | Embaladora Vertical Conjuntos N°2 | 02/07/2026 | 106 | 10 |
+| MÁQUINA DE PLUG AUTOMÁTICA | Máquina de Plugue Slin - AUMAQ | 09/07/2026 | 92 | 2 |
+| PRENSA TOX | Prensa Tox | 20/07/2026 | **2** | 17 |
+| MÁQUINA INTERRUPTOR | Máquina de Interruptores Composé N°1 | 21/07/2026 | 78 | 12 |
+| INSERÇÃO DOS CONTATOS INTERRUPTOR | Prensa Inserção Contatos Interruptores | 27/07/2026 | **16** | 46 |
+| 1 CONJUNTOS | Embaladora Vertical Conjuntos N°1 | 29/07/2026 | 74 | 5 |
+| HORIZONTAL 2 | Embaladora Horizontal N°2 | 03/08/2026 | 67 | 4 |
+| MÁQUINA DE TOMADAS AUTOMÁTICA | Máquina de Tomadas Composé - AUMAQ | 20/08/2026 | 34 | 4 |
+| REBITAGEM PINOS | **Prensa Tox** (confirmado em 25/09) | 24/08/2026 | **9** | 7 |
+| FECHAMENTO TECLA INTERRUPTORES | Bancada N°3 - Diversos | 27/08/2026 | **1** | 4 |
+| MONTAGEM TOMADAS MANUAL | Bancada N°3 - Diversos | — | **0** | 0 |
+
+**Duas colunas por centro, em dois casos.** A Bancada N°3 recebe
+`FECHAMENTO TECLA` e `MONTAGEM TOMADAS MANUAL`; a Prensa Tox recebe
+`PRENSA TOX` e `REBITAGEM PINOS`. Conferido: **não há colisão de data e
+turno** em nenhum dos dois (Prensa Tox produziu só em julho, Rebitagem Pinos
+só em agosto e setembro; Montagem Tomadas Manual nunca produziu). A junção
+não perde nem sobrepõe nenhum registro.
+
+**Um centro fica sem histórico:** a `BANCADA N°5 - ELETRÔNICOS` não tem coluna
+na planilha. Começa a vida no sistema novo, sem passado.
+
+##### O que não faz sentido levar adiante
+
+- **`MONTAGEM TOMADAS MANUAL`: nada a importar.** Zero turnos com produção em
+  nove meses de planilha. A coluna existe e está inteiramente vazia. Não é
+  perda de dado: não há dado.
+- **Zeros anteriores à entrada em operação: descartados**, como já dizia o
+  item 8 da D35. São 2.663 células que significam "a máquina ainda não estava
+  em Itajaí", não "produziu zero".
+- **Zeros de centros por demanda: descartados.** Turno sem pedido não é
+  parada. São os 283 da Bancada N°2, 199 da Placa Refinatto, 155 e 150 dos
+  Kits, 135 da Bancada N°1, 90 da Bancada N°4 e 46 da Prensa Inserção.
+- **Zeros de centros contínuos: viram turnos parados** (D36), com o motivo
+  quando a planilha informa. São poucos e concentrados nas embaladoras: 34 da
+  A Granél, 22 da 4X2 N°2, 16 da Horizontal N°1, 12 da Módulos N°2, 11 da 4X2
+  N°1, 10 da Conjuntos N°2, 9 da Módulos N°1, 5 da Conjuntos N°1, 4 da
+  Horizontal N°2, 4 da Tomadas, 2 da Plugue Slin.
+
+##### O que vale a pena levar, mesmo sendo pouco
+
+Quatro centros têm histórico curto demais para sustentar qualquer indicador,
+mas o custo de importar é zero e o dado é real: Prensa Tox (2 turnos próprios
++ 9 da Rebitagem Pinos), Fechamento Tecla (1), Prensa Inserção Contatos (16) e
+Bancada N°2 (10). Ficam no sistema como registro histórico, não como base de
+média.
+
+##### Pendência aberta
+
+A folha de revisão perguntava sobre a `MANUAL INTERRUPTOR`: *"Produziu em
+dez/jan e uma vez em 05/06; depois só zeros. Foi desativada?"* — e essa
+resposta **não voltou marcada**. A diferença importa: se foi desativada, os
+283 zeros são "o centro não existia mais" e a Bancada N°2 precisa de uma data
+de saída de operação; se não foi, são "sob demanda sem pedido" e ficam como
+estão. Enquanto não houver resposta, valem como sob demanda — que é a hipótese
+que não inventa nada.
 
 ### D36 — Atingimento × disponibilidade (máquinas contínuas e sob demanda)
 - **Status:** Proposta (21/09/2026) — opção escolhida pelo usuário; **a classificação das máquinas precisa ser revisada pelo gestor**.
