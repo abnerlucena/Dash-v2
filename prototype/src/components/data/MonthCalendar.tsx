@@ -13,9 +13,19 @@ const TONE: Record<Status, string> = {
   achieved: "bg-success text-success hover:bg-success-hovered",
 };
 
+// Barra de % da meta dentro do dia: cor forte do status
+const BAR: Record<Status, string> = {
+  critical: "bg-danger-bold",
+  attention: "bg-warning-bold",
+  near: "bg-information-bold",
+  achieved: "bg-success-bold",
+};
+
 export interface CalendarDay {
   /** texto curto sob o número (ex.: "81 mil") */
   caption?: string;
+  /** % da meta do dia (barra e número no canto) */
+  percent?: number;
   status?: Status | null;
   /** dia sem ação possível (fim de semana, futuro) */
   muted?: boolean;
@@ -30,6 +40,7 @@ interface MonthCalendarProps {
   today?: number;
   onSelect: (day: number) => void;
   getDay: (day: number) => CalendarDay;
+  /** título e navegação; a legenda fica ao lado */
   header?: ReactNode;
 }
 
@@ -65,8 +76,17 @@ export function MonthCalendar({ year, month, selected, today, onSelect, getDay, 
   };
 
   return (
-    <div className="flex flex-col gap-150">
-      {header}
+    <div className="flex flex-col gap-200">
+      <div className="flex flex-wrap items-center justify-between gap-150">
+        {header}
+        <ul className="flex flex-wrap gap-050" aria-label="Legenda: cor do dia em relação à meta diária">
+          {(Object.keys(STATUS_META) as Status[]).map((s) => (
+            <li key={s}>
+              <Lozenge appearance={STATUS_META[s].appearance}>{STATUS_META[s].label}</Lozenge>
+            </li>
+          ))}
+        </ul>
+      </div>
       <div role="grid" aria-label="Calendário do mês" className="grid grid-cols-7 gap-050">
         <div role="row" className="contents">
           {WEEKDAYS.map((w) => (
@@ -94,7 +114,7 @@ export function MonthCalendar({ year, month, selected, today, onSelect, getDay, 
                   onClick={() => onSelect(day)}
                   onKeyDown={(e) => onKeyDown(e, day)}
                   className={cn(
-                    "ds-pressable flex min-h-600 w-full flex-col items-start justify-between rounded-medium border-thick p-075 text-left",
+                    "ds-pressable flex min-h-600 w-full flex-col items-stretch justify-between gap-050 rounded-medium border-thick p-075 text-left s:min-h-800 s:p-100",
                     isSelected ? "border-selected" : "border-transparent",
                     info.status
                       ? TONE[info.status]
@@ -103,23 +123,23 @@ export function MonthCalendar({ year, month, selected, today, onSelect, getDay, 
                         : "bg-neutral text-subtle hover:bg-neutral-hovered",
                   )}
                 >
-                  <span className={cn("font-body-small font-semibold tabular-nums", day === today && "text-brand")}>
-                    {day}
+                  <span className="flex items-baseline justify-between gap-050">
+                    <span className={cn("font-body-small font-semibold tabular-nums", day === today && "text-brand")}>{day}</span>
+                    {info.percent != null && <span className="hidden font-body-small tabular-nums s:inline">{info.percent}%</span>}
                   </span>
-                  {info.caption && <span className="font-body-small tabular-nums">{info.caption}</span>}
+                  {/* No celular a célula é estreita: só a cor; o valor fica no rótulo acessível e no resumo do dia */}
+                  {info.caption && <span className="hidden truncate font-body font-semibold tabular-nums s:block">{info.caption}</span>}
+                  {info.percent != null && info.status && (
+                    <span aria-hidden className="hidden h-050 w-full overflow-hidden rounded-full bg-neutral s:block">
+                      <span className={cn("block h-full rounded-full", BAR[info.status])} style={{ width: `${Math.min(info.percent, 100)}%` }} />
+                    </span>
+                  )}
                 </button>
               </span>
             );
           })}
         </div>
       </div>
-      <ul className="flex flex-wrap gap-050" aria-label="Legenda: cor do dia em relação à meta diária">
-        {(Object.keys(STATUS_META) as Status[]).map((s) => (
-          <li key={s}>
-            <Lozenge appearance={STATUS_META[s].appearance}>{STATUS_META[s].label}</Lozenge>
-          </li>
-        ))}
-      </ul>
     </div>
   );
 }

@@ -16,7 +16,7 @@ import {
 import { cn, formatCompactShort, formatLongDate, formatNumber, type Notify } from "@/lib/utils";
 import { DataTable, type Column } from "@/components/data/DataTable";
 import { MonthCalendar } from "@/components/data/MonthCalendar";
-import { SHIFT_FILL } from "@/components/data/StackedBar";
+import { SHIFT_FILL, StackedBar } from "@/components/data/StackedBar";
 import { PageBody, PageHeader } from "@/components/layout/PageHeader";
 import { Button, IconButton } from "@/components/ui/Button";
 import { Checkbox } from "@/components/ui/Checkbox";
@@ -45,6 +45,8 @@ export function HistoryPage({ notify }: { notify: Notify }) {
   const [day, setDay] = useState(REFERENCE_DAY);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [dialog, setDialog] = useState<Dialog>(null);
+  // Filtro de turno da tabela do dia (o resumo do dia continua com todos)
+  const [shiftFilter, setShiftFilter] = useState<Shift | "all">("all");
 
   const byDay = useMemo(() => {
     const map = new Map<number, ProductionOrder[]>();
@@ -52,8 +54,14 @@ export function HistoryPage({ notify }: { notify: Notify }) {
     return map;
   }, [orders]);
 
-  const dayOrders = (byDay.get(day) ?? []).slice().sort((a, b) => a.shift - b.shift || a.machineId.localeCompare(b.machineId));
-  const dayTotal = dayOrders.reduce((s, o) => s + o.quantity, 0);
+  const allDayOrders = (byDay.get(day) ?? []).slice().sort((a, b) => a.shift - b.shift || a.machineId.localeCompare(b.machineId));
+  const dayOrders = shiftFilter === "all" ? allDayOrders : allDayOrders.filter((o) => o.shift === shiftFilter);
+  const dayTotal = allDayOrders.reduce((s, o) => s + o.quantity, 0);
+  const visibleTotal = dayOrders.reduce((s, o) => s + o.quantity, 0);
+  const byShift = Object.fromEntries(SHIFTS.map((sh) => [sh, allDayOrders.filter((o) => o.shift === sh).reduce((q, o) => q + o.quantity, 0)])) as Record<
+    Shift,
+    number
+  >;
   const dayPct = Math.round((dayTotal / DAILY_TARGET) * 100);
   const date = new Date(2026, 2, day);
 
@@ -61,6 +69,14 @@ export function HistoryPage({ notify }: { notify: Notify }) {
     setDay(d);
     setSelected(new Set());
   };
+  // Dia útil anterior/seguinte (pula fim de semana), dentro de março
+  const stepDay = (dir: 1 | -1) => {
+    let d = day + dir;
+    while (d >= 1 && d <= 31 && isWeekend(d)) d += dir;
+    return d >= 1 && d <= 31 ? d : null;
+  };
+  const prevDay = stepDay(-1);
+  const nextDay = stepDay(1);
 
   /* ---------- Ações (estado local; "Desfazer" restaura a lista anterior) ---------- */
   const apply = (next: ProductionOrder[], title: string, description: string) => {
@@ -146,9 +162,9 @@ export function HistoryPage({ notify }: { notify: Notify }) {
       id: "product",
       header: "Material",
       cell: (o) => (
-        <span className="flex items-baseline gap-075 whitespace-nowrap">
+        <span className="flex items-baseline gap-075 whitespace-nowrap" title={`${o.material} · ${o.product}`}>
           <span className="font-code text-subtle">{o.material}</span>
-          <span className="text-subtle">{o.product}</span>
+          <span className="max-w-column-name truncate text-subtle">{o.product}</span>
         </span>
       ),
     },
@@ -157,7 +173,7 @@ export function HistoryPage({ notify }: { notify: Notify }) {
       header: "Quantidade",
       align: "end",
       cell: (o) => <span className="font-medium tabular-nums text-default">{formatNumber(o.quantity)}</span>,
-      footer: <span className="font-semibold tabular-nums text-default">{formatNumber(dayTotal)}</span>,
+      footer: <span className="font-semibold tabular-nums text-default">{formatNumber(visibleTotal)}</span>,
     },
     {
       id: "rework",
@@ -234,11 +250,11 @@ export function HistoryPage({ notify }: { notify: Notify }) {
 
   return (
     <>
-      <PageHeader title="Histórico" description="Confira e corrija os apontamentos de cada dia. Escolha um dia no calendário." />
+      <PageHeader title="Histórico" description="Confira e corrija os apontamentos de cada dia. Escolha um dia no calendário ou navegue pelas setas." />
       <PageBody>
-        <div className="flex flex-wrap items-start gap-300">
-          {/* ---------- Calendário ---------- */}
-          <section aria-label="Calendário de março de 2026" className="w-full rounded-large bg-surface-raised p-250 shadow-raised s:w-calendar">
+        {/* Calendário em cima, na largura toda; o dia escolhido abre embaixo, com a tabela sem rolagem lateral */}
+        <div className="flex flex-col gap-400">
+          <section aria-label="Calendário de março de 2026" className="rounded-large bg-surface-raised p-250 shadow-raised">
             <MonthCalendar
               year={2026}
               month={2}
@@ -246,11 +262,11 @@ export function HistoryPage({ notify }: { notify: Notify }) {
               today={REFERENCE_DAY}
               onSelect={selectDay}
               header={
-                <div className="flex items-center justify-between">
+                <div className="flex items-center gap-100">
                   <h2 className="font-heading-small text-default">Março de 2026</h2>
                   <span className="flex gap-050">
-                    <IconButton icon={ChevronLeft} label="Mês anterior (sem dados no protótipo)" isDisabled />
-                    <IconButton icon={ChevronRight} label="Próximo mês (sem dados no protótipo)" isDisabled />
+                    <IconButton icon={ChevronLeft} label="Mês anterior (sem dados no protótipo)" spacing="compact" isDisabled />
+                    <IconButton icon={ChevronRight} label="Próximo mês (sem dados no protótipo)" spacing="compact" isDisabled />
                   </span>
                 </div>
               }
@@ -264,6 +280,7 @@ export function HistoryPage({ notify }: { notify: Notify }) {
                 const when = formatLongDate(new Date(2026, 2, d));
                 return {
                   caption: total ? formatCompactShort(total) : undefined,
+                  percent: total ? pct : undefined,
                   status: st,
                   muted: weekend || future,
                   label: total
@@ -275,16 +292,32 @@ export function HistoryPage({ notify }: { notify: Notify }) {
           </section>
 
           {/* ---------- Apontamentos do dia ---------- */}
-          <section aria-labelledby="day-title" className="flex min-w-0 flex-1 basis-chart-card-min flex-col gap-200">
-            <div className="flex flex-wrap items-center justify-between gap-150">
-              <div>
-                <h2 id="day-title" className="font-heading-medium text-default first-letter:uppercase">
-                  {formatLongDate(date)}
-                </h2>
-                {dayOrders.length > 0 && (
-                  <p className="mt-050 flex flex-wrap items-center gap-100 text-subtle">
+          <section aria-labelledby="day-title" className="flex min-w-0 flex-col gap-200">
+            <div className="flex flex-wrap items-end justify-between gap-200">
+              <div className="flex min-w-0 flex-col gap-050">
+                <div className="flex items-center gap-100">
+                  <IconButton
+                    icon={ChevronLeft}
+                    label="Dia útil anterior"
+                    spacing="compact"
+                    isDisabled={prevDay == null}
+                    onClick={() => prevDay != null && selectDay(prevDay)}
+                  />
+                  <IconButton
+                    icon={ChevronRight}
+                    label="Próximo dia útil"
+                    spacing="compact"
+                    isDisabled={nextDay == null}
+                    onClick={() => nextDay != null && selectDay(nextDay)}
+                  />
+                  <h2 id="day-title" aria-live="polite" className="font-heading-medium text-default first-letter:uppercase">
+                    {formatLongDate(date)}
+                  </h2>
+                </div>
+                {allDayOrders.length > 0 && (
+                  <p className="flex flex-wrap items-center gap-100 text-subtle">
                     <span>
-                      <span className="font-semibold tabular-nums text-default">{formatNumber(dayTotal)}</span> unidades em {plural(dayOrders.length)}
+                      <span className="font-semibold tabular-nums text-default">{formatNumber(dayTotal)}</span> unidades em {plural(allDayOrders.length)}
                     </span>
                     <Lozenge appearance={STATUS_META[statusFor(dayPct)].appearance}>
                       {dayPct}% da meta diária · {STATUS_META[statusFor(dayPct)].label}
@@ -292,6 +325,25 @@ export function HistoryPage({ notify }: { notify: Notify }) {
                   </p>
                 )}
               </div>
+              {allDayOrders.length > 0 && (
+                <div className="flex flex-wrap items-center gap-200">
+                  {/* Divisão do dia por turno; o turno filtrado fica em destaque */}
+                  <span className="flex items-center gap-100">
+                    <span className="font-body-small text-subtlest">Por turno</span>
+                    <StackedBar values={byShift} label={`Produção de ${formatLongDate(date)} por turno`} highlight={shiftFilter === "all" ? null : shiftFilter} />
+                  </span>
+                  <SegmentedControl
+                    label="Filtrar apontamentos por turno"
+                    iconOnly={false}
+                    value={String(shiftFilter)}
+                    onChange={(v) => {
+                      setShiftFilter(v === "all" ? "all" : (Number(v) as Shift));
+                      setSelected(new Set());
+                    }}
+                    options={[{ value: "all", label: "Todos" }, ...SHIFTS.map((sh) => ({ value: String(sh), label: SHIFT_META[sh].label }))]}
+                  />
+                </div>
+              )}
             </div>
 
             {/* Barra de ações em lote */}
@@ -335,15 +387,25 @@ export function HistoryPage({ notify }: { notify: Notify }) {
               state={dayOrders.length ? "ready" : "empty"}
               selectedIds={selected}
               onSelectionChange={setSelected}
-              footerLead={plural(dayOrders.length)}
+              footerLead={shiftFilter === "all" ? plural(dayOrders.length) : `${plural(dayOrders.length)} no ${SHIFT_META[shiftFilter].label.toLowerCase()}`}
               emptyState={
                 <EmptyState
                   icon={ClipboardList}
-                  title={isWeekend(day) ? "Fim de semana" : day > REFERENCE_DAY ? "Dia ainda não chegou" : "Nenhum apontamento neste dia"}
+                  title={
+                    isWeekend(day)
+                      ? "Fim de semana"
+                      : day > REFERENCE_DAY
+                        ? "Dia ainda não chegou"
+                        : allDayOrders.length && shiftFilter !== "all"
+                          ? `Nenhum apontamento no ${SHIFT_META[shiftFilter].label.toLowerCase()}`
+                          : "Nenhum apontamento neste dia"
+                  }
                   hint={
                     isWeekend(day) || day > REFERENCE_DAY
                       ? "Escolha um dia útil até 27 de março para ver os apontamentos."
-                      : "Nenhuma máquina registrou produção neste dia."
+                      : allDayOrders.length && shiftFilter !== "all"
+                        ? "Escolha outro turno ou Todos para ver os demais apontamentos do dia."
+                        : "Nenhuma máquina registrou produção neste dia."
                   }
                   action={
                     !isWeekend(day) && day <= REFERENCE_DAY
