@@ -49,7 +49,7 @@ export function insights(rows: Machine[], dates: Date[], range: DateRange, ops: 
   const done = ops.filter((op) => ids.has(op.machineId) && op.stage === "done" && op.closedAt && inRange(op.closedAt, range));
   const leadHours = (op: WorkOrder) => (op.closedAt!.getTime() - op.releasedAt.getTime()) / HOUR;
   const opsByDay = dates.map((date) => {
-    const that = done.filter((op) => dayKey(op.closedAt!) === dayKey(date) && op.closedAt!.getMonth() === date.getMonth());
+    const that = done.filter((op) => dayKey(op.closedAt!) === dayKey(date));
     const avg = that.length ? that.reduce((s, op) => s + leadHours(op), 0) / that.length : null;
     return { date, count: that.length, avgDays: avg == null ? null : avg / 24 };
   });

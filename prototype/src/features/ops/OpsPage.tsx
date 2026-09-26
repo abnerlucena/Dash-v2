@@ -193,7 +193,7 @@ export function OpsPage({ notify }: { notify: Notify }) {
   const planned = Number(draft.planned);
   const errors = {
     number: !/^\d{7}$/.test(number) ? "Use os 7 dígitos da OP" : ops.some((o) => o.id === `OP ${number}`) ? "Essa OP já está no sistema" : null,
-    material: /^d{8}$/.test(draft.material) ? null : "Use os 8 dígitos do material",
+    material: /^\d{8}$/.test(draft.material) ? null : "Use os 8 dígitos do material",
     product: draft.product.trim() ? null : "Informe a descrição do material",
     planned: Number.isInteger(planned) && planned > 0 ? null : "Informe a quantidade pedida",
   };
@@ -336,7 +336,7 @@ export function OpsPage({ notify }: { notify: Notify }) {
               inputMode="numeric"
               placeholder="Ex.: 12345678"
               value={draft.material}
-              onChange={(e) => setDraft({ ...draft, material: e.target.value.replace(/D/g, "").slice(0, 8) })}
+              onChange={(e) => setDraft({ ...draft, material: e.target.value.replace(/\D/g, "").slice(0, 8) })}
               error={tried ? errors.material : null}
               inputClassName="font-code"
               className="w-column-name"

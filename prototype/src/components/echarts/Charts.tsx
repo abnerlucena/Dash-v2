@@ -642,3 +642,322 @@ export function ShiftStackBars({
     />
   );
 }
+
+/* ---------- Colunas + linha (genérico): turnos, OPs, retrabalho, Pareto ---------- */
+export type ComboColor = "brand" | "neutral" | "target" | "c1" | "c2" | "c3" | "danger";
+
+export interface ComboSeries {
+  name: string;
+  kind: "bar" | "line";
+  data: Array<number | null>;
+  color: ComboColor;
+  /** eixo da direita (ex.: % ou dias) */
+  right?: boolean;
+  /** colunas com o mesmo stack se empilham */
+  stack?: string;
+  format?: (v: number) => string;
+}
+
+export interface ComboChartProps {
+  categories: string[];
+  /** título do tooltip por categoria (ex.: data por extenso) */
+  titles?: string[];
+  series: ComboSeries[];
+  /** resumo em texto (nome acessível) */
+  label: string;
+  leftFormat?: (v: number) => string;
+  rightFormat?: (v: number) => string;
+  rightMax?: number;
+  /** linha de referência no eixo da direita (ex.: limite de retrabalho) */
+  rightMark?: number;
+  /** eixo esquerdo só com inteiros (contagens) */
+  integer?: boolean;
+}
+
+export function ComboChart({
+  categories,
+  titles = categories,
+  series,
+  label,
+  leftFormat = formatCompact,
+  rightFormat,
+  rightMax,
+  rightMark,
+  integer,
+}: ComboChartProps) {
+  const t = useChartTheme();
+  const paint = useCallback(
+    (c: ComboColor) =>
+      ({
+        brand: t.brand,
+        neutral: t.neutral,
+        target: t.target,
+        c1: t.categorical[0],
+        c2: t.categorical[1],
+        c3: t.categorical[2],
+        danger: t.status.critical,
+      })[c],
+    [t],
+  );
+  const hasRight = series.some((s) => s.right);
+
+  const rows = useCallback(
+    (i: number): TooltipRow[] =>
+      series
+        .filter((s) => s.data[i] != null)
+        .map((s) => ({
+          value: (s.format ?? formatNumber)(s.data[i]!),
+          label: s.name,
+          swatch: paint(s.color),
+        })),
+    [series, paint],
+  );
+
+  const option = useCallback(
+    (width: number) => {
+      const stacks = new Map<string, number>();
+      series.forEach((s, i) => s.stack && stacks.set(s.stack, i));
+      return {
+        ...baseOption(t),
+        grid: {
+          ...grid("--ds-space-300", hasRight ? "--dash-size-chart-axis" : "--ds-space-100"),
+        },
+        xAxis: {
+          type: "category",
+          data: categories,
+          ...axisStyle(t),
+          // poucas categorias com nome (motivos, faixas): todos os rótulos, quebrando linha
+          ...(categories.length <= 6
+            ? {
+                axisLabel: {
+                  ...axisStyle(t).axisLabel,
+                  interval: 0,
+                  alignMinLabel: "center",
+                  alignMaxLabel: "center",
+                  width: (width - readToken("--dash-size-chart-axis") * 2) / categories.length,
+                  overflow: "break",
+                },
+              }
+            : {}),
+          splitLine: { show: false },
+        },
+        yAxis: [
+          {
+            type: "value",
+            splitNumber: 4,
+            minInterval: integer ? 1 : undefined,
+            ...axisStyle(t),
+            axisLine: { show: false },
+            axisLabel: { ...axisStyle(t).axisLabel, formatter: leftFormat },
+          },
+          ...(hasRight
+            ? [
+                {
+                  type: "value",
+                  splitNumber: 4,
+                  min: 0,
+                  max: rightMax,
+                  ...axisStyle(t),
+                  axisLine: { show: false },
+                  splitLine: { show: false },
+                  axisLabel: {
+                    ...axisStyle(t).axisLabel,
+                    formatter: rightFormat,
+                  },
+                },
+              ]
+            : []),
+        ],
+        tooltip: {
+          ...tooltipBase,
+          trigger: "axis",
+          axisPointer: { type: "shadow", shadowStyle: { color: t.gridline } },
+          formatter: (params: Array<{ dataIndex: number }>) => tooltipHtml(titles[params[0].dataIndex], rows(params[0].dataIndex)),
+        },
+        series: series.map((s, i) => {
+          const c = paint(s.color);
+          const top = !s.stack || stacks.get(s.stack) === i;
+          return s.kind === "bar"
+            ? {
+                name: s.name,
+                type: "bar",
+                stack: s.stack,
+                yAxisIndex: s.right ? 1 : 0,
+                barMaxWidth: readToken("--dash-size-bar-max"),
+                emphasis: {
+                  itemStyle: { borderColor: t.text, borderWidth: 1 },
+                },
+                itemStyle: {
+                  color: c,
+                  borderRadius: top ? [t.radius, t.radius, 0, 0] : 0,
+                },
+                data: s.data,
+              }
+            : {
+                name: s.name,
+                type: "line",
+                yAxisIndex: s.right ? 1 : 0,
+                connectNulls: false,
+                symbol: "circle",
+                symbolSize: t.marker * 2,
+                itemStyle: { color: c },
+                lineStyle: { width: t.line, color: c },
+                data: s.data,
+                markLine:
+                  s.right && rightMark != null
+                    ? {
+                        silent: true,
+                        symbol: "none",
+                        label: { show: false },
+                        lineStyle: {
+                          color: t.target,
+                          width: t.line,
+                          type: t.dash,
+                        },
+                        data: [{ yAxis: rightMark }],
+                      }
+                    : undefined,
+              };
+        }),
+      };
+    },
+    [categories, titles, series, t, paint, rows, hasRight, leftFormat, rightFormat, rightMax, rightMark, integer],
+  );
+
+  return (
+    <EChart
+      option={option}
+      label={label}
+      className="h-chart"
+      keyboard={{
+        count: categories.length,
+        start: 0,
+        axis: "x",
+        describe: (i) => tooltipText(titles[i], rows(i)),
+      }}
+    />
+  );
+}
+
+/* ---------- Barras horizontais (genérico): ranking de máquinas ---------- */
+export interface HBarItem {
+  id: string;
+  label: string;
+  value: number;
+  /** texto à direita da barra */
+  display: string;
+  /** linha de detalhe no tooltip */
+  detail?: string;
+}
+
+export function HBars({
+  items,
+  label,
+  unit,
+  activeId,
+  onSelect,
+}: {
+  items: HBarItem[];
+  label: string;
+  /** rótulo do valor no tooltip (ex.: "peças/min") */
+  unit: string;
+  activeId?: string | null;
+  onSelect?: (id: string) => void;
+}) {
+  const t = useChartTheme();
+  const rows = useCallback(
+    (i: HBarItem): TooltipRow[] => [
+      { value: i.display, label: unit, swatch: t.brand },
+      ...(i.detail ? [{ value: "", label: i.detail }] : []),
+    ],
+    [t, unit],
+  );
+
+  const option = useCallback(
+    (width: number) => {
+      const gap = readToken("--ds-space-100");
+      const nameW = Math.min(readToken("--dash-size-bar-label-wide") / 2, width * 0.34);
+      return {
+        ...baseOption(t),
+        grid: {
+          top: 0,
+          right: readToken("--dash-size-chart-value") / 2,
+          bottom: 0,
+          left: nameW + gap,
+        },
+        xAxis: { type: "value", show: false },
+        yAxis: [
+          {
+            type: "category",
+            inverse: true,
+            data: items.map((i) => i.label),
+            axisLine: { show: false },
+            axisTick: { show: false },
+            triggerEvent: !!onSelect,
+            axisLabel: {
+              color: t.text,
+              fontSize: t.fontSize,
+              width: nameW,
+              overflow: "truncate",
+              margin: gap,
+            },
+          },
+          {
+            type: "category",
+            inverse: true,
+            position: "right",
+            data: items.map((i) => i.display),
+            axisLine: { show: false },
+            axisTick: { show: false },
+            axisLabel: { color: t.text, fontSize: t.fontSize, margin: gap },
+          },
+        ],
+        tooltip: {
+          ...tooltipBase,
+          trigger: "item",
+          formatter: ({ dataIndex }: { dataIndex: number }) => tooltipHtml(items[dataIndex].label, rows(items[dataIndex])),
+        },
+        series: [
+          {
+            type: "bar",
+            cursor: onSelect ? "pointer" : "default",
+            barMaxWidth: readToken("--dash-size-bar-max"),
+            emphasis: { itemStyle: { borderColor: t.text, borderWidth: 1 } },
+            data: items.map((i) => ({
+              value: i.value,
+              itemStyle: {
+                color: t.brand,
+                borderRadius: [0, t.radius, t.radius, 0],
+                borderWidth: activeId === i.id ? t.line : 0,
+                borderColor: t.text,
+              },
+            })),
+          },
+        ],
+      };
+    },
+    [items, activeId, t, rows, onSelect],
+  );
+
+  return (
+    <EChart
+      option={option}
+      label={label}
+      style={{ height: items.length * readToken("--dash-size-row") * 0.8 }}
+      onClick={
+        onSelect
+          ? (p) => {
+              const i = p.componentType === "series" ? p.dataIndex : items.findIndex((x) => x.label === p.value);
+              if (i >= 0) onSelect(items[i].id);
+            }
+          : undefined
+      }
+      keyboard={{
+        count: items.length,
+        axis: "y",
+        describe: (i) => tooltipText(items[i].label, rows(items[i])),
+        onActivate: onSelect ? (i) => onSelect(items[i].id) : undefined,
+      }}
+    />
+  );
+}

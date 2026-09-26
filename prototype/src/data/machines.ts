@@ -66,7 +66,8 @@ export const REFERENCE_DATE = new Date(YEAR, MONTH, REFERENCE_DAY);
 /** "Agora" do protótipo: manhã seguinte à data de referência (turnos do dia 27 já fechados) */
 export const NOW = new Date(YEAR, MONTH, REFERENCE_DAY + 1, 7, 0);
 
-export const dayKey = (d: Date) => d.getDate();
+/** Chave do dia (mês e dia): períodos que cruzam meses não misturam 05/02 com 05/03 */
+export const dayKey = (d: Date) => d.getMonth() * 100 + d.getDate();
 
 /* ---------- Tipos ---------- */
 export interface OrderNote {
