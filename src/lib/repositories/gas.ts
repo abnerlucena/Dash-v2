@@ -28,6 +28,15 @@ export const gasDataSource: DataSource = {
     async completeOnboarding(session) { await api("completeOnboarding", {}, session); },
     async isSessionValid() { return true; },
     watchSession() { return () => {}; },
+    // O Apps Script guarda a senha na própria planilha e não envia e-mail.
+    // Recuperar por conta própria não existe nesse modo, e fingir que existe
+    // seria pior do que dizer a verdade.
+    async requestPasswordReset() {
+      throw new Error("A recuperação de senha por e-mail ainda não existe neste modo. Fale com o administrador.");
+    },
+    async setNewPassword() {
+      throw new Error("A recuperação de senha por e-mail ainda não existe neste modo. Fale com o administrador.");
+    },
   },
 
   production: {

@@ -1,16 +1,24 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Eye, EyeOff, Loader2 } from "lucide-react";
+import { ArrowLeft, Eye, EyeOff, Loader2 } from "lucide-react";
 import WEGLogo from "@/components/WEGLogo";
 import { useAuth } from "@/contexts/AuthContext";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { isSupabase } from "@/lib/repositories";
+import { data, isSupabase } from "@/lib/repositories";
+
+// Quatro telas no mesmo cartão. As duas últimas só existem no modo Supabase,
+// porque o Apps Script não envia e-mail.
+//   login      entrar
+//   register   criar conta
+//   recuperar  pedir o e-mail de recuperação
+//   novaSenha  definir a senha nova, depois de abrir o link do e-mail
+type Mode = "login" | "register" | "recuperar" | "novaSenha";
 
 const LoginPage = () => {
   const navigate = useNavigate();
   const { login, register } = useAuth();
   const isMobile = useIsMobile();
-  const [mode, setMode] = useState<"login" | "register">("login");
+  const [mode, setMode] = useState<Mode>("login");
   const [nome, setNome] = useState("");
   const [codigoAcesso, setCodigoAcesso] = useState("");
   const [senha, setSenha] = useState("");
@@ -24,9 +32,58 @@ const LoginPage = () => {
   const [alert, setAlert] = useState<{ type: string; msg: string }>({ type: "", msg: "" });
 
   const isLogin = mode === "login";
+  const isRecuperar = mode === "recuperar";
+  const isNovaSenha = mode === "novaSenha";
+  // Nas duas telas de recuperação o cartão troca de conteúdo inteiro.
+  const isAuthForm = isLogin || mode === "register";
 
-  function switchMode(m: "login" | "register") {
+  // Quem chega pelo link do e-mail cai aqui. O Supabase transforma o token do
+  // endereço numa sessão temporária sozinho; o que resta é mostrar a tela de
+  // senha nova em vez da de login, e limpar o endereço para o token não ficar
+  // visível na barra nem no histórico do navegador.
+  useEffect(() => {
+    if (!isSupabase) return;
+    const temParametro = new URLSearchParams(window.location.search).has("recuperar");
+    const temTokenNoHash = window.location.hash.includes("type=recovery");
+    if (!temParametro && !temTokenNoHash) return;
+    setMode("novaSenha");
+    window.history.replaceState(null, "", window.location.pathname);
+  }, []);
+
+  function switchMode(m: Mode) {
     setMode(m); setAlert({ type: "", msg: "" }); setSenha(""); setSenha2(""); setCodigoAcesso(""); setNeedsBadge(false);
+  }
+
+  // ── Pedir o e-mail de recuperação ──────────────────────────────────────
+  async function handleRecuperar(e: React.FormEvent) {
+    e.preventDefault();
+    setLoading(true); setAlert({ type: "", msg: "" });
+    try {
+      await data.auth.requestPasswordReset(nome);
+      // A mesma mensagem sai tenha o e-mail conta ou não. Dizer "essa conta
+      // não existe" contaria a estranhos quem tem acesso ao sistema.
+      setAlert({ type: "success", msg: "Se existir uma conta com esse e-mail, o link de recuperação foi enviado. Confira a caixa de entrada e o spam." });
+    } catch (err: any) {
+      setAlert({ type: "error", msg: err.message || "Não foi possível enviar o e-mail." });
+    }
+    setLoading(false);
+  }
+
+  // ── Definir a senha nova ───────────────────────────────────────────────
+  async function handleNovaSenha(e: React.FormEvent) {
+    e.preventDefault();
+    if (senha.length < 6) { setAlert({ type: "error", msg: "A senha precisa ter pelo menos 6 caracteres." }); return; }
+    if (senha !== senha2) { setAlert({ type: "error", msg: "As senhas não coincidem." }); return; }
+    setLoading(true); setAlert({ type: "", msg: "" });
+    try {
+      await data.auth.setNewPassword(senha);
+      setAlert({ type: "success", msg: "Senha alterada. Entre com a senha nova." });
+      setSenha(""); setSenha2("");
+      setTimeout(() => switchMode("login"), 1800);
+    } catch (err: any) {
+      setAlert({ type: "error", msg: err.message || "Não foi possível alterar a senha." });
+    }
+    setLoading(false);
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -107,21 +164,94 @@ const LoginPage = () => {
               <WEGLogo height={36} color="#fff" />
             </div>
             <h1 className="text-lg font-extrabold tracking-tight" style={{ color: '#003366' }}>Dashboard de Produção</h1>
-            <p className="text-sm text-muted-foreground mt-1">{isLogin ? "Faça login para continuar" : "Crie sua conta de acesso"}</p>
+            <p className="text-sm text-muted-foreground mt-1">
+              {isRecuperar ? "Informe o e-mail da sua conta"
+                : isNovaSenha ? "Escolha a sua senha nova"
+                : isLogin ? "Faça login para continuar" : "Crie sua conta de acesso"}
+            </p>
           </div>
 
-          {/* Mode toggle */}
-          <div className="flex rounded-md p-1 mb-6 gap-1" style={{ background: '#F0F2F5', borderRadius: 4 }}>
-            {(["login", "register"] as const).map(m => (
-              <button key={m} onClick={() => switchMode(m)}
-                className={`flex-1 py-2.5 text-sm font-bold rounded-sm transition-all duration-200 ${mode === m ? "bg-white shadow-sm" : "hover:text-foreground"}`}
-                style={{ color: mode === m ? '#003366' : '#94A3B8', borderRadius: 3 }}>
-                {m === "login" ? "Entrar" : "Criar Conta"}
+          {/* Entrar / Criar conta — some nas telas de recuperação */}
+          {isAuthForm && (
+            <div className="flex rounded-md p-1 mb-6 gap-1" style={{ background: '#F0F2F5', borderRadius: 4 }}>
+              {(["login", "register"] as const).map(m => (
+                <button key={m} onClick={() => switchMode(m)}
+                  className={`flex-1 py-2.5 text-sm font-bold rounded-sm transition-all duration-200 ${mode === m ? "bg-white shadow-sm" : "hover:text-foreground"}`}
+                  style={{ color: mode === m ? '#003366' : '#94A3B8', borderRadius: 3 }}>
+                  {m === "login" ? "Entrar" : "Criar Conta"}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* ── Pedir o e-mail de recuperação ── */}
+          {isRecuperar && (
+            <form onSubmit={handleRecuperar} className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Enviamos um link para você criar uma senha nova. Ele vale por pouco tempo e só pode ser usado uma vez.
+              </p>
+              <div>
+                <label className="text-xs font-bold mb-1.5 block tracking-wide uppercase" style={{ color: '#1E293B' }}>E-mail</label>
+                <input type="email" value={nome} onChange={e => setNome(e.target.value)} autoFocus
+                  placeholder="seu.email@empresa.com" className={inputLight} style={{ borderRadius: 6 }} />
+              </div>
+              {alert.msg && (
+                <div className={`rounded-md p-3 text-sm font-medium ${alert.type === "error" ? "bg-red-50 text-red-700 border border-red-200" : "bg-green-50 text-green-700 border border-green-200"}`} style={{ borderRadius: 6 }}>
+                  {alert.msg}
+                </div>
+              )}
+              <button type="submit" disabled={loading}
+                className="w-full py-3.5 text-white font-bold text-sm shadow-lg hover:brightness-110 disabled:opacity-60 transition-all duration-200 flex items-center justify-center gap-2"
+                style={{ background: 'linear-gradient(135deg, #003366, #0066B3)', borderRadius: 8 }}>
+                {loading && <Loader2 size={16} className="animate-spin" />}
+                {loading ? "Enviando..." : "Enviar link de recuperação"}
               </button>
-            ))}
-          </div>
+              <button type="button" onClick={() => switchMode("login")}
+                className="w-full text-xs text-muted-foreground hover:text-foreground flex items-center justify-center gap-1.5 pt-1">
+                <ArrowLeft size={13} /> Voltar para o login
+              </button>
+            </form>
+          )}
+
+          {/* ── Definir a senha nova (veio do link do e-mail) ── */}
+          {isNovaSenha && (
+            <form onSubmit={handleNovaSenha} className="space-y-4">
+              <div>
+                <label className="text-xs font-bold mb-1.5 block tracking-wide uppercase" style={{ color: '#1E293B' }}>Senha nova</label>
+                <div className="relative">
+                  <input type={showPw ? "text" : "password"} value={senha} onChange={e => setSenha(e.target.value)} autoFocus
+                    placeholder="Mínimo 6 caracteres" className={`${inputLight} pr-16`} style={{ borderRadius: 6 }} />
+                  <button type="button" onClick={() => setShowPw(!showPw)}
+                    className="absolute right-0 top-0 bottom-0 px-3 flex items-center text-muted-foreground hover:text-foreground transition-colors border-l border-border">
+                    {showPw ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
+              </div>
+              <div>
+                <label className="text-xs font-bold mb-1.5 block tracking-wide uppercase" style={{ color: '#1E293B' }}>Confirmar senha</label>
+                <input type={showPw ? "text" : "password"} value={senha2} onChange={e => setSenha2(e.target.value)}
+                  placeholder="Repita a senha" className={inputLight} style={{ borderRadius: 6 }} />
+              </div>
+              {alert.msg && (
+                <div className={`rounded-md p-3 text-sm font-medium ${alert.type === "error" ? "bg-red-50 text-red-700 border border-red-200" : "bg-green-50 text-green-700 border border-green-200"}`} style={{ borderRadius: 6 }}>
+                  {alert.msg}
+                </div>
+              )}
+              <button type="submit" disabled={loading}
+                className="w-full py-3.5 text-white font-bold text-sm shadow-lg hover:brightness-110 disabled:opacity-60 transition-all duration-200 flex items-center justify-center gap-2"
+                style={{ background: 'linear-gradient(135deg, #003366, #0066B3)', borderRadius: 8 }}>
+                {loading && <Loader2 size={16} className="animate-spin" />}
+                {loading ? "Salvando..." : "Salvar senha nova"}
+              </button>
+              <button type="button" onClick={() => switchMode("login")}
+                className="w-full text-xs text-muted-foreground hover:text-foreground flex items-center justify-center gap-1.5 pt-1">
+                <ArrowLeft size={13} /> Voltar para o login
+              </button>
+            </form>
+          )}
 
           {/* Form */}
+          {isAuthForm && (
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="text-xs font-bold mb-1.5 block tracking-wide uppercase" style={{ color: '#1E293B' }}>
