@@ -7,7 +7,7 @@ export const PAGE_GUTTER = "px-200 m:px-400";
 
 interface PageHeaderProps {
   title: ReactNode;
-  /** Trilha acima do título (ex.: Linhas › Horizontais) */
+  /** Trilha acima do título (ex.: Linhas › Embalagem) */
   breadcrumbs?: string[];
   lozenge?: ReactNode;
   description?: ReactNode;

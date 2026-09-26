@@ -49,7 +49,7 @@ function toCsv(orders: ProductionOrder[]) {
     o.date.toLocaleDateString("pt-BR"),
     machineById(o.machineId).name,
     SHIFT_META[o.shift].label,
-    o.id.replace("OP ", ""),
+    o.opId.replace("OP ", ""),
     o.product,
     String(o.quantity),
     o.rework ? "Sim" : "Não",
@@ -384,7 +384,7 @@ export function ReportsPage({ notify }: { notify: Notify }) {
                           <tr key={o.id} className="border-t text-default">
                             <td className="py-050 pr-150">{o.date.toLocaleDateString("pt-BR").slice(0, 5)}</td>
                             <td className="max-w-1000 truncate py-050 pr-150">{machineById(o.machineId).name}</td>
-                            <td className="py-050 pr-150">{o.id.replace("OP ", "")}</td>
+                            <td className="py-050 pr-150">{o.opId.replace("OP ", "")}</td>
                             <td className="py-050 text-right">{o.quantity}</td>
                           </tr>
                         ))}

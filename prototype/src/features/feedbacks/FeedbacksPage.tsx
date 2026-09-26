@@ -1,257 +1,414 @@
-import { CheckCheck, Circle, CircleCheck, History, MoreHorizontal, Pencil, SearchX, Trash2 } from "lucide-react";
-import { useState } from "react";
-import {
-  FEEDBACKS,
-  MACHINES,
-  SHIFTS,
-  SHIFT_META,
-  machineById,
-  type Accent,
-  type ProductionOrder,
-  type Shift,
-} from "@/data/machines";
-import { cn, formatLongDate, type Notify } from "@/lib/utils";
-import { SHIFT_FILL } from "@/components/data/StackedBar";
+import { ArrowLeft, CheckCheck, Info, Lock, MessagesSquare, Search, SendHorizontal } from "lucide-react";
+import { Fragment, useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
+import { MANAGER, SHIFT_META, machineById, type Accent, type OpMessage, type Shift, type WorkOrder } from "@/data/machines";
+import { cn, formatLongDate, plural, type Notify } from "@/lib/utils";
 import { PageBody, PageHeader } from "@/components/layout/PageHeader";
 import { Button, IconButton } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/Feedback";
-import { FilterPill } from "@/components/ui/FilterPill";
 import { Lozenge } from "@/components/ui/Lozenge";
-import { Menu, MenuContent, MenuItem, MenuSeparator, MenuTrigger } from "@/components/ui/Menu";
 import { Avatar } from "@/components/ui/Misc";
-import { Modal } from "@/components/ui/Modal";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
-import { TextArea } from "@/components/ui/TextField";
+import { TextField } from "@/components/ui/TextField";
+import { OpActionButtons, useOpActions } from "@/features/ops/OpActions";
+import { OpProgress } from "@/features/ops/OpsPage";
+import { formatWhen, lastActivity, opNumber, stageView, useOps } from "@/features/ops/OpsStore";
 
-const time = new Intl.DateTimeFormat("pt-BR", { hour: "2-digit", minute: "2-digit" });
-const AVATAR_BY_SHIFT: Record<Shift, Accent> = { 1: "blue", 2: "teal", 3: "magenta" };
+const time = new Intl.DateTimeFormat("pt-BR", {
+  hour: "2-digit",
+  minute: "2-digit",
+});
+const AVATAR_BY_SHIFT: Record<Shift, Accent> = {
+  1: "blue",
+  2: "teal",
+  3: "magenta",
+};
+/** Respostas rápidas: o gestor responde do celular, no meio da fábrica */
+const QUICK_REPLIES = ["Ciente, obrigado.", "Já acionei a manutenção.", "Pode seguir.", "Separa o lote para a qualidade."];
 
-interface FeedbacksPageProps {
-  unread: Set<string>;
-  onReadChange: (ids: string[], read: boolean) => void;
-  notify: Notify;
-}
+type View = "open" | "unread" | "closed";
+
+const roleLabel = (m: OpMessage) =>
+  m.role === "manager"
+    ? "Gestor"
+    : m.role === "leader"
+      ? `Líder · ${SHIFT_META[m.shift!].label}`
+      : `Operador · ${SHIFT_META[m.shift!].label}`;
 
 /**
- * Feedbacks = observações que os operadores deixam no apontamento.
- * Não lidos: um ponto azul e o texto em negrito (lidos ficam em cor mais suave);
- * o contador do menu acompanha.
+ * Feedbacks = a conversa de cada OP. A observação do operador no apontamento
+ * abre ou continua a conversa; líderes e gestor respondem; liberar, pausar e
+ * concluir aparecem como mensagens do sistema. Concluída a OP, a conversa
+ * se encerra (fica só para leitura).
  */
-export function FeedbacksPage({ unread, onReadChange, notify }: FeedbacksPageProps) {
-  const [items, setItems] = useState<ProductionOrder[]>(FEEDBACKS);
-  const [view, setView] = useState<"all" | "unread">("all");
-  const [machine, setMachine] = useState("all");
-  const [shift, setShift] = useState("all");
-  const [editing, setEditing] = useState<{ id: string; text: string } | null>(null);
-  const [deleting, setDeleting] = useState<ProductionOrder | null>(null);
+export function FeedbacksPage({ opParam, notify }: { opParam?: string; notify: Notify }) {
+  const { ops, unread, unreadIn, markRead, markAllRead, markUnread } = useOps();
+  const [view, setView] = useState<View>("open");
+  const [query, setQuery] = useState("");
+  const selectedId = opParam ? `OP ${opParam}` : null;
+  const selected = selectedId ? ops.find((op) => op.id === selectedId) : undefined;
 
-  const visible = items.filter(
-    (o) =>
-      (view === "all" || unread.has(o.note!.id)) &&
-      (machine === "all" || o.machineId === machine) &&
-      (shift === "all" || String(o.shift) === shift),
-  );
-  const groups = new Map<number, ProductionOrder[]>();
-  for (const o of visible) groups.set(o.date.getDate(), [...(groups.get(o.date.getDate()) ?? []), o]);
-  const unreadCount = items.filter((o) => unread.has(o.note!.id)).length;
-  const filtersActive = machine !== "all" || shift !== "all";
+  const totalUnread = unread.size;
+  const threads = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return ops
+      .filter((op) => {
+        const byView = view === "open" ? op.stage !== "done" : view === "closed" ? op.stage === "done" : unreadIn(op) > 0;
+        const m = machineById(op.machineId);
+        return (
+          byView &&
+          (!q || op.id.toLowerCase().includes(q) || op.product.toLowerCase().includes(q) || m.name.toLowerCase().includes(q))
+        );
+      })
+      .sort((a, b) => lastActivity(b).getTime() - lastActivity(a).getTime());
+  }, [ops, view, query, unreadIn]);
 
-  const saveEdit = () => {
-    if (!editing || !editing.text.trim()) return;
-    setItems((list) => list.map((o) => (o.note!.id === editing.id ? { ...o, note: { ...o.note!, text: editing.text.trim() } } : o)));
-    setEditing(null);
-    notify("Feedback atualizado");
-  };
-
-  const confirmDelete = () => {
-    if (!deleting) return;
-    const previous = items;
-    const target = deleting;
-    setItems((list) => list.filter((o) => o !== target));
-    onReadChange([target.note!.id], true);
-    setDeleting(null);
-    notify("Feedback excluído", `${machineById(target.machineId).name} · ${formatLongDate(target.date)}`, "success", {
-      label: "Desfazer",
-      onClick: () => setItems(previous),
-    });
-  };
+  const open = (op: WorkOrder) => (window.location.hash = `/feedbacks/${opNumber(op.id)}`);
 
   return (
     <>
       <PageHeader
         title="Feedbacks"
-        lozenge={unreadCount > 0 ? <Lozenge appearance="discovery">{unreadCount} novos</Lozenge> : <Lozenge>Tudo lido</Lozenge>}
-        description="Observações que os operadores registram no apontamento: paradas, falta de material, ajustes."
-        actions={
-          <Button
-            appearance="subtle"
-            iconBefore={CheckCheck}
-            isDisabled={unreadCount === 0}
-            onClick={() => {
-              const ids = items.filter((o) => unread.has(o.note!.id)).map((o) => o.note!.id);
-              onReadChange(ids, true);
-              notify(`${ids.length} feedbacks marcados como lidos`, undefined, "success", {
-                label: "Desfazer",
-                onClick: () => onReadChange(ids, false),
-              });
-            }}
-          >
-            Marcar todos como lidos
-          </Button>
+        lozenge={
+          totalUnread > 0 ? (
+            <Lozenge appearance="discovery">{plural(totalUnread, "não lida", "não lidas")}</Lozenge>
+          ) : (
+            <Lozenge>Tudo lido</Lozenge>
+          )
         }
+        description="Conversas das OPs: observações dos operadores, respostas da liderança e cada mudança de etapa. A conversa se encerra quando a OP é concluída."
       />
       <PageBody>
-        <div role="toolbar" aria-label="Filtros" className="flex flex-wrap items-center gap-100">
-          <SegmentedControl
-            label="Mostrar"
-            iconOnly={false}
-            value={view}
-            onChange={(v) => setView(v as "all" | "unread")}
-            options={[
-              { value: "all", label: `Todos (${items.length})` },
-              { value: "unread", label: `Não lidos (${unreadCount})` },
-            ]}
-          />
-          <FilterPill
-            label="Máquina"
-            value={machine}
-            defaultValue="all"
-            onChange={setMachine}
-            options={[{ value: "all", label: "Todas" }, ...MACHINES.map((m) => ({ value: m.id, label: m.name }))]}
-          />
-          <FilterPill
-            label="Turno"
-            value={shift}
-            defaultValue="all"
-            onChange={setShift}
-            options={[{ value: "all", label: "Todos" }, ...SHIFTS.map((s) => ({ value: String(s), label: SHIFT_META[s].label, hint: SHIFT_META[s].hours }))]}
-          />
-        </div>
-
-        {visible.length === 0 ? (
-          <div className="rounded-xlarge border">
-            {view === "unread" && !filtersActive ? (
-              <EmptyState icon={CircleCheck} title="Tudo em dia" hint="Não há feedbacks novos. Eles aparecem aqui assim que um operador registra uma observação." />
-            ) : (
+        <div className="flex h-chat overflow-hidden rounded-xlarge border bg-surface">
+          {/* ---------- Caixa de entrada ---------- */}
+          <aside
+            aria-label="Conversas"
+            className={cn("w-full shrink-0 flex-col border-r m:flex m:w-inbox", selected ? "hidden" : "flex")}
+          >
+            <div className="flex flex-col gap-100 border-b p-150">
+              <div className="flex items-center justify-between gap-100">
+                <SegmentedControl
+                  label="Mostrar conversas"
+                  iconOnly={false}
+                  value={view}
+                  onChange={(v) => setView(v as View)}
+                  options={[
+                    { value: "open", label: "Abertas" },
+                    {
+                      value: "unread",
+                      label: `Não lidas${totalUnread ? ` (${totalUnread})` : ""}`,
+                    },
+                    { value: "closed", label: "Encerradas" },
+                  ]}
+                />
+                {/* fica na lista (e não no rodapé fixo do mobile, que cobriria a resposta) */}
+                <IconButton
+                  icon={CheckCheck}
+                  label="Marcar tudo como lido"
+                  isDisabled={totalUnread === 0}
+                  onClick={markAllRead}
+                />
+              </div>
+              <TextField
+                label="Buscar conversa"
+                hideLabel
+                placeholder="OP, produto ou máquina"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                elemAfter={<Search aria-hidden className="size-icon-small" />}
+              />
+            </div>
+            {threads.length === 0 ? (
               <EmptyState
-                icon={SearchX}
-                title="Nenhum feedback encontrado"
-                hint="Nada corresponde aos filtros selecionados."
-                action={{
-                  label: "Limpar filtros",
-                  onClick: () => {
-                    setMachine("all");
-                    setShift("all");
-                    setView("all");
-                  },
+                icon={view === "unread" ? CheckCheck : Search}
+                title={view === "unread" ? "Nenhuma mensagem nova" : "Nenhuma conversa aqui"}
+                hint={view === "unread" ? "Você está em dia com as OPs." : "Troque o filtro ou limpe a busca."}
+                headingLevel={3}
+              />
+            ) : (
+              <ul className="scrollbar-thin flex-1 overflow-y-auto">
+                {threads.map((op) => (
+                  <ThreadItem
+                    key={op.id}
+                    op={op}
+                    unreadCount={unreadIn(op)}
+                    isCurrent={op.id === selectedId}
+                    onOpen={() => open(op)}
+                  />
+                ))}
+              </ul>
+            )}
+          </aside>
+
+          {/* ---------- Conversa ---------- */}
+          <section aria-label="Conversa da OP" className={cn("min-w-0 flex-1 flex-col", selected ? "flex" : "hidden m:flex")}>
+            {selected ? (
+              <Conversation
+                key={selected.id}
+                op={selected}
+                notify={notify}
+                onRead={() => markRead(selected.id)}
+                onMarkUnread={() => {
+                  markUnread(selected.id);
+                  window.location.hash = "/feedbacks";
                 }}
               />
+            ) : (
+              <EmptyState
+                icon={MessagesSquare}
+                title={selectedId ? `${selectedId} não encontrada` : "Escolha uma conversa"}
+                hint="Cada OP tem a sua conversa: o que aconteceu na máquina, quem respondeu e em que etapa ela está."
+                headingLevel={2}
+                className="m-auto"
+              />
             )}
+          </section>
+        </div>
+      </PageBody>
+    </>
+  );
+}
+
+function ThreadItem({
+  op,
+  unreadCount,
+  isCurrent,
+  onOpen,
+}: {
+  op: WorkOrder;
+  unreadCount: number;
+  isCurrent: boolean;
+  onOpen: () => void;
+}) {
+  const m = machineById(op.machineId);
+  const last = op.messages[op.messages.length - 1];
+  const stage = stageView(op);
+  const who = last.role === "system" ? "" : `${last.author === MANAGER ? "Você" : last.author.split(" ")[0]}: `;
+  return (
+    <li>
+      <button
+        type="button"
+        onClick={onOpen}
+        aria-current={isCurrent || undefined}
+        aria-label={`${op.id}, ${op.product}, ${stage.label}${unreadCount ? `, ${plural(unreadCount, "mensagem não lida", "mensagens não lidas")}` : ""}`}
+        className={cn(
+          "flex w-full flex-col gap-025 border-b px-200 py-150 text-left transition-colors duration-hover ease-out",
+          isCurrent ? "bg-selected" : "hover:bg-neutral-subtle-hovered active:bg-neutral-subtle-pressed",
+        )}
+      >
+        <span className="flex items-center gap-100">
+          {unreadCount > 0 && <span aria-hidden className="size-dot shrink-0 rounded-full bg-icon-brand" />}
+          <span className={cn("font-code text-default", unreadCount > 0 && "font-semibold")}>{opNumber(op.id)}</span>
+          <Lozenge appearance={stage.appearance}>{stage.label}</Lozenge>
+          <span className="ml-auto shrink-0 font-body-small text-subtlest">{formatWhen(lastActivity(op))}</span>
+        </span>
+        <span className="truncate font-body-small text-subtle">
+          {op.product} · {m.name}
+        </span>
+        <span className={cn("flex items-center gap-100", unreadCount > 0 ? "font-semibold text-default" : "text-subtle")}>
+          <span className="min-w-0 flex-1 truncate">
+            {who}
+            {last.text}
+          </span>
+          {unreadCount > 0 && (
+            <span className="flex h-250 min-w-250 shrink-0 items-center justify-center rounded-full bg-brand-bold px-075 font-body-small font-semibold text-inverse">
+              {unreadCount}
+            </span>
+          )}
+        </span>
+      </button>
+    </li>
+  );
+}
+
+function Conversation({
+  op,
+  notify,
+  onRead,
+  onMarkUnread,
+}: {
+  op: WorkOrder;
+  notify: Notify;
+  onRead: () => void;
+  onMarkUnread: () => void;
+}) {
+  const { unread, send } = useOps();
+  const { actionsFor, dialogs } = useOpActions(notify);
+  const [draft, setDraft] = useState("");
+  const scroller = useRef<HTMLDivElement>(null);
+  const m = machineById(op.machineId);
+  const stage = stageView(op);
+  const isClosed = op.stage === "done";
+
+  // Linha "Novas mensagens" antes da primeira não lida, fixada ao abrir a conversa
+  const [firstUnread] = useState(() => op.messages.find((msg) => unread.has(msg.id))?.id ?? null);
+  useEffect(() => {
+    onRead();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  // Rola até o fim ao abrir e a cada mensagem nova
+  useEffect(() => {
+    const el = scroller.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [op.messages.length]);
+
+  const submit = (text = draft) => {
+    const t = text.trim();
+    if (!t) return;
+    send(op.id, t);
+    setDraft("");
+  };
+  const onKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      submit();
+    }
+  };
+
+  let lastDay = "";
+  return (
+    <>
+      <header className="flex flex-col gap-150 border-b px-200 py-150">
+        <div className="flex items-start gap-100">
+          <IconButton
+            icon={ArrowLeft}
+            label="Voltar para as conversas"
+            className="-ml-050 m:hidden"
+            onClick={() => (window.location.hash = "/feedbacks")}
+          />
+          <div className="min-w-0 flex-1">
+            <h2 className="flex flex-wrap items-center gap-100 font-heading-small text-default">
+              <span className="font-code">{op.id}</span>
+              <Lozenge appearance={stage.appearance}>{stage.label}</Lozenge>
+            </h2>
+            <p className="truncate text-subtle">
+              {op.product} · {m.name}
+            </p>
           </div>
-        ) : (
-          <div className="flex flex-col gap-300">
-            {[...groups.entries()].map(([day, list]) => (
-              <section key={day} aria-labelledby={`fb-day-${day}`}>
-                <h2 id={`fb-day-${day}`} className="pb-100 font-heading-xsmall text-subtle first-letter:uppercase">
-                  {formatLongDate(list[0].date)}
-                </h2>
-                <ul className="flex flex-col overflow-hidden rounded-xlarge border">
-                  {list.map((o) => {
-                    const note = o.note!;
-                    const isUnread = unread.has(note.id);
-                    const isEditing = editing?.id === note.id;
-                    return (
-                      <li
-                        key={note.id}
-                        className="flex gap-150 border-t px-200 py-150 first:border-t-0"
-                      >
-                        <Avatar name={note.author} size="medium" accent={AVATAR_BY_SHIFT[o.shift]} />
-                        <article className="min-w-0 flex-1" aria-label={`${isUnread ? "Novo. " : ""}${note.author}, ${machineById(o.machineId).name}`}>
-                          <p className="flex flex-wrap items-center gap-x-100 gap-y-025">
-                            {isUnread && <span aria-hidden className="size-dot rounded-full bg-icon-brand" />}
-                            <span className="font-semibold text-default">{note.author}</span>
-                            <span className="flex items-center gap-050 font-body-small text-subtle">
-                              <span aria-hidden className={cn("size-status-dot rounded-full", SHIFT_FILL[o.shift])} />
-                              {SHIFT_META[o.shift].label}
-                            </span>
-                            <span className="font-body-small text-subtlest">{time.format(o.recordedAt)}</span>
-                          </p>
-                          <p className="mt-025 font-body-small text-subtle">
-                            {machineById(o.machineId).name} · <span className="font-code">{o.id}</span>
-                            {o.rework && (
-                              <>
-                                {" "}
-                                · <span className="text-warning">retrabalho ({o.reworkReason})</span>
-                              </>
-                            )}
-                          </p>
-                          {isEditing ? (
-                            <div className="mt-100 flex flex-col gap-100">
-                              <TextArea
-                                label="Editar feedback"
-                                hideLabel
-                                autoFocus
-                                maxLength={500}
-                                value={editing.text}
-                                onChange={(e) => setEditing({ id: note.id, text: e.target.value })}
-                                error={editing.text.trim() ? null : "O feedback não pode ficar vazio"}
-                              />
-                              <span className="flex gap-100">
-                                <Button appearance="primary" spacing="compact" onClick={saveEdit}>
-                                  Salvar
-                                </Button>
-                                <Button appearance="subtle" spacing="compact" onClick={() => setEditing(null)}>
-                                  Cancelar
-                                </Button>
-                              </span>
-                            </div>
-                          ) : (
-                            <p className={cn("mt-075", isUnread ? "font-semibold text-default" : "text-subtle")}>{note.text}</p>
-                          )}
-                        </article>
-                        <div className="flex shrink-0 items-start gap-050">
-                          <IconButton
-                            icon={isUnread ? Circle : CircleCheck}
-                            label={isUnread ? "Marcar como lido" : "Marcar como não lido"}
-                            spacing="compact"
-                            onClick={() => onReadChange([note.id], isUnread)}
-                          />
-                          <Menu>
-                            <MenuTrigger asChild>
-                              <IconButton icon={MoreHorizontal} label="Mais ações" spacing="compact" showTooltip={false} />
-                            </MenuTrigger>
-                            <MenuContent align="end">
-                              <MenuItem icon={Pencil} onSelect={() => setEditing({ id: note.id, text: note.text })}>
-                                Editar
-                              </MenuItem>
-                              <MenuItem icon={History} onSelect={() => (window.location.hash = "/historico")}>
-                                Ver apontamento no histórico
-                              </MenuItem>
-                              <MenuSeparator />
-                              <MenuItem icon={Trash2} onSelect={() => setDeleting(o)}>
-                                Excluir
-                              </MenuItem>
-                            </MenuContent>
-                          </Menu>
-                        </div>
-                      </li>
-                    );
-                  })}
-                </ul>
-              </section>
+          <Button appearance="subtle" spacing="compact" onClick={onMarkUnread} className="hidden s:inline-flex">
+            Marcar como não lida
+          </Button>
+        </div>
+        <div className="flex flex-wrap items-center gap-150">
+          <OpProgress op={op} className="w-column-name grow s:grow-0" />
+          {op.stage === "paused" && op.pauseReason && (
+            <span className="font-body-small text-warning">Motivo: {op.pauseReason}</span>
+          )}
+          <span className="flex flex-wrap gap-100 s:ml-auto">
+            <OpActionButtons actions={actionsFor(op)} compact />
+          </span>
+        </div>
+      </header>
+
+      <div
+        ref={scroller}
+        role="log"
+        aria-label={`Mensagens da ${op.id}`}
+        className="scrollbar-thin flex flex-1 flex-col gap-150 overflow-y-auto px-200 py-200"
+      >
+        {op.messages.map((msg) => {
+          const dayLabel = formatLongDate(msg.at);
+          const showDay = dayLabel !== lastDay;
+          lastDay = dayLabel;
+          return (
+            <Fragment key={msg.id}>
+              {showDay && (
+                <p className="flex items-center gap-150 font-body-small text-subtlest first-letter:uppercase before:h-px before:flex-1 before:bg-border after:h-px after:flex-1 after:bg-border">
+                  {dayLabel}
+                </p>
+              )}
+              {msg.id === firstUnread && (
+                <p className="flex items-center gap-150 font-body-small font-semibold text-brand before:h-px before:flex-1 before:bg-brand-bold after:h-px after:flex-1 after:bg-brand-bold">
+                  Novas mensagens
+                </p>
+              )}
+              <Message msg={msg} />
+            </Fragment>
+          );
+        })}
+      </div>
+
+      {isClosed ? (
+        <p className="flex items-center gap-100 border-t bg-surface-sunken px-200 py-150 text-subtle">
+          <Lock aria-hidden className="size-icon-small shrink-0" />
+          Conversa encerrada {op.closedAt ? `em ${formatWhen(op.closedAt)}` : ""} com a conclusão da OP. Fica guardada para
+          consulta.
+        </p>
+      ) : (
+        <form
+          className="flex flex-col gap-100 border-t px-200 py-150"
+          onSubmit={(e) => {
+            e.preventDefault();
+            submit();
+          }}
+        >
+          <div className="scrollbar-thin -mx-200 flex gap-075 overflow-x-auto px-200" role="group" aria-label="Respostas rápidas">
+            {QUICK_REPLIES.map((r) => (
+              <Button key={r} appearance="default" spacing="compact" onClick={() => submit(r)} className="shrink-0">
+                {r}
+              </Button>
             ))}
           </div>
-        )}
-      </PageBody>
-
-      <Modal
-        open={deleting != null}
-        onOpenChange={(o) => !o && setDeleting(null)}
-        title="Excluir feedback?"
-        primary={{ label: "Excluir", appearance: "danger", onClick: confirmDelete }}
-      >
-        A observação sai do apontamento {deleting?.id}. A produção registrada não muda.
-      </Modal>
+          <div className="flex items-end gap-100">
+            <label htmlFor="chat-draft" className="sr-only">
+              Mensagem para a {op.id}
+            </label>
+            <textarea
+              id="chat-draft"
+              rows={2}
+              value={draft}
+              maxLength={500}
+              onChange={(e) => setDraft(e.target.value)}
+              onKeyDown={onKeyDown}
+              placeholder={`Responder na ${op.id}…`}
+              className="min-h-600 w-full min-w-0 flex-1 resize-none rounded-medium border border-input bg-input px-100 py-075 text-default placeholder:text-subtlest hover:bg-input-hovered focus:border-focused"
+            />
+            <Button appearance="primary" iconBefore={SendHorizontal} type="submit" isDisabled={!draft.trim()}>
+              Enviar
+            </Button>
+          </div>
+          <p className="hidden font-body-small text-subtlest s:block">Enter envia · Shift + Enter quebra a linha</p>
+        </form>
+      )}
+      {dialogs}
     </>
+  );
+}
+
+function Message({ msg }: { msg: OpMessage }) {
+  if (msg.role === "system")
+    return (
+      <p className="mx-auto flex max-w-bubble items-center gap-075 rounded-full bg-neutral px-150 py-050 text-center font-body-small text-subtle">
+        <Info aria-hidden className="size-icon-small shrink-0" />
+        <span>
+          {msg.text} <span className="text-subtlest">· {time.format(msg.at)}</span>
+        </span>
+      </p>
+    );
+
+  const mine = msg.author === MANAGER;
+  const accent: Accent = msg.role === "manager" ? "purple" : AVATAR_BY_SHIFT[msg.shift ?? 1];
+  return (
+    <article
+      aria-label={`${mine ? "Você" : msg.author}, ${time.format(msg.at)}`}
+      className={cn("flex max-w-bubble gap-100", mine && "ml-auto flex-row-reverse")}
+    >
+      {!mine && <Avatar name={msg.author} size="medium" accent={accent} />}
+      <div className={cn("flex min-w-0 flex-col gap-025", mine && "items-end")}>
+        <p className="flex flex-wrap items-center gap-x-100 font-body-small">
+          <span className="font-semibold text-default">{mine ? "Você" : msg.author}</span>
+          {!mine && <span className="text-subtle">{roleLabel(msg)}</span>}
+          <span className="text-subtlest">{time.format(msg.at)}</span>
+          {msg.rework && <Lozenge appearance="warning">Retrabalho</Lozenge>}
+        </p>
+        <p
+          className={cn(
+            "rounded-large px-150 py-100 text-default",
+            mine ? "rounded-tr-small bg-brand-subtlest" : "rounded-tl-small bg-neutral",
+          )}
+        >
+          {msg.text}
+        </p>
+      </div>
+    </article>
   );
 }

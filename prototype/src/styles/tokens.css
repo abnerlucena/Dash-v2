@@ -101,6 +101,8 @@
   --dash-tv-slide-duration: 12s;
   --dash-size-tv-label: 30rem; /* coluna de nomes no Modo TV */
   --dash-size-tv-value: 20rem; /* coluna de valor + status no Modo TV */
+  --dash-size-tv-card: 21rem; /* 336px: cartão de máquina no Modo TV */
+  --dash-size-tv-position: 7rem; /* 112px: colunas curtas do ranking no Modo TV */
 
   /* ---------- Motion [inferido — página de motion do ADS não analisada] ---------- */
   --ds-motion-duration-press: 100ms;
@@ -170,6 +172,9 @@
   --dash-size-search-width: 30rem; /* 480px */
   --dash-size-menu-min: 12rem; /* 192px */
   --dash-size-popover: 22.5rem; /* 360px */
+  --dash-size-inbox: 24rem; /* 384px: lista de conversas (Feedbacks) */
+  --dash-size-chat: 40rem; /* 640px: altura da conversa no desktop */
+  --dash-size-bubble: 36rem; /* 576px: largura máxima de uma mensagem */
   --dash-size-flag: 22.5rem; /* 360px */
   --dash-size-tooltip-max: 15rem; /* 240px */
   --dash-size-column-name: 12.5rem; /* 200px */
@@ -188,6 +193,7 @@
   --dash-size-chart: 15rem; /* 240px: altura de gráfico */
   --dash-size-chart-large: 17.5rem; /* 280px */
   --dash-size-chart-axis: 3.5rem; /* 56px: calha do eixo Y */
+  --dash-size-chart-value: 7.5rem; /* 120px: coluna de valores à direita das barras horizontais */
   --dash-size-attainment-value: 8.5rem; /* 136px: coluna de valor + status */
   --dash-size-bar-label-wide: 20rem; /* 320px: rótulos longos (nomes de processos) */
   --dash-size-chart-card-min: 26rem; /* 416px: largura mínima de um card de gráfico lado a lado */

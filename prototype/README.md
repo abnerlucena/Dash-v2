@@ -59,15 +59,16 @@ da planilha. Para gerar um build privado com os números reais, crie
 | Menu | O que faz |
 | --- | --- |
 | Dashboard | Tela Máquinas (abas abaixo) |
-| Apontamento | Data + turno, máquinas por linha, várias OPs por máquina, retrabalho, observação, validação e Ctrl+S |
+| Apontamento | Data + turno, máquinas por linha, várias OPs por máquina (sugere as OPs liberadas), retrabalho, observação, validação e Ctrl+S |
+| OPs | Toda ordem que entra no sistema: Aguardando liberação → Em produção ⇄ Pausada (com motivo) → Concluída. "Pronta para concluir" quando atinge a quantidade; uma pessoa confirma. Nova OP, liberar, pausar, retomar e concluir |
 | Histórico | Calendário do mês no tom do status; editar, mover, alterar turno e excluir (em lote), com Desfazer |
-| Metas | Duas abas. **Metas vigentes**: meta por turno × turnos ativos × dias úteis, edição em lote com vigência futura e histórico. **Simulador de capacidade**: modelo da planilha Capacidade vs Pessoas (jornada, peças/min, eficiência, regime, pessoas), meta por turno recalculada ao vivo, pontos de atenção da planilha e publicação no histórico |
-| Feedbacks | Observações dos operadores; lido/não lido (o contador do menu acompanha), editar e excluir |
+| Metas | Duas abas. **Metas vigentes**: meta por turno × turnos ativos × dias úteis, edição em lote com vigência futura e histórico. **Simulador de capacidade**: modelo da planilha Capacidade vs Pessoas (jornada, peças/min, eficiência, regime, pessoas), meta por turno recalculada ao vivo, gráfico de capacidade por processo (ECharts, com a marca do valor da planilha) e publicação no histórico |
+| Feedbacks | Uma conversa por OP: observações dos operadores, respostas de líderes/gestor, respostas rápidas e avisos de etapa. Encerra quando a OP é concluída. Não lidas no contador do menu |
 | Relatórios | Montador (tipo, período, máquinas, turnos, formato, seções) com pré-visualização; CSV real |
-| Linhas / Turnos | A tela Máquinas com recorte fixo por linha ou por turno |
+| Linhas / Turnos | A tela Máquinas com recorte fixo por linha (Montagem, Embalagem, Granel) ou por turno |
 | Ranking | Posição por atingimento, produção, apontamento ou retrabalho, com movimento da semana |
 | Retrabalho | Taxa por máquina (limite de 10%), motivos e lista de OPs |
-| Modo TV | Tela cheia, tema escuro, slides com rotação (← → Espaço F Esc) |
+| Modo TV | Telão de chão de fábrica por área (`#/tv/montagem`…): placar dos turnos, ranking das máquinas, máquina a máquina, ritmo (OPs concluídas por dia, peças/min) e destaques. Compara turnos e máquinas, nunca pessoas; o Turno 3 (hora extra) fica fora da disputa |
 | Ajuda | Perguntas frequentes com busca, atalhos, legenda de status e suporte |
 
 ## Abas da tela Máquinas
@@ -82,10 +83,13 @@ da planilha. Para gerar um build privado com os números reais, crie
 Decisões que valem para todas as abas:
 
 - **Filtros acima de tudo.** A linha de filtros fica fora das abas e define o recorte de KPIs, tabelas e gráficos.
-  Com um turno filtrado, cada máquina é recortada para aquele turno, contra 1/3 da meta.
+  Com um turno filtrado, cada máquina é recortada para aquele turno, contra a meta do turno; máquinas que não rodam no turno saem do recorte.
   A aba Turnos é a exceção: ela compara os três turnos e só destaca o turno escolhido.
 - **Uma fonte de dados.** A sparkline, a grade diária, o painel e os gráficos leem as mesmas ordens
   de produção (22 dias úteis em março/2026, referência 27/03), então os números sempre concordam.
+- **Centros reais, números fictícios.** As 22 máquinas são os centros de trabalho da planilha
+  (Montagem, Embalagem, Granel), com metas e produção inventadas. Os 10 centros por demanda (sem meta)
+  aparecem no Apontamento, OPs e Feedbacks, mas não entram no atingimento.
 - **Cor de turno fixa.** Azul, teal e magenta (`--ds-chart-categorical-1..3`) aparecem na navegação,
   nos KPIs, nas barras e nas legendas. A paleta foi validada nos dois temas (daltonismo, visão
   normal e contraste). A cor segue o turno, nunca a posição.

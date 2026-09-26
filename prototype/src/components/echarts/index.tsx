@@ -12,6 +12,8 @@ const load = () => import("./Charts");
 const LazyBurnup = lazy(() => load().then((m) => ({ default: m.BurnupChart })));
 const LazyDaily = lazy(() => load().then((m) => ({ default: m.DailyColumns })));
 const LazyAttainment = lazy(() => load().then((m) => ({ default: m.AttainmentBars })));
+const LazyCapacity = lazy(() => load().then((m) => ({ default: m.CapacityBars })));
+const LazyShiftStack = lazy(() => load().then((m) => ({ default: m.ShiftStackBars })));
 
 type BurnupProps = ComponentProps<typeof LazyBurnup>;
 
@@ -35,6 +37,22 @@ export function AttainmentBars(props: ComponentProps<typeof LazyAttainment>) {
   return (
     <Suspense fallback={<Skeleton className="h-chart w-full rounded-medium" />}>
       <LazyAttainment {...props} />
+    </Suspense>
+  );
+}
+
+export function CapacityBars(props: ComponentProps<typeof LazyCapacity>) {
+  return (
+    <Suspense fallback={<Skeleton className="h-chart-large w-full rounded-medium" />}>
+      <LazyCapacity {...props} />
+    </Suspense>
+  );
+}
+
+export function ShiftStackBars(props: ComponentProps<typeof LazyShiftStack>) {
+  return (
+    <Suspense fallback={<Skeleton className="size-full rounded-medium" />}>
+      <LazyShiftStack {...props} />
     </Suspense>
   );
 }

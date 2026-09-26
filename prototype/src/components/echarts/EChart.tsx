@@ -1,4 +1,4 @@
-import { BarChart, LineChart } from "echarts/charts";
+import { BarChart, LineChart, ScatterChart } from "echarts/charts";
 import { GridComponent, MarkLineComponent, TooltipComponent } from "echarts/components";
 import * as echarts from "echarts/core";
 import { SVGRenderer } from "echarts/renderers";
@@ -7,7 +7,7 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties, type Keyboard
 import { cn, readToken } from "@/lib/utils";
 
 // Só os módulos usados entram no pacote (tree-shaking). SVG: texto nítido em qualquer zoom.
-echarts.use([LineChart, BarChart, GridComponent, TooltipComponent, MarkLineComponent, SVGRenderer]);
+echarts.use([LineChart, BarChart, ScatterChart, GridComponent, TooltipComponent, MarkLineComponent, SVGRenderer]);
 
 /** Cores e medidas do tema atual, lidas do tokens.css (o ECharts não entende var()). */
 export interface ChartTheme {
@@ -18,6 +18,10 @@ export interface ChartTheme {
   text: string;
   textSubtle: string;
   textSubtlest: string;
+  textSuccess: string;
+  textDanger: string;
+  /** paleta categórica validada (montagem, embalagem, …) */
+  categorical: [string, string, string];
   status: { critical: string; attention: string; near: string; achieved: string };
   areaOpacity: number;
   line: number;
@@ -60,6 +64,9 @@ function readTheme(): ChartTheme {
     text: color("--ds-text"),
     textSubtle: color("--ds-text-subtle"),
     textSubtlest: color("--ds-text-subtlest"),
+    textSuccess: color("--ds-text-success"),
+    textDanger: color("--ds-text-danger"),
+    categorical: [color("--ds-chart-categorical-1"), color("--ds-chart-categorical-2"), color("--ds-chart-categorical-3")],
     status: {
       critical: color("--ds-background-danger-bold"),
       attention: color("--ds-background-warning-bold"),

@@ -105,7 +105,7 @@ export function HistoryPage({ notify }: { notify: Notify }) {
           : o,
       ),
       "Apontamento atualizado",
-      `${order.id} · ${machineById(order.machineId).name}`,
+      `${order.opId} · ${machineById(order.machineId).name}`,
     );
   };
 
@@ -141,7 +141,7 @@ export function HistoryPage({ notify }: { notify: Notify }) {
         </span>
       ),
     },
-    { id: "op", header: "OP", cell: (o) => <span className="font-code text-default">{o.id.replace("OP ", "")}</span> },
+    { id: "op", header: "OP", cell: (o) => <span className="font-code text-default">{o.opId.replace("OP ", "")}</span> },
     { id: "product", header: "Produto", cell: (o) => <span className="text-subtle">{o.product}</span> },
     {
       id: "qty",
@@ -197,7 +197,7 @@ export function HistoryPage({ notify }: { notify: Notify }) {
       cell: (o) => (
         <Menu>
           <MenuTrigger asChild>
-            <IconButton icon={MoreHorizontal} label={`Ações para ${o.id}`} spacing="compact" showTooltip={false} />
+            <IconButton icon={MoreHorizontal} label={`Ações para ${o.opId}`} spacing="compact" showTooltip={false} />
           </MenuTrigger>
           <MenuContent align="end">
             <MenuItem
@@ -322,7 +322,7 @@ export function HistoryPage({ notify }: { notify: Notify }) {
               columns={columns}
               rows={dayOrders}
               getRowId={(o) => o.id}
-              getRowLabel={(o) => `${o.id}, ${machineById(o.machineId).name}, ${SHIFT_META[o.shift].label}, ${formatNumber(o.quantity)} unidades`}
+              getRowLabel={(o) => `${o.opId}, ${machineById(o.machineId).name}, ${SHIFT_META[o.shift].label}, ${formatNumber(o.quantity)} unidades`}
               state={dayOrders.length ? "ready" : "empty"}
               selectedIds={selected}
               onSelectionChange={setSelected}
@@ -385,7 +385,7 @@ export function HistoryPage({ notify }: { notify: Notify }) {
       <Modal
         open={dialog?.kind === "edit"}
         onOpenChange={(o) => !o && setDialog(null)}
-        title={dialog?.kind === "edit" ? `Editar ${dialog.order.id}` : ""}
+        title={dialog?.kind === "edit" ? `Editar ${dialog.order.opId}` : ""}
         primary={{ label: "Salvar", onClick: () => !editError && saveEdit() }}
       >
         {dialog?.kind === "edit" && (

@@ -108,6 +108,9 @@ const sizeKeys = [
   "search-width",
   "menu-min",
   "popover",
+  "inbox",
+  "chat",
+  "bubble",
   "flag",
   "tooltip-max",
   "column-name",
@@ -299,6 +302,9 @@ export default {
         attainment: "minmax(0, var(--dash-size-column-name)) minmax(0, 1fr) var(--dash-size-attainment-value)",
         "attainment-wide": "minmax(0, var(--dash-size-bar-label-wide)) minmax(0, 1fr) var(--dash-size-attainment-value)",
         tv: "minmax(0, var(--dash-size-tv-label)) minmax(0, 1fr) var(--dash-size-tv-value)",
+        // posição | nome | trilho | valor | variação | peças/min
+        "tv-rank": "var(--dash-size-tv-position) minmax(0, var(--dash-size-tv-label)) minmax(0, 1fr) var(--dash-size-tv-position) var(--dash-size-tv-position) var(--dash-size-tv-position)",
+        "tv-cards": "repeat(auto-fill, minmax(var(--dash-size-tv-card), 1fr))",
       },
       transformOrigin: {
         menu: "var(--radix-dropdown-menu-content-transform-origin)",

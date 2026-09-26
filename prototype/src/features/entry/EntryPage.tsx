@@ -13,6 +13,7 @@ import {
   type Shift,
 } from "@/data/machines";
 import { cn, formatNumber, readToken, type Notify } from "@/lib/utils";
+import { useOps } from "@/features/ops/OpsStore";
 import { PageBody, PageHeader } from "@/components/layout/PageHeader";
 import { SegmentedBar } from "@/components/data/SegmentedBar";
 import { Button, IconButton } from "@/components/ui/Button";
@@ -53,7 +54,7 @@ function loadForm(date: string, shift: Shift): Form {
     const orders = sameMonth ? m.orders.filter((o) => o.date.getDate() === day && o.shift === shift) : [];
     form[m.id] = {
       rows: orders.length
-        ? orders.map((o) => newRow(o.id.replace("OP ", ""), String(o.quantity), o.rework))
+        ? orders.map((o) => newRow(o.opId.replace("OP ", ""), String(o.quantity), o.rework))
         : [newRow()],
       note: orders.find((o) => o.note)?.note?.text ?? "",
       noteOpen: orders.some((o) => o.note),
@@ -340,10 +341,14 @@ function MachineEntryRow({
   onChange: (fn: (e: MachineEntry) => MachineEntry) => void;
 }) {
   const m = machineById(machineId);
-  const meta = metaPerShift(m);
+  const { ops } = useOps();
+  // OPs liberadas para esta máquina: o campo sugere os números
+  const openOps = ops.filter((op) => op.machineId === m.id && (op.stage === "running" || op.stage === "paused"));
+  const listId = `ops-${m.id}`;
+  const meta = m.hasTarget ? metaPerShift(m) : 0;
   const percent = meta ? Math.round((total / meta) * 100) : 0;
   const status = statusFor(percent);
-  const tooHigh = total > meta * 2;
+  const tooHigh = m.hasTarget && total > meta * 2;
 
   const setRow = (key: string, patch: Partial<OpRow>) =>
     onChange((e) => ({ ...e, rows: e.rows.map((r) => (r.key === key ? { ...r, ...patch } : r)) }));
@@ -357,15 +362,44 @@ function MachineEntryRow({
           {entry.existing && <Lozenge appearance="information">Já apontado</Lozenge>}
         </div>
         <TagGroup items={m.lines} accentFor={(l) => LINE_ACCENT[l] ?? "gray"} />
-        <div className="mt-050 flex flex-wrap items-center gap-100">
-          <SegmentedBar percent={percent} status={status} label={`${m.name}: ${percent}% da meta do turno`} />
-          <span className="font-medium tabular-nums text-default">{percent}%</span>
-          {total > 0 && <Lozenge appearance={STATUS_META[status].appearance}>{STATUS_META[status].label}</Lozenge>}
-        </div>
-        <p className="font-body-small text-subtlest">
-          <span className="font-semibold tabular-nums text-default">{formatNumber(total)}</span> de{" "}
-          <span className="tabular-nums">{formatNumber(meta)}</span> (meta do turno)
-        </p>
+        {m.hasTarget ? (
+          <>
+            <div className="mt-050 flex flex-wrap items-center gap-100">
+              <SegmentedBar percent={percent} status={status} label={`${m.name}: ${percent}% da meta do turno`} />
+              <span className="font-medium tabular-nums text-default">{percent}%</span>
+              {total > 0 && <Lozenge appearance={STATUS_META[status].appearance}>{STATUS_META[status].label}</Lozenge>}
+            </div>
+            <p className="font-body-small text-subtlest">
+              <span className="font-semibold tabular-nums text-default">{formatNumber(total)}</span> de{" "}
+              <span className="tabular-nums">{formatNumber(meta)}</span> (meta do turno)
+            </p>
+          </>
+        ) : (
+          <p className="mt-050 font-body-small text-subtlest">
+            <span className="font-semibold tabular-nums text-default">{formatNumber(total)}</span> peças no turno · centro por
+            demanda, sem meta
+          </p>
+        )}
+        {openOps.length > 0 && (
+          <p className="font-body-small text-subtle">
+            {openOps.length === 1 ? "OP liberada: " : "OPs liberadas: "}
+            {openOps.map((op, i) => (
+              <span key={op.id}>
+                {i > 0 && ", "}
+                <a href={`#/feedbacks/${op.id.replace("OP ", "")}`} className="font-code text-link hover:underline">
+                  {op.id.replace("OP ", "")}
+                </a>
+              </span>
+            ))}
+          </p>
+        )}
+        <datalist id={listId}>
+          {openOps.map((op) => (
+            <option key={op.id} value={op.id.replace("OP ", "")}>
+              {op.product}
+            </option>
+          ))}
+        </datalist>
         {tooHigh && (
           <p className="font-body-small text-warning">Acima de 2× a meta do turno. Confira as quantidades.</p>
         )}
@@ -383,6 +417,7 @@ function MachineEntryRow({
                 aria-label={`Nº da OP, linha ${i + 1}, ${m.name}`}
                 inputMode="numeric"
                 placeholder="Ex.: 4501234"
+                list={listId}
                 value={r.op}
                 onChange={(e) => setRow(r.key, { op: e.target.value.replace(/\D/g, "").slice(0, 7) })}
                 error={showErrors || r.op.length >= 7 || (r.qty && !r.op) ? errors.op : null}

@@ -113,7 +113,7 @@ export function ReworkPage() {
         </span>
       ),
     },
-    { id: "op", header: "OP", cell: (o) => <span className="font-code text-default">{o.id.replace("OP ", "")}</span> },
+    { id: "op", header: "OP", cell: (o) => <span className="font-code text-default">{o.opId.replace("OP ", "")}</span> },
     {
       id: "qty",
       header: "Quantidade",
@@ -227,7 +227,7 @@ export function ReworkPage() {
             columns={columns}
             rows={reworked}
             getRowId={(o) => o.id}
-            getRowLabel={(o) => `${o.id}, ${machineById(o.machineId).name}, ${o.reworkReason}`}
+            getRowLabel={(o) => `${o.opId}, ${machineById(o.machineId).name}, ${o.reworkReason}`}
             selectable={false}
             state={reworked.length ? "ready" : "empty"}
             footerLead={`${reworked.length} OPs`}

@@ -1,7 +1,7 @@
-import { Info, RotateCcw, Send, TriangleAlert, Undo2 } from "lucide-react";
+import { Info, RotateCcw, Send, Undo2 } from "lucide-react";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { cn, formatNumber, plural, readToken, storageGet, storageSet, type Notify } from "@/lib/utils";
-import { BarList } from "@/components/data/BarList";
+import { CapacityBars } from "@/components/echarts";
 import { DataTable, type Column } from "@/components/data/DataTable";
 import { KpiStrip, type KpiItem } from "@/components/data/KpiStrip";
 import { PageActions, PageBody, PAGE_GUTTER } from "@/components/layout/PageHeader";
@@ -14,7 +14,6 @@ import { DateField } from "@/components/ui/DateField";
 import { Tooltip } from "@/components/ui/Tooltip";
 import {
   BASELINE,
-  spreadsheetIssues,
   spreadsheetPackingTotal,
   computeProcess,
   computeTotals,
@@ -30,7 +29,6 @@ import {
 import { NumberField } from "./NumberField";
 
 const STORAGE_KEY = "dash-proto.capacity-scenario.v2";
-const ISSUES = spreadsheetIssues();
 const clone = (s: Scenario): Scenario => JSON.parse(JSON.stringify(s));
 const round = (n: number) => Math.round(n);
 const pct = (n: number) => `${Math.round(n * 100)}%`;
@@ -461,40 +459,19 @@ export function CapacitySimulator({ notify, onPublished }: CapacitySimulatorProp
                 ),
                 changes.length > 0 && <Lozenge appearance="discovery">{changes.length}</Lozenge>,
               )}
-              {card(
-                "Pontos de atenção na planilha",
-                <ul className="flex flex-col gap-150">
-                  {ISSUES.map((issue) => (
-                    <li key={issue.title} className="flex gap-100">
-                      <TriangleAlert aria-hidden className="mt-025 size-icon-small shrink-0 text-icon-warning" />
-                      <span>
-                        <span className="block font-heading-xsmall text-default">{issue.title}</span>
-                        <span className="mt-025 block text-subtle">{issue.detail}</span>
-                      </span>
-                    </li>
-                  ))}
-                </ul>,
-                <Lozenge appearance="warning">{ISSUES.length} pontos</Lozenge>,
-              )}
             </div>
             {card(
               "Capacidade por dia, por processo",
-              <BarList
+              <CapacityBars
                 label="Capacidade por dia de cada processo"
-                wideLabels
-                items={[...totals.results]
-                  .sort((a, b) => b.r.daily - a.r.daily)
-                  .map(({ p, r }) => {
-                    const before = computeProcess(BASELINE, BASELINE.processes.find((b) => b.id === p.id)!).daily;
-                    return {
-                      id: p.id,
-                      label: p.name,
-                      value: r.daily,
-                      display: p.rate == null ? "sem taxa" : formatNumber(round(r.daily)),
-                      accessory: <Delta value={r.daily - before} />,
-                      barClass: p.area === "montagem" ? "bg-chart-categorical-1" : "bg-chart-categorical-2",
-                    };
-                  })}
+                items={totals.results.map(({ p, r }) => ({
+                  id: p.id,
+                  label: p.name,
+                  area: p.area,
+                  value: r.daily,
+                  before: computeProcess(BASELINE, BASELINE.processes.find((b) => b.id === p.id)!).daily,
+                  noRate: p.rate == null,
+                }))}
               />,
               <span className="flex items-center gap-200 font-body-small text-subtle">
                 <span className="flex items-center gap-075">

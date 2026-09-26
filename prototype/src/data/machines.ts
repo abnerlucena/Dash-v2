@@ -1,8 +1,13 @@
 /*
  * Dados de demonstração — março/2026 (22 dias úteis, referência 27/03).
- * Produção e meta vêm do briefing; dias, ordens e turnos são gerados de
- * forma determinística a partir deles. Todas as abas leem da MESMA fonte:
- * a sparkline, a grade diária, o painel e os gráficos sempre concordam.
+ *
+ * Centros de trabalho: os 22 centros ativos da planilha "Capacidade vs Pessoas"
+ * (Seção Tomadas & Interruptores, Itajaí), com os NOMES reais e NÚMEROS
+ * FICTÍCIOS (o repositório é público). 12 centros têm meta; os 10 "por demanda"
+ * produzem, mas ficam fora do atingimento.
+ *
+ * Dias, apontamentos, OPs e conversas são gerados de forma determinística:
+ * todas as abas leem da MESMA fonte e sempre concordam.
  */
 
 export type Accent = "blue" | "teal" | "green" | "lime" | "yellow" | "orange" | "red" | "magenta" | "purple" | "gray";
@@ -10,9 +15,9 @@ export type Shift = 1 | 2 | 3;
 export const SHIFTS: Shift[] = [1, 2, 3];
 
 export const SHIFT_META: Record<Shift, { label: string; hours: string }> = {
-  1: { label: "Turno 1", hours: "06h–14h" },
-  2: { label: "Turno 2", hours: "14h–22h" },
-  3: { label: "Turno 3", hours: "22h–06h" },
+  1: { label: "Turno 1", hours: "04h55–14h18" },
+  2: { label: "Turno 2", hours: "14h18–23h24" },
+  3: { label: "Turno 3", hours: "23h24–05h00" },
 };
 
 export type Status = "critical" | "attention" | "near" | "achieved";
@@ -34,17 +39,14 @@ export function statusFor(percent: number): Status {
   return "critical";
 }
 
+/* ---------- Linhas ---------- */
+export type Line = "Montagem" | "Embalagem" | "Granel";
+export const LINES: Line[] = ["Montagem", "Embalagem", "Granel"];
 export const LINE_ACCENT: Record<string, Accent> = {
-  Granel: "teal",
-  Horizontais: "blue",
-  Verticais: "purple",
-  Placas: "orange",
-  Suportes: "gray",
-  "Linha 2": "gray",
   Montagem: "magenta",
-  Interruptores: "lime",
-  Teste: "yellow",
-  Refinatto: "green",
+  Embalagem: "blue",
+  Granel: "teal",
+  "Por demanda": "gray",
 };
 
 /* ---------- Calendário ---------- */
@@ -61,6 +63,8 @@ export const WORKING_DAYS = WORKING_DATES.length; // 22
 /** Dias úteis já transcorridos até a data de referência */
 export const ELAPSED_DATES = WORKING_DATES.filter((d) => d.getDate() <= REFERENCE_DAY);
 export const REFERENCE_DATE = new Date(YEAR, MONTH, REFERENCE_DAY);
+/** "Agora" do protótipo: manhã seguinte à data de referência (turnos do dia 27 já fechados) */
+export const NOW = new Date(YEAR, MONTH, REFERENCE_DAY + 1, 7, 0);
 
 export const dayKey = (d: Date) => d.getDate();
 
@@ -71,20 +75,27 @@ export interface OrderNote {
   author: string;
 }
 
+/**
+ * Apontamento: o que um turno produziu numa OP, num dia. Várias linhas
+ * (dias/turnos diferentes) somam na mesma OP (`opId`).
+ */
 export interface ProductionOrder {
+  /** identificador único do apontamento */
   id: string;
+  /** número da OP ("OP 4501234"), compartilhado pelos apontamentos da mesma ordem */
+  opId: string;
   machineId: string;
   date: Date;
   shift: Shift;
   product: string;
   quantity: number;
-  /** OP inteira marcada como retrabalho (como no app atual) */
+  /** apontamento marcado como retrabalho (como no app atual) */
   rework: boolean;
   reworkReason: string | null;
   /** Operador que registrou e horário do registro */
   operator: string;
   recordedAt: Date;
-  /** Observação do operador (vira um "feedback") */
+  /** Observação do operador (vira mensagem na conversa da OP) */
   note: OrderNote | null;
 }
 
@@ -97,7 +108,13 @@ export interface DayPoint {
 export interface Machine {
   id: string;
   name: string;
+  line: Line;
+  /** etiquetas exibidas (linha e, nos centros sem meta, "Por demanda") */
   lines: string[];
+  /** false = centro "por demanda": produz, mas não tem meta nem entra no atingimento */
+  hasTarget: boolean;
+  /** turnos em que o centro trabalha (2 = T1 e T2; 3 = os três) */
+  regime: 2 | 3;
   days: number;
   produced: number;
   target: number;
@@ -110,6 +127,8 @@ export interface Machine {
   trend: DayPoint[];
   byShift: Record<Shift, number>;
   ordersByShift: Record<Shift, number>;
+  /** minutos de produção por turno no mês (para peças/minuto) */
+  minutesByShift: Record<Shift, number>;
   /** null quando não há apontamento no recorte (ex.: turno sem produção) */
   lastEntry: { date: Date; shift: Shift } | null;
   orders: ProductionOrder[];
@@ -126,101 +145,63 @@ function rng(seed: number) {
   };
 }
 
-const RAW: Array<{
+interface RawCenter {
   id: string;
   name: string;
-  lines: string[];
+  line: Line;
+  regime: 2 | 3;
+  /** meta por turno (FICTÍCIA); null = por demanda */
+  perShift: number | null;
+  /** atingimento do mês (fictício) — ou, sem meta, produção total do mês */
+  attainment?: number;
+  demandVolume?: number;
   days: number;
-  produced: number;
-  target: number;
   lastDay: number;
-  /** peso de cada turno na produção da máquina */
-  shiftProfile: [number, number, number];
-  /** chance de uma OP ser de retrabalho */
   reworkRate: number;
   products: string[];
-}> = [
-  {
-    id: "granel",
-    name: "A GRANEL",
-    lines: ["Granel"],
-    days: 17,
-    produced: 483126,
-    target: 630000,
-    lastDay: 27,
-    shiftProfile: [0.4, 0.35, 0.25],
-    reworkRate: 0.04,
-    products: ["Parafuso borne M3", "Mola de contato", "Terminal olhal"],
-  },
-  {
-    id: "horizontal-1",
-    name: "HORIZONTAL 1",
-    lines: ["Horizontais", "Placas"],
-    days: 10,
-    produced: 158100,
-    target: 440000,
-    lastDay: 26,
-    shiftProfile: [0.5, 0.35, 0.15],
-    reworkRate: 0.1,
-    products: ["Placa 4x2 branca", "Placa 4x4 branca", "Placa cega 4x2"],
-  },
-  {
-    id: "vertical-placas-2",
-    name: "VERTICAL PLACAS / SUP. 2",
-    lines: ["Verticais", "Placas", "Suportes", "Linha 2"],
-    days: 9,
-    produced: 155382,
-    target: 440000,
-    lastDay: 27,
-    shiftProfile: [0.3, 0.3, 0.4],
-    reworkRate: 0.16,
-    products: ["Suporte 4x2", "Placa 4x2 grafite", "Suporte 4x4"],
-  },
-  {
-    id: "montagem-diversos",
-    name: "MONTAGEM DIVERSOS",
-    lines: ["Montagem"],
-    days: 10,
-    produced: 32584,
-    target: 88000,
-    lastDay: 25,
-    shiftProfile: [0.55, 0.45, 0],
-    reworkRate: 0.06,
-    products: ["Tomada 10A", "Tomada 20A", "Interruptor paralelo"],
-  },
-  {
-    id: "teste-interruptores",
-    name: "TESTE INTERRUPTORES",
-    lines: ["Teste", "Interruptores"],
-    days: 8,
-    produced: 23779,
-    target: 72000,
-    lastDay: 24,
-    shiftProfile: [0.6, 0.4, 0],
-    reworkRate: 0.2,
-    products: ["Interruptor simples", "Interruptor bipolar", "Pulsador campainha"],
-  },
-  {
-    id: "montagem-refinatto",
-    name: "MONTAGEM PLACA REFINATTO",
-    lines: ["Montagem", "Placas", "Refinatto"],
-    days: 4,
-    produced: 12755,
-    target: 84000,
-    lastDay: 23,
-    shiftProfile: [1, 0, 0],
-    reworkRate: 0.08,
-    products: ["Placa Refinatto 4x2", "Placa Refinatto 4x4", "Módulo Refinatto USB"],
-  },
+}
+
+// Ids iguais aos do simulador de capacidade (m = montagem, e = embalagem)
+const RAW: RawCenter[] = [
+  // ---- Montagem com meta
+  { id: "m1", name: "Máquina de interruptores Composé nº 1", line: "Montagem", regime: 3, perShift: 4000, attainment: 0.66, days: 19, lastDay: 27, reworkRate: 0.08, products: ["Interruptor simples", "Interruptor paralelo"] },
+  { id: "m4", name: "Máquina de tomadas Composé (Aumaq)", line: "Montagem", regime: 3, perShift: 11000, attainment: 0.91, days: 20, lastDay: 27, reworkRate: 0.05, products: ["Tomada 10A", "Tomada 20A"] },
+  { id: "m11", name: "Máquina de plugue Slin (Aumaq)", line: "Montagem", regime: 2, perShift: 5800, attainment: 0.52, days: 14, lastDay: 25, reworkRate: 0.12, products: ["Plugue Slin 10A", "Plugue Slin 20A"] },
+  // ---- Montagem por demanda (sem meta)
+  { id: "m2", name: "Embaladora kit parafusos nº 1", line: "Montagem", regime: 2, perShift: null, demandVolume: 184000, days: 12, lastDay: 27, reworkRate: 0.02, products: ["Kit parafusos 4x2", "Kit parafusos 4x4"] },
+  { id: "m3", name: "Embaladora kit parafusos nº 2", line: "Montagem", regime: 2, perShift: null, demandVolume: 141000, days: 10, lastDay: 26, reworkRate: 0.02, products: ["Kit parafusos 4x2", "Kit parafusos 4x4"] },
+  { id: "m5", name: "Bancada nº 1 · teste de interruptores", line: "Montagem", regime: 3, perShift: null, demandVolume: 52000, days: 14, lastDay: 27, reworkRate: 0.14, products: ["Interruptor bipolar", "Interruptor intermediário"] },
+  { id: "m6", name: "Bancada nº 2 · montagem de interruptores", line: "Montagem", regime: 2, perShift: null, demandVolume: 23500, days: 11, lastDay: 26, reworkRate: 0.1, products: ["Interruptor paralelo", "Pulsador campainha"] },
+  { id: "m7", name: "Bancada nº 3 · diversos", line: "Montagem", regime: 2, perShift: null, demandVolume: 31000, days: 9, lastDay: 27, reworkRate: 0.06, products: ["Tomada dupla", "Conjunto sob medida"] },
+  { id: "m8", name: "Bancada nº 4 · diversos", line: "Montagem", regime: 2, perShift: null, demandVolume: 27800, days: 8, lastDay: 24, reworkRate: 0.06, products: ["Tomada dupla", "Conjunto sob medida"] },
+  { id: "m9", name: "Bancada nº 5 · eletrônicos", line: "Montagem", regime: 2, perShift: null, demandVolume: 18600, days: 10, lastDay: 27, reworkRate: 0.09, products: ["Módulo USB", "Sensor de presença"] },
+  { id: "m10", name: "Prensa de inserção de contatos", line: "Montagem", regime: 2, perShift: null, demandVolume: 26400, days: 12, lastDay: 26, reworkRate: 0.07, products: ["Contato de tomada 10A", "Contato de tomada 20A"] },
+  { id: "m12", name: "Prensa Tox", line: "Montagem", regime: 2, perShift: null, demandVolume: 39500, days: 13, lastDay: 27, reworkRate: 0.05, products: ["Placa rebitada 4x2", "Placa rebitada 4x4"] },
+  { id: "m13", name: "Prensa placa Refinatto", line: "Montagem", regime: 2, perShift: null, demandVolume: 15200, days: 6, lastDay: 23, reworkRate: 0.08, products: ["Placa Refinatto 4x2", "Placa Refinatto 4x4"] },
+  // ---- Embalagem
+  { id: "e1", name: "Embaladora vertical conjuntos nº 1", line: "Embalagem", regime: 2, perShift: 4400, attainment: 0.62, days: 17, lastDay: 27, reworkRate: 0.06, products: ["Conjunto 4x2 1 tecla", "Conjunto 4x2 tomada 10A"] },
+  { id: "e2", name: "Embaladora vertical conjuntos nº 2", line: "Embalagem", regime: 2, perShift: 4400, attainment: 0.55, days: 15, lastDay: 26, reworkRate: 0.07, products: ["Conjunto 4x4 2 módulos", "Conjunto 4x2 tomada 20A"] },
+  { id: "e3", name: "Embaladora horizontal nº 1", line: "Embalagem", regime: 2, perShift: 9200, attainment: 0.84, days: 19, lastDay: 27, reworkRate: 0.05, products: ["Placa 4x2 branca", "Placa cega 4x2"] },
+  { id: "e4", name: "Embaladora horizontal nº 2", line: "Embalagem", regime: 2, perShift: 9200, attainment: 0.93, days: 20, lastDay: 27, reworkRate: 0.04, products: ["Placa 4x4 branca", "Placa 4x2 branca"] },
+  { id: "e5", name: "Embaladora 4x2 suportes/placas nº 1", line: "Embalagem", regime: 2, perShift: 6800, attainment: 0.71, days: 18, lastDay: 27, reworkRate: 0.09, products: ["Suporte 4x2", "Placa 4x2 grafite"] },
+  { id: "e6", name: "Embaladora 4x2 suportes/placas nº 2", line: "Embalagem", regime: 2, perShift: 6800, attainment: 0.48, days: 12, lastDay: 24, reworkRate: 0.11, products: ["Suporte 4x2", "Suporte 4x4"] },
+  { id: "e7", name: "Embaladora vertical módulos nº 1", line: "Embalagem", regime: 2, perShift: 11600, attainment: 1.02, days: 20, lastDay: 27, reworkRate: 0.03, products: ["Módulo tomada 10A", "Módulo interruptor simples"] },
+  { id: "e8", name: "Embaladora vertical módulos nº 2", line: "Embalagem", regime: 2, perShift: 11600, attainment: 0.88, days: 19, lastDay: 27, reworkRate: 0.04, products: ["Módulo tomada 20A", "Módulo interruptor paralelo"] },
+  // ---- Granel
+  { id: "e9", name: "Bancada de embalagem a granel", line: "Granel", regime: 2, perShift: 21000, attainment: 0.77, days: 18, lastDay: 27, reworkRate: 0.03, products: ["Tampa avulsa", "Parafuso borne M3", "Mola de contato"] },
 ];
 
 /* ---------- Pessoas, motivos e observações (fictícios) ---------- */
 export const OPERATORS: Record<Shift, string[]> = {
-  1: ["Ana Paula Ribeiro", "Carlos Eduardo Lima", "Juliana Martins"],
-  2: ["Marcos Vieira", "Patrícia Gomes", "Rodrigo Alves"],
-  3: ["Fernanda Costa", "Lucas Pereira"],
+  1: ["Ana Paula Ribeiro", "Carlos Eduardo Lima", "Juliana Martins", "Bruno Teixeira", "Camila Duarte", "Eduardo Farias"],
+  2: ["Marcos Vieira", "Patrícia Gomes", "Rodrigo Alves", "Larissa Monteiro", "Thiago Barros", "Vanessa Cardoso"],
+  3: ["Fernanda Costa", "Lucas Pereira", "Gustavo Rezende"],
 };
-const SHIFT_END_HOUR: Record<Shift, number> = { 1: 13, 2: 21, 3: 5 };
+/** Quem responde e movimenta as OPs */
+export const LEADERS: Record<Shift, string> = { 1: "Beatriz Nunes", 2: "Diego Ramos", 3: "Helena Prado" };
+export const MANAGER = "Rafael Souza";
+
+const SHIFT_END_HOUR: Record<Shift, number> = { 1: 13, 2: 22, 3: 4 };
 
 export const REWORK_REASONS = [
   "Rebarba na peça",
@@ -232,16 +213,26 @@ export const REWORK_REASONS = [
 
 const NOTES = [
   "Máquina parada 40 min para troca de molde.",
-  "Falta de matéria-prima no início do turno; produção começou às 7h20.",
+  "Falta de matéria-prima no início do turno; produção começou às 5h50.",
   "Setup demorado por ajuste de temperatura.",
   "Operador novo em treinamento neste turno.",
-  "Troca de bobina fora do previsto.",
+  "Troca de bobina de filme fora do previsto.",
   "Parada de 25 min por queda de energia na linha.",
   "Produção normal, sem ocorrências.",
   "Ajuste de ferramenta depois do intervalo.",
   "Aguardando manutenção no alimentador vibratório.",
   "Lote de tampas com variação de cor; separado para inspeção.",
 ];
+const REPLIES = [
+  "Obrigado pelo aviso. Já acionei a manutenção.",
+  "Ok. Separa o lote e identifica para a qualidade.",
+  "O material chega no início do próximo turno.",
+  "Registrado, vamos acompanhar no próximo turno.",
+  "Pode seguir com o setup e avisa quando liberar.",
+  "Ciente. Se repetir, abre chamado para a engenharia.",
+];
+const FOLLOW_UPS = ["Resolvido, máquina voltou ao normal.", "Lote liberado pela qualidade.", "Material chegou, produção retomada."];
+const PAUSE_REASONS = ["Falta de material", "Máquina em manutenção", "Aguardando liberação da qualidade"];
 
 /** Divide `total` em partes inteiras proporcionais aos pesos, somando exatamente `total`. */
 function split(total: number, weights: number[]) {
@@ -254,11 +245,19 @@ function split(total: number, weights: number[]) {
 const trendFrom = (daily: Map<number, number>): DayPoint[] =>
   ELAPSED_DATES.slice(-14).map((date) => ({ date, value: daily.get(dayKey(date)) ?? null }));
 
-function buildMachine(raw: (typeof RAW)[number], index: number): Machine {
-  const random = rng(index * 7919 + 17);
-  const percent = Math.round((raw.produced / raw.target) * 100);
+const at = (date: Date, hour: number, minute: number) => new Date(YEAR, MONTH, date.getDate(), hour, minute);
 
-  // Dias apontados: o último dia é fixo; os demais saem de um embaralhamento determinístico
+function buildMachine(raw: RawCenter, index: number): Machine {
+  const random = rng(index * 7919 + 17);
+  const extra = rng(index * 104729 + 7);
+  const hasTarget = raw.perShift != null;
+  const target = hasTarget ? raw.perShift! * raw.regime * WORKING_DAYS : 0;
+  const produced = hasTarget ? Math.round(target * raw.attainment!) : raw.demandVolume!;
+  const percent = hasTarget ? Math.round((produced / target) * 100) : 0;
+  // Peso de cada turno: o T3 só existe no regime 3 (hoje, hora extra)
+  const shiftProfile: [number, number, number] = raw.regime === 3 ? [0.4, 0.36, 0.24] : [0.52, 0.48, 0];
+
+  // Dias apontados: o último é fixo; os demais saem de um embaralhamento determinístico
   const candidates = WORKING_DATES.filter((d) => d.getDate() < raw.lastDay);
   const shuffled = candidates
     .map((d) => ({ d, k: random() }))
@@ -268,7 +267,7 @@ function buildMachine(raw: (typeof RAW)[number], index: number): Machine {
   const entryDates = [lastDate, ...shuffled.slice(0, raw.days - 1)].sort((a, b) => b.getTime() - a.getTime());
 
   const perDay = split(
-    raw.produced,
+    produced,
     entryDates.map(() => 0.7 + random() * 0.6),
   );
 
@@ -276,27 +275,27 @@ function buildMachine(raw: (typeof RAW)[number], index: number): Machine {
   const orders: ProductionOrder[] = [];
   const byShift: Record<Shift, number> = { 1: 0, 2: 0, 3: 0 };
   const ordersByShift: Record<Shift, number> = { 1: 0, 2: 0, 3: 0 };
+  const minutesByShift: Record<Shift, number> = { 1: 0, 2: 0, 3: 0 };
+  const USEFUL: Record<Shift, number> = { 1: 493, 2: 481, 3: 271 };
   let seq = 0;
-  // Gerador separado para os campos de apoio: não altera produção, dias nem turnos
-  const extra = rng(index * 104729 + 7);
 
   entryDates.forEach((date, d) => {
     daily.set(dayKey(date), perDay[d]);
-    // Turnos que apontaram neste dia (pelo menos um, respeitando o perfil da máquina)
-    let shifts = SHIFTS.filter((s) => raw.shiftProfile[s - 1] > 0 && random() < 0.55 + raw.shiftProfile[s - 1]);
-    if (shifts.length === 0) shifts = [SHIFTS.find((s) => raw.shiftProfile[s - 1] > 0)!];
+    let shifts = SHIFTS.filter((s) => shiftProfile[s - 1] > 0 && random() < 0.55 + shiftProfile[s - 1]);
+    if (shifts.length === 0) shifts = [1];
     const quantities = split(
       perDay[d],
-      shifts.map((s) => raw.shiftProfile[s - 1] * (0.8 + random() * 0.4)),
+      shifts.map((s) => shiftProfile[s - 1] * (0.8 + random() * 0.4)),
     );
     shifts.forEach((shift, i) => {
       byShift[shift] += quantities[i];
       ordersByShift[shift] += 1;
-      const product = raw.products[Math.floor(random() * raw.products.length)];
+      // tempo produtivo do turno: tempo útil menos paradas (fictício)
+      minutesByShift[shift] += Math.round(USEFUL[shift] * (0.72 + extra() * 0.22));
       const rework = extra() < raw.reworkRate;
       const operators = OPERATORS[shift];
-      const operator = operators[Math.floor(extra() * operators.length)];
-      const minutes = 20 + Math.floor(extra() * 35);
+      const operator = operators[(index + Math.floor(extra() * operators.length)) % operators.length];
+      const minutes = 5 + Math.floor(extra() * 45);
       const noteRoll = extra();
       const reworkReason = rework ? REWORK_REASONS[Math.floor(extra() * REWORK_REASONS.length)] : null;
       const REWORK_NOTES = [
@@ -304,25 +303,26 @@ function buildMachine(raw: (typeof RAW)[number], index: number): Machine {
         "lote segregado para inspeção da qualidade.",
         "retrabalho feito no próprio turno.",
       ];
-      const id = `OP ${4501000 + index * 997 + seq++ * 13}`;
+      const id = `e-${raw.id}-${seq++}`;
       orders.push({
         id,
+        opId: "", // preenchido ao montar as OPs
         machineId: raw.id,
         date,
         shift,
-        product,
+        product: "",
         quantity: quantities[i],
         rework,
         reworkReason,
         operator,
-        recordedAt: new Date(YEAR, MONTH, date.getDate(), SHIFT_END_HOUR[shift], minutes),
+        recordedAt: at(date, SHIFT_END_HOUR[shift], minutes),
         note:
-          noteRoll < 0.3 || rework
+          noteRoll < 0.22 || rework
             ? {
                 id: `n-${id}`,
                 text: rework
                   ? `${reworkReason}: ${REWORK_NOTES[Math.floor(noteRoll * 3)]}`
-                  : NOTES[Math.floor(noteRoll * 33) % NOTES.length],
+                  : NOTES[Math.floor(noteRoll * 45) % NOTES.length],
                 author: operator,
               }
             : null,
@@ -337,49 +337,218 @@ function buildMachine(raw: (typeof RAW)[number], index: number): Machine {
   return {
     id: raw.id,
     name: raw.name,
-    lines: raw.lines,
+    line: raw.line,
+    lines: hasTarget ? [raw.line] : [raw.line, "Por demanda"],
+    hasTarget,
+    regime: raw.regime,
     days: raw.days,
-    produced: raw.produced,
-    target: raw.target,
+    produced,
+    target,
     percent,
     status: statusFor(percent),
-    dailyTarget: Math.round(raw.target / WORKING_DAYS),
+    dailyTarget: Math.round(target / WORKING_DAYS),
     daily,
     trend: trendFrom(daily),
     byShift,
     ordersByShift,
+    minutesByShift,
     lastEntry: { date: last.date, shift: lastShift },
     orders,
   };
 }
 
+/* ============================================================
+ * OPs (ordens de produção) e a conversa de cada uma
+ * ============================================================ */
+
+/** Etapas: Aguardando liberação → Em produção ⇄ Pausada → Concluída */
+export type OpStage = "waiting" | "running" | "paused" | "done";
+
+export const OP_STAGE_META: Record<OpStage, { label: string; appearance: "neutral" | "information" | "warning" | "success" }> = {
+  waiting: { label: "Aguardando liberação", appearance: "neutral" },
+  running: { label: "Em produção", appearance: "information" },
+  paused: { label: "Pausada", appearance: "warning" },
+  done: { label: "Concluída", appearance: "success" },
+};
+
+export type MessageRole = "operator" | "leader" | "manager" | "system";
+
+export interface OpMessage {
+  id: string;
+  opId: string;
+  at: Date;
+  author: string;
+  role: MessageRole;
+  shift?: Shift;
+  text: string;
+  /** mensagem nascida de um apontamento com retrabalho */
+  rework?: boolean;
+}
+
+export interface WorkOrder {
+  /** número da OP ("OP 4501234") */
+  id: string;
+  machineId: string;
+  product: string;
+  /** quantidade pedida na OP */
+  planned: number;
+  /** soma dos apontamentos */
+  produced: number;
+  stage: OpStage;
+  releasedAt: Date;
+  closedAt: Date | null;
+  pauseReason: string | null;
+  entryIds: string[];
+  messages: OpMessage[];
+}
+
+/** Atingiu a quantidade da OP: o sistema sugere concluir, uma pessoa confirma */
+export const isReadyToClose = (op: WorkOrder) => op.stage === "running" && op.produced >= op.planned;
+
+const roundTo = (n: number, step: number) => Math.max(step, Math.round(n / step) * step);
+const minutesLater = (d: Date, min: number) => new Date(d.getTime() + min * 60000);
+
+function buildWorkOrders(m: Machine, index: number, products: string[]): WorkOrder[] {
+  const random = rng(index * 31337 + 11);
+  const entries = [...m.orders].sort((a, b) => a.recordedAt.getTime() - b.recordedAt.getTime());
+  const avg = m.produced / Math.max(1, entries.length);
+  const ops: WorkOrder[] = [];
+  let seq = 0;
+  const nextId = () => `OP ${4510000 + index * 1009 + seq++ * 17}`;
+
+  let current: WorkOrder | null = null;
+  const open = (first: Date) => {
+    const product = products[Math.floor(random() * products.length)];
+    const releasedAt = at(new Date(first.getTime() - 86400000 * (random() < 0.5 ? 1 : 0)), 7, Math.floor(random() * 50));
+    const op: WorkOrder = {
+      id: nextId(),
+      machineId: m.id,
+      product,
+      planned: roundTo(avg * (2 + Math.floor(random() * 4)), 500),
+      produced: 0,
+      stage: "running",
+      releasedAt: releasedAt < first ? releasedAt : minutesLater(first, -120),
+      closedAt: null,
+      pauseReason: null,
+      entryIds: [],
+      messages: [],
+    };
+    const leader = LEADERS[1];
+    op.messages.push({ id: `${op.id}-rel`, opId: op.id, at: op.releasedAt, author: leader, role: "leader", shift: 1, text: "OP liberada para produção." });
+    ops.push(op);
+    return op;
+  };
+
+  for (const e of entries) {
+    if (!current) current = open(e.recordedAt);
+    const op: WorkOrder = current;
+    e.opId = op.id;
+    e.product = op.product;
+    op.produced += e.quantity;
+    op.entryIds.push(e.id);
+    if (e.note) {
+      op.messages.push({ id: e.note.id, opId: op.id, at: e.recordedAt, author: e.operator, role: "operator", shift: e.shift, text: e.note.text, rework: e.rework });
+      const roll = random();
+      if (roll < 0.6) {
+        const replier = roll < 0.12 ? MANAGER : LEADERS[e.shift];
+        const replyAt = minutesLater(e.recordedAt, 20 + Math.floor(random() * 70));
+        op.messages.push({
+          id: `${e.note.id}-r`,
+          opId: op.id,
+          at: replyAt,
+          author: replier,
+          role: replier === MANAGER ? "manager" : "leader",
+          shift: replier === MANAGER ? undefined : e.shift,
+          text: REPLIES[Math.floor(random() * REPLIES.length)],
+        });
+        if (roll < 0.25)
+          op.messages.push({
+            id: `${e.note.id}-f`,
+            opId: op.id,
+            at: minutesLater(replyAt, 30 + Math.floor(random() * 60)),
+            author: e.operator,
+            role: "operator",
+            shift: e.shift,
+            text: FOLLOW_UPS[Math.floor(random() * FOLLOW_UPS.length)],
+          });
+      }
+    }
+    // Atingiu a quantidade: fecha (menos a última, que fica "pronta para concluir" às vezes)
+    if (op.produced >= op.planned && e !== entries[entries.length - 1]) {
+      const closer = LEADERS[e.shift === 3 ? 1 : e.shift];
+      op.stage = "done";
+      op.closedAt = minutesLater(e.recordedAt, 15 + Math.floor(random() * 40));
+      op.messages.push({ id: `${op.id}-done`, opId: op.id, at: op.closedAt, author: closer, role: "system", text: `OP concluída por ${closer}.` });
+      current = null;
+    }
+  }
+
+  // A OP em andamento: parada há dias → pausada com motivo
+  const live = ops[ops.length - 1];
+  if (live && live.stage === "running" && m.lastEntry && REFERENCE_DAY - m.lastEntry.date.getDate() >= 2) {
+    const reason = PAUSE_REASONS[index % PAUSE_REASONS.length];
+    live.stage = "paused";
+    live.pauseReason = reason;
+    const pausedAt = at(new Date(YEAR, MONTH, m.lastEntry.date.getDate() + 1), 6, 10);
+    live.messages.push({ id: `${live.id}-pause`, opId: live.id, at: pausedAt, author: LEADERS[1], role: "system", text: `Pausada por ${LEADERS[1]}: ${reason}.` });
+  }
+
+  // Próximas OPs já cadastradas, esperando ir para a produção
+  const waiting = Math.floor(random() * 3);
+  for (let i = 0; i < waiting; i++) {
+    const releasedAt = at(new Date(YEAR, MONTH, REFERENCE_DAY - Math.floor(random() * 3)), 8 + i, Math.floor(random() * 50));
+    const id = nextId();
+    ops.push({
+      id,
+      machineId: m.id,
+      product: products[Math.floor(random() * products.length)],
+      planned: roundTo(avg * (2 + Math.floor(random() * 3)), 500),
+      produced: 0,
+      stage: "waiting",
+      releasedAt,
+      closedAt: null,
+      pauseReason: null,
+      entryIds: [],
+      messages: [{ id: `${id}-in`, opId: id, at: releasedAt, author: MANAGER, role: "system", text: "OP cadastrada no sistema. Aguardando liberação para a produção." }],
+    });
+  }
+
+  for (const op of ops) op.messages.sort((a, b) => a.at.getTime() - b.at.getTime());
+  return ops;
+}
+
 export const MACHINES: Machine[] = RAW.map(buildMachine);
 export const machineById = (id: string) => MACHINES.find((m) => m.id === id)!;
+/** Centros com meta: são os que entram no atingimento (Dashboard, gráficos, TV, ranking) */
+export const TARGET_MACHINES = MACHINES.filter((m) => m.hasTarget);
+export const DEMAND_MACHINES = MACHINES.filter((m) => !m.hasTarget);
 
-/** Todas as OPs do mês, da mais recente para a mais antiga */
+/** Todas as OPs do mês (inclusive as que aguardam liberação) */
+export const WORK_ORDERS: WorkOrder[] = MACHINES.flatMap((m, i) => buildWorkOrders(m, i, RAW[i].products));
+
+/** Todos os apontamentos do mês, do mais recente para o mais antigo */
 export const ALL_ORDERS: ProductionOrder[] = MACHINES.flatMap((m) => m.orders).sort(
   (a, b) => b.recordedAt.getTime() - a.recordedAt.getTime(),
 );
 
-/* ---------- Linhas (mesmos grupos do apontamento no app atual) ---------- */
+/* ---------- Linhas ---------- */
 export interface MachineGroup {
   id: string;
-  label: string;
+  label: Line;
   machineIds: string[];
 }
-export const MACHINE_GROUPS: MachineGroup[] = [
-  { id: "horizontais", label: "Horizontais", machineIds: ["horizontal-1"] },
-  { id: "verticais", label: "Verticais", machineIds: ["vertical-placas-2"] },
-  { id: "granel", label: "Granel & Interruptores", machineIds: ["granel", "teste-interruptores"] },
-  { id: "montagem", label: "Montagem", machineIds: ["montagem-diversos", "montagem-refinatto"] },
-];
+export const MACHINE_GROUPS: MachineGroup[] = LINES.map((line) => ({
+  id: line.toLowerCase(),
+  label: line,
+  machineIds: MACHINES.filter((m) => m.line === line).map((m) => m.id),
+}));
 export const groupOf = (machineId: string) => MACHINE_GROUPS.find((g) => g.machineIds.includes(machineId))!;
 
 /* ---------- Metas ---------- */
 export const ACTIVE_SHIFTS = 3;
 export const META_EFFECTIVE_FROM = new Date(YEAR, MONTH, 1);
-/** Meta por turno derivada da meta do mês (meta/mês = meta/turno × turnos × dias úteis) */
-export const metaPerShift = (m: Machine, shifts = ACTIVE_SHIFTS) => Math.round(m.target / (WORKING_DAYS * shifts));
+/** Meta por turno derivada da meta do mês (meta/mês = meta/turno × turnos do centro × dias úteis) */
+export const metaPerShift = (m: Machine, shifts: number = m.regime) => Math.round(m.target / (WORKING_DAYS * shifts));
 
 export interface MetaChange {
   id: string;
@@ -388,19 +557,23 @@ export interface MetaChange {
   summary: string;
 }
 export const META_CHANGES: MetaChange[] = [
-  { id: "c3", date: new Date(YEAR, MONTH, 1, 8, 12), author: "Rafael Souza", summary: "Metas de março publicadas para 6 máquinas" },
-  { id: "c2", date: new Date(YEAR, 1, 24, 16, 40), author: "Rafael Souza", summary: "MONTAGEM PLACA REFINATTO: meta por turno de 1.100 para 1.273" },
-  { id: "c1", date: new Date(YEAR, 1, 2, 9, 5), author: "Juliana Martins", summary: "Turnos ativos alterados de 2 para 3" },
+  { id: "c3", date: new Date(YEAR, MONTH, 1, 8, 12), author: MANAGER, summary: `Metas de março publicadas para ${TARGET_MACHINES.length} centros` },
+  { id: "c2", date: new Date(YEAR, 1, 24, 16, 40), author: MANAGER, summary: "Embaladora vertical módulos nº 1: meta por turno de 11.000 para 11.600" },
+  { id: "c1", date: new Date(YEAR, 1, 2, 9, 5), author: LEADERS[1], summary: "Composé nº 1 e tomadas Composé passam a rodar no 3º turno" },
 ];
 
-/* ---------- Feedbacks (observações das OPs) ---------- */
+/* ---------- Feedbacks (observações dos apontamentos) ---------- */
 export const FEEDBACKS = ALL_ORDERS.filter((o) => o.note);
-/** Os 12 mais recentes começam como não lidos */
-export const INITIAL_UNREAD = FEEDBACKS.slice(0, 12).map((o) => o.note!.id);
+/** As 12 mensagens mais recentes de operadores começam como não lidas */
+export const INITIAL_UNREAD = WORK_ORDERS.flatMap((op) => op.messages)
+  .filter((msg) => msg.role === "operator")
+  .sort((a, b) => b.at.getTime() - a.at.getTime())
+  .slice(0, 12)
+  .map((msg) => msg.id);
 
 /**
- * Recorta a máquina para um turno: produção, dias, ordens e tendência só
- * daquele turno, contra 1/3 da meta. "all" devolve a máquina inteira.
+ * Recorta o centro para um turno: produção, dias, ordens e tendência só
+ * daquele turno, contra a meta do turno. "all" devolve o centro inteiro.
  */
 export function scopeToShift(m: Machine, shift: Shift | "all"): Machine {
   if (shift === "all") return m;
@@ -408,8 +581,8 @@ export function scopeToShift(m: Machine, shift: Shift | "all"): Machine {
   const daily = new Map<number, number>();
   for (const o of orders) daily.set(dayKey(o.date), (daily.get(dayKey(o.date)) ?? 0) + o.quantity);
   const produced = orders.reduce((s, o) => s + o.quantity, 0);
-  const target = Math.round(m.target / SHIFTS.length);
-  const percent = Math.round((produced / target) * 100);
+  const target = shift <= m.regime ? Math.round(m.target / m.regime) : 0;
+  const percent = target ? Math.round((produced / target) * 100) : 0;
   return {
     ...m,
     orders,
@@ -438,14 +611,22 @@ export function aggregate(machines: Machine[]) {
   };
 }
 
-/** Produção por turno somando as máquinas (ordem fixa 1, 2, 3) */
+/** Produção por turno somando os centros (ordem fixa 1, 2, 3); meta só dos turnos em que cada centro roda */
 export function shiftTotals(machines: Machine[]) {
-  return SHIFTS.map((shift) => ({
-    shift,
-    produced: machines.reduce((s, m) => s + m.byShift[shift], 0),
-    orders: machines.reduce((s, m) => s + m.ordersByShift[shift], 0),
-    target: Math.round(machines.reduce((s, m) => s + m.target, 0) / SHIFTS.length),
-  }));
+  return SHIFTS.map((shift) => {
+    const running = machines.filter((m) => shift <= m.regime);
+    const produced = machines.reduce((s, m) => s + m.byShift[shift], 0);
+    const minutes = machines.reduce((s, m) => s + m.minutesByShift[shift], 0);
+    return {
+      shift,
+      produced,
+      orders: machines.reduce((s, m) => s + m.ordersByShift[shift], 0),
+      target: Math.round(running.reduce((s, m) => s + m.target / m.regime, 0)),
+      /** peças por minuto de produção */
+      perMinute: minutes ? produced / minutes : 0,
+      rework: machines.reduce((s, m) => s + m.orders.filter((o) => o.shift === shift && o.rework).length, 0),
+    };
+  });
 }
 
 /** Série diária da fábrica (dias úteis transcorridos) e acumulado vs meta */
@@ -467,4 +648,5 @@ export function plantSeries(machines: Machine[]) {
   });
 }
 
-export const PREVIOUS_MONTH_PRODUCED = 770220; // fevereiro/2026 → +12,4%
+/** Produção de fevereiro dos centros com meta (fictícia): março está 12,4% acima */
+export const PREVIOUS_MONTH_PRODUCED = Math.round(aggregate(TARGET_MACHINES).produced / 1.124);

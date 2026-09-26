@@ -123,42 +123,11 @@ export function computeTotals(scenario: Scenario) {
   };
 }
 
-/* ---------- Pontos de atenção encontrados na planilha ---------- */
-// Calculados a partir da base, para valerem tanto com os dados reais quanto com os fictícios.
+/* ---------- Total da embalagem como a planilha mostra ---------- */
+// Calculado a partir da base, para valer tanto com os dados reais quanto com os fictícios.
 
 const baseResults = () => BASELINE.processes.map((p) => ({ p, daily: computeProcess(BASELINE, p).daily }));
 const packing = () => baseResults().filter((x) => x.p.area === "embalagem");
-const fmt = (n: number) => Math.round(n).toLocaleString("pt-BR");
 
 /** Total da embalagem como a planilha mostra: a soma para antes da última linha */
 export const spreadsheetPackingTotal = () => packing().slice(0, -1).reduce((s, x) => s + x.daily, 0);
-
-export function spreadsheetIssues(): Array<{ title: string; detail: string }> {
-  const pk = packing();
-  const last = pk[pk.length - 1];
-  const full = pk.reduce((s, x) => s + x.daily, 0);
-  const [t1, t2] = BASELINE.shifts;
-  const effs = pk.map((x) => x.p.efficiency * 100);
-  const noRate = BASELINE.processes.filter((p) => p.rate == null);
-  const issues = [
-    {
-      title: "O total da embalagem deixa uma máquina de fora",
-      detail: `As somas K38 e N38 param na linha anterior; a ${last.p.name} (${fmt(last.daily)} peças/dia) fica fora. O total correto é ${fmt(full)} peças/dia, não ${fmt(spreadsheetPackingTotal())}.`,
-    },
-    {
-      title: "Cabeçalho da embalagem diz “Eficiência 60%”",
-      detail: `As eficiências da coluna vão de ${Math.min(...effs)}% a ${Math.max(...effs)}%. O título da coluna não corresponde aos valores.`,
-    },
-  ];
-  if (t1.start === t2.start && t1.end === t2.end)
-    issues.splice(1, 0, {
-      title: "1º e 2º turno com o mesmo horário",
-      detail: `Os dois aparecem como ${t1.start}–${t1.end}, com tempos brutos diferentes (${t1.grossMinutes} e ${t2.grossMinutes} min): o horário provavelmente está desatualizado.`,
-    });
-  if (noRate.length)
-    issues.push({
-      title: `${noRate.length} ${noRate.length === 1 ? "máquina nova" : "máquinas novas"} sem peças/min`,
-      detail: `${noRate.map((p) => p.name).join(", ")}: têm pessoas alocadas, mas capacidade zero por falta de taxa.`,
-    });
-  return issues;
-}

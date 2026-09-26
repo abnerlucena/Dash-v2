@@ -3,7 +3,9 @@ import {
   Bell,
   CircleHelp,
   ClipboardList,
-  Columns3,
+  Boxes,
+  Factory,
+  PackageOpen,
   FileText,
   FlaskConical,
   History,
@@ -13,9 +15,8 @@ import {
   Monitor,
   Moon,
   MoreHorizontal,
-  Package,
   RotateCcw,
-  Rows3,
+  ScrollText,
   Search,
   Settings,
   Sun,
@@ -26,7 +27,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
-import { INITIAL_UNREAD, SHIFTS, SHIFT_META, type Shift } from "@/data/machines";
+import { SHIFTS, SHIFT_META, type Shift } from "@/data/machines";
 import { SHIFT_FILL } from "@/components/data/StackedBar";
 import { Lozenge } from "@/components/ui/Lozenge";
 import { AppRoot, Banner, Main } from "@/components/layout/AppRoot";
@@ -62,6 +63,8 @@ import { HistoryPage } from "@/features/history/HistoryPage";
 import { RankingPage } from "@/features/analysis/RankingPage";
 import { ReworkPage } from "@/features/analysis/ReworkPage";
 import { FeedbacksPage } from "@/features/feedbacks/FeedbacksPage";
+import { OpsPage } from "@/features/ops/OpsPage";
+import { OpsProvider, useOps } from "@/features/ops/OpsStore";
 import { ReportsPage } from "@/features/reports/ReportsPage";
 import { TvMode } from "@/features/tv/TvMode";
 import { HelpPage } from "@/features/help/HelpPage";
@@ -74,6 +77,7 @@ type NavEntry = { id: string; label: string; icon?: LucideIcon; count?: number; 
 const NAV_MAIN: NavEntry[] = [
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
   { id: "apontamento", label: "Apontamento", icon: ClipboardList },
+  { id: "ops", label: "OPs", icon: ScrollText },
   { id: "historico", label: "Histórico", icon: History },
   { id: "metas", label: "Metas", icon: Target },
   { id: "feedbacks", label: "Feedbacks", icon: MessageSquare },
@@ -83,9 +87,9 @@ const NAV_SECTIONS: Array<{ title: string; items: NavEntry[] }> = [
   {
     title: "Linhas",
     items: [
-      { id: "linha-horizontais", label: "Horizontais", icon: Rows3 },
-      { id: "linha-verticais", label: "Verticais", icon: Columns3 },
-      { id: "linha-granel", label: "Granel & Interruptores", icon: Package },
+      { id: "linha-montagem", label: "Montagem", icon: Factory },
+      { id: "linha-embalagem", label: "Embalagem", icon: PackageOpen },
+      { id: "linha-granel", label: "Granel", icon: Boxes },
     ],
   },
   {
@@ -109,9 +113,9 @@ const ALL_NAV = [...NAV_MAIN, ...NAV_SECTIONS.flatMap((s) => s.items), { id: "tv
 
 /* Linhas e turnos reaproveitam a tela Máquinas com um recorte fixo */
 const LINE_ROUTES: Record<string, { title: string; breadcrumbs: string[]; groupId: string }> = {
-  "linha-horizontais": { title: "Horizontais", breadcrumbs: ["Linhas"], groupId: "horizontais" },
-  "linha-verticais": { title: "Verticais", breadcrumbs: ["Linhas"], groupId: "verticais" },
-  "linha-granel": { title: "Granel & Interruptores", breadcrumbs: ["Linhas"], groupId: "granel" },
+  "linha-montagem": { title: "Montagem", breadcrumbs: ["Linhas"], groupId: "montagem" },
+  "linha-embalagem": { title: "Embalagem", breadcrumbs: ["Linhas"], groupId: "embalagem" },
+  "linha-granel": { title: "Granel", breadcrumbs: ["Linhas"], groupId: "granel" },
 };
 const SHIFT_ROUTES: Record<string, { title: string; breadcrumbs: string[]; presetShift: Shift; titleAccessory: ReactNode }> =
   Object.fromEntries(
@@ -137,34 +141,36 @@ const SECTION_LABEL = "Tomadas & Interruptores · Itajaí";
 
 const USER = { name: "Rafael Souza", role: "Gestor" };
 
+/** "#/feedbacks/4510000" → rota "feedbacks", parâmetro "4510000" */
 function useHashRoute() {
-  const read = () => window.location.hash.replace(/^#\/?/, "") || "dashboard";
-  const [route, setRoute] = useState(read);
+  const read = () => decodeURIComponent(window.location.hash.replace(/^#\/?/, "")) || "dashboard";
+  const [path, setPath] = useState(read);
   useEffect(() => {
-    const onHash = () => setRoute(read());
+    const onHash = () => setPath(read());
     window.addEventListener("hashchange", onHash);
     return () => window.removeEventListener("hashchange", onHash);
   }, []);
-  return route;
+  const [route, param] = path.split("/");
+  return { route, param };
 }
 
 export default function App() {
-  const route = useHashRoute();
+  return (
+    <OpsProvider>
+      <Shell />
+    </OpsProvider>
+  );
+}
+
+function Shell() {
+  const { route, param } = useHashRoute();
+  const { unread } = useOps();
   const colorMode = useColorMode();
   const [search, setSearch] = useState("");
   const [demoState, setDemoState] = useState<DemoState>("live");
   const [flags, setFlags] = useState<FlagData[]>([]);
   const [bannerOpen, setBannerOpen] = useState(() => !storageGet("dash-proto.banner.dismissed", false));
   const flagId = useRef(0);
-  // Feedbacks não lidos: o contador do menu acompanha
-  const [unread, setUnread] = useState<Set<string>>(() => new Set(INITIAL_UNREAD));
-  const setRead = useCallback((ids: string[], read: boolean) => {
-    setUnread((prev) => {
-      const next = new Set(prev);
-      ids.forEach((id) => (read ? next.delete(id) : next.add(id)));
-      return next;
-    });
-  }, []);
 
   const notify = useCallback<Notify>((title, description, appearance = "success", action) => {
     setFlags((f) => [...f.slice(-2), { id: ++flagId.current, title, description, appearance, action }]);
@@ -183,7 +189,7 @@ export default function App() {
   if (route === "tv")
     return (
       <TooltipProvider>
-        <TvMode onExit={() => (window.location.hash = "/dashboard")} />
+        <TvMode scope={param} onExit={() => (window.location.hash = "/dashboard")} />
       </TooltipProvider>
     );
   const current = ALL_NAV.find((n) => n.id === route);
@@ -288,7 +294,9 @@ export default function App() {
           ) : route === "retrabalho" ? (
             <ReworkPage />
           ) : route === "feedbacks" ? (
-            <FeedbacksPage unread={unread} onReadChange={setRead} notify={notify} />
+            <FeedbacksPage opParam={param} notify={notify} />
+          ) : route === "ops" ? (
+            <OpsPage notify={notify} />
           ) : route === "relatorios" ? (
             <ReportsPage notify={notify} />
           ) : route === "ajuda" ? (
@@ -427,7 +435,7 @@ function SearchField({ value, onChange }: { value: string; onChange: (v: string)
 /* ---------- Top nav: fim ---------- */
 const NOTIFICATIONS = [
   { id: 1, dot: "bg-icon-danger", status: "Crítico", title: "Meta de março em risco", body: "Atingimento geral em 49% a 2 dias úteis do fim do mês.", time: "há 12 min" },
-  { id: 3, dot: "bg-icon-warning", status: "Atenção", title: "Turno 3 sem apontamento", body: "HORIZONTAL 1 não registrou produção no Turno 3 em 26/03.", time: "ontem" },
+  { id: 3, dot: "bg-icon-warning", status: "Atenção", title: "Turno 3 sem apontamento", body: "Máquina de tomadas Composé não registrou produção no Turno 3 em 26/03.", time: "ontem" },
 ];
 
 function Notifications({ unreadFeedbacks }: { unreadFeedbacks: number }) {

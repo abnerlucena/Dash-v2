@@ -2,7 +2,7 @@ import { Info, Pencil } from "lucide-react";
 import { useMemo, useState } from "react";
 import {
   ACTIVE_SHIFTS,
-  MACHINES,
+  TARGET_MACHINES,
   META_CHANGES,
   META_EFFECTIVE_FROM,
   STATUS_META,
@@ -29,7 +29,7 @@ import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { TextField } from "@/components/ui/TextField";
 import { DateField } from "@/components/ui/DateField";
 
-const initialValues = () => Object.fromEntries(MACHINES.map((m) => [m.id, String(metaPerShift(m))]));
+const initialValues = () => Object.fromEntries(TARGET_MACHINES.map((m) => [m.id, String(metaPerShift(m))]));
 const dateTime = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
 const dateOnly = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" });
 
@@ -60,21 +60,23 @@ function CurrentMetas({ notify, history, setHistory }: CurrentMetasProps) {
     if (!/^\d+$/.test(v) || Number(v) <= 0) return "Use um número inteiro maior que zero";
     return null;
   };
-  const changed = MACHINES.filter((m) => values[m.id] !== saved[m.id]);
+  const changed = TARGET_MACHINES.filter((m) => values[m.id] !== saved[m.id]);
   const shiftsChanged = shifts !== savedShifts;
-  const hasErrors = MACHINES.some((m) => errorOf(m.id));
+  const hasErrors = TARGET_MACHINES.some((m) => errorOf(m.id));
   const effectiveError = effective < MIN_EFFECTIVE ? "A vigência precisa ser a partir de 28/03/2026" : null;
 
   const original = useMemo(initialValues, []);
   // Sem edição, vale a meta mensal original (evita o arredondamento da meta por turno)
+  // Cada máquina roda no seu regime (2 ou 3 turnos); "turnos ativos" é um teto para todas
+  const shiftsOf = (m: Machine) => Math.min(m.regime, shifts);
   const monthOf = (m: Machine) =>
-    values[m.id] === original[m.id] && shifts === ACTIVE_SHIFTS ? m.target : perShift(m.id) * shifts * WORKING_DAYS;
-  const plantMonth = MACHINES.reduce((s, m) => s + monthOf(m), 0);
-  const plantProduced = MACHINES.reduce((s, m) => s + m.produced, 0);
+    values[m.id] === original[m.id] && shifts === ACTIVE_SHIFTS ? m.target : perShift(m.id) * shiftsOf(m) * WORKING_DAYS;
+  const plantMonth = TARGET_MACHINES.reduce((s, m) => s + monthOf(m), 0);
+  const plantProduced = TARGET_MACHINES.reduce((s, m) => s + m.produced, 0);
 
   const kpis: KpiItem[] = [
     { id: "month", label: "Meta do mês · fábrica", value: formatNumber(plantMonth), footer: `${WORKING_DAYS} dias úteis` },
-    { id: "day", label: "Meta por dia", value: formatNumber(Math.round(plantMonth / WORKING_DAYS)), footer: `${shifts} ${shifts === 1 ? "turno ativo" : "turnos ativos"}` },
+    { id: "day", label: "Meta por dia", value: formatNumber(Math.round(plantMonth / WORKING_DAYS)), footer: shifts === ACTIVE_SHIFTS ? "Cada máquina no seu regime de turnos" : `Até ${shifts} ${shifts === 1 ? "turno" : "turnos"} por máquina` },
     {
       id: "pct",
       label: "Atingimento com estas metas",
@@ -86,7 +88,7 @@ function CurrentMetas({ notify, history, setHistory }: CurrentMetasProps) {
       ),
       footer: "Produção de março contra a meta mensal",
     },
-    { id: "machines", label: "Máquinas com meta", value: MACHINES.length, footer: `Vigente desde ${dateOnly.format(META_EFFECTIVE_FROM)}` },
+    { id: "machines", label: "Máquinas com meta", value: TARGET_MACHINES.length, footer: `Vigente desde ${dateOnly.format(META_EFFECTIVE_FROM)}` },
   ];
 
   const columns: Column<Machine>[] = useMemo(
@@ -130,7 +132,11 @@ function CurrentMetas({ notify, history, setHistory }: CurrentMetasProps) {
         id: "perDay",
         header: "Meta por dia",
         align: "end",
-        cell: (m) => <span className="tabular-nums text-subtle">{formatNumber(perShift(m.id) * shifts)}</span>,
+        cell: (m) => (
+          <span className="tabular-nums text-subtle" title={`${shiftsOf(m)} turnos`}>
+            {formatNumber(perShift(m.id) * shiftsOf(m))}
+          </span>
+        ),
         footer: <span className="tabular-nums">{formatNumber(Math.round(plantMonth / WORKING_DAYS))}</span>,
       },
       {
@@ -212,7 +218,7 @@ function CurrentMetas({ notify, history, setHistory }: CurrentMetasProps) {
             <Lozenge>Vigente desde {dateOnly.format(META_EFFECTIVE_FROM)}</Lozenge>
           )}
           <span className="text-subtle">
-            Meta por dia = meta por turno × turnos ativos. Meta do mês = meta por dia × dias úteis.
+            Meta por dia = meta por turno × turnos da máquina (2 ou 3, limitado pelos turnos ativos). Meta do mês = meta por dia × dias úteis.
           </span>
         </span>
         <PageActions>
@@ -247,7 +253,7 @@ function CurrentMetas({ notify, history, setHistory }: CurrentMetasProps) {
               <div>
                 <p className="font-heading-xsmall text-default">Revise as metas por turno</p>
                 <p className="mt-050 text-default">
-                  Os valores do mês e o atingimento se recalculam enquanto você edita. As novas metas não mudam os números já
+                  Os valores do mês e o atingimento se recalculam enquanto você edita; cada máquina conta só os turnos em que roda. As novas metas não mudam os números já
                   fechados de março.
                 </p>
               </div>
@@ -277,11 +283,11 @@ function CurrentMetas({ notify, history, setHistory }: CurrentMetasProps) {
         <DataTable
           caption="Metas por máquina"
           columns={columns}
-          rows={MACHINES}
+          rows={TARGET_MACHINES}
           getRowId={(m) => m.id}
           getRowLabel={(m) => `${m.name}, meta por turno ${formatNumber(perShift(m.id))}`}
           selectable={false}
-          footerLead={`${MACHINES.length} máquinas`}
+          footerLead={`${TARGET_MACHINES.length} máquinas`}
         />
 
         <section aria-labelledby="meta-history" className="flex flex-col gap-150">

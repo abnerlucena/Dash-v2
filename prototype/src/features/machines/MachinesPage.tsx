@@ -2,7 +2,8 @@ import * as Tabs from "@radix-ui/react-tabs";
 import { ArrowDown, ArrowUp, Download, FilterX, LayoutList, Plus, RefreshCw, SearchX } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import {
-  MACHINES,
+  TARGET_MACHINES,
+  DEMAND_MACHINES,
   MACHINE_GROUPS,
   PREVIOUS_MONTH_PRODUCED,
   SHIFTS,
@@ -32,7 +33,7 @@ import { ShiftsView } from "./ShiftsView";
 export type DemoState = "live" | "loading" | "empty" | "error";
 
 interface MachinesPageProps {
-  /** Título e trilha (Linhas › Horizontais, Turnos › Turno 1…) */
+  /** Título e trilha (Linhas › Embalagem, Turnos › Turno 1…) */
   title?: string;
   breadcrumbs?: string[];
   titleAccessory?: React.ReactNode;
@@ -93,10 +94,15 @@ export function MachinesPage({
   onDemoStateChange,
   notify,
 }: MachinesPageProps) {
+  // Centros por demanda (sem meta) desta página: aparecem no Apontamento e nas OPs, não no atingimento
+  const demandCount = useMemo(() => {
+    const group = MACHINE_GROUPS.find((g) => g.id === groupId);
+    return DEMAND_MACHINES.filter((m) => !group || group.machineIds.includes(m.id)).length;
+  }, [groupId]);
   // Máquinas disponíveis nesta página (todas ou só as da linha)
   const pool = useMemo(() => {
     const group = MACHINE_GROUPS.find((g) => g.id === groupId);
-    return group ? MACHINES.filter((m) => group.machineIds.includes(m.id)) : MACHINES;
+    return group ? TARGET_MACHINES.filter((m) => group.machineIds.includes(m.id)) : TARGET_MACHINES;
   }, [groupId]);
   const machineOptions = useMemo<FilterOption[]>(
     () => [{ value: "all", label: "Todas" }, ...pool.map((m) => ({ value: m.id, label: m.name }))],
@@ -126,7 +132,11 @@ export function MachinesPage({
   const shiftLabel = shift === "all" ? null : SHIFT_META[shift].label;
 
   // O turno recorta os dados de todas as abas (exceto a comparação em "Turnos")
-  const scoped = useMemo(() => pool.map((m) => scopeToShift(m, shift)), [pool, shift]);
+  // Centros de 2 turnos não entram no recorte do Turno 3 (não rodam nele)
+  const scoped = useMemo(
+    () => pool.filter((m) => shift === "all" || shift <= m.regime).map((m) => scopeToShift(m, shift)),
+    [pool, shift],
+  );
 
   const rows = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -147,7 +157,7 @@ export function MachinesPage({
   }, [scoped, filters, search, sort]);
 
   // Aba Turnos: as mesmas máquinas filtradas, mas com todos os turnos
-  const unscopedRows = useMemo(() => rows.map((r) => MACHINES.find((m) => m.id === r.id)!), [rows]);
+  const unscopedRows = useMemo(() => rows.map((r) => TARGET_MACHINES.find((m) => m.id === r.id)!), [rows]);
 
   const totals = aggregate(rows);
   const onlyDefaults =
@@ -362,7 +372,8 @@ export function MachinesPage({
           )}
           {tableState === "ready" && (
             <p aria-live="polite" className="ml-auto font-body-small text-subtlest">
-              {rows.length === pool.length ? plural(rows.length, "máquina", "máquinas") : `${rows.length} de ${pool.length} máquinas`}
+              {rows.length === pool.length ? plural(rows.length, "máquina com meta", "máquinas com meta") : `${rows.length} de ${pool.length} máquinas com meta`}
+              {demandCount > 0 && ` · ${plural(demandCount, "centro por demanda fica", "centros por demanda ficam")} fora do atingimento`}
             </p>
           )}
         </div>

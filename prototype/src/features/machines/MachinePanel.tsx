@@ -84,7 +84,7 @@ export function MachinePanel({ machine, open, scopeLabel, onClose, onAction }: M
                 {items.map((o) => (
                   <li key={o.id} className="flex min-h-row items-center gap-150 border-t px-150 py-075 first:border-t-0">
                     <div className="min-w-0 flex-1">
-                      <p className="font-code text-default">{o.id}</p>
+                      <p className="font-code text-default">{o.opId}</p>
                       <p className="truncate font-body-small text-subtle">{o.product}</p>
                     </div>
                     <Lozenge>Turno {o.shift}</Lozenge>
