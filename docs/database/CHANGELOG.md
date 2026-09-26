@@ -17,6 +17,49 @@ Formato de cada entrada:
 
 ---
 
+## [0.15.0] — 26/09/2026 — A meta na área de preparo
+- Status: **Implementado** — aplicada no Supabase (projeto de testes) em 26/09/2026
+- Commit/PR: PR #15
+- Migration: `supabase/migrations/20260926100000_meta_na_area_de_preparo.sql`
+- Decisões: D35 (item 9), D08
+
+Parte do passo 3 da importação. Cada apontamento guarda a meta que valia no
+seu dia (D08), e o importado não é exceção — mas a planilha só traz meta em
+**37%** das linhas, e só para **8 das 23 colunas**.
+
+### Adicionado
+- `import_rows.target_quantity` e `import_rows.target_source`, com índice por lote e origem.
+
+### A regra de três níveis (decidida em 26/09/2026)
+| Origem | Apontamentos | O que significa |
+|---|---|---|
+| `planilha` | 927 | a meta escrita naquela linha |
+| `planilha_arrastada` | 685 | a última meta conhecida do centro, arrastada para a frente (D35 item 9) |
+| `meta_de_hoje` | 896 | a planilha nunca trouxe meta para este centro |
+
+O nível 3 foi escolhido pelo usuário **sabendo do custo**: meses antigos passam
+a ser julgados por uma meta que ainda não existia na época. Por isso a origem
+fica registrada — sem ela, daqui a seis meses ninguém saberia separar o que a
+planilha dizia do que foi emprestado de hoje.
+
+### Um erro de agrupamento, encontrado e corrigido
+A primeira versão do extrator atribuía metas à máquina errada: a **Rebitagem
+Pinos** recebia 20.000 (a meta do Kit Parafuso) e as **Conjuntos** recebiam
+7.000 (a das Vertical Placas). Teria feito a Rebitagem Pinos aparecer com 0,05%
+de atingimento.
+
+A causa: a planilha usa **dois padrões** para a coluna "<== META". Nas
+embalagens a linha 4 nomeia um grupo e a meta vale para o grupo inteiro
+(CONJUNTOS, HORIZONTAIS, PLACA + SUPORTE, MÓDULOS, A GRANEL); nas montagens
+cada máquina tem a sua própria coluna de meta ao lado, e a linha 4 dela é o
+próprio "<== META". O extrator tratava tudo como o primeiro caso.
+
+Depois da correção, os 8 centros com meta na planilha são exatamente os que uma
+análise independente tinha encontrado, e `927 + 685 = 1.612` bate com a
+contagem feita por fora. Conjuntos, Rebitagem Pinos, Kit 1 Parafuso, Máquina
+Interruptor e Manual Interruptor voltaram a não ter meta nenhuma — que é a
+verdade.
+
 ## [0.14.0] — 25/09/2026 — Área de preparo da importação
 - Status: **Implementado** — aplicada no Supabase (projeto de testes) em 26/09/2026, e já carregada com o histórico extraído da planilha (6.859 linhas na preparo; nada virou produção ainda)
 - Commit/PR: PR #15

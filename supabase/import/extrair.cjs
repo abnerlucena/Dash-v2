@@ -99,6 +99,10 @@ const retrabalhoDe = (aba, celula) => RETRABALHO.find((c) => c.aba === aba && c.
 
   const linhas = [];
   const avisos = [];
+  // Última meta conhecida de cada coluna, arrastada para a frente: é o que a
+  // D35 item 9 manda fazer com agosto e setembro, que não têm coluna de meta.
+  const ultimaMeta = {};
+  const metaDaLinha = {};
   const naoReconhecidos = new Set();
   let semResultado = 0;
 
@@ -107,17 +111,39 @@ const retrabalhoDe = (aba, celula) => RETRABALHO.find((c) => c.aba === aba && c.
     if (/grafico/i.test(aba)) continue;
 
     // Cabeçalhos das máquinas ficam na linha 5, a partir da coluna C.
+    // A planilha usa DOIS padrões para a coluna "<== META", e confundi-los faz
+    // a meta de uma máquina cair em outra:
+    //
+    //   EMBALAGENS — a linha 4 nomeia um grupo e a meta vale para o grupo
+    //     inteiro:  C "2 CONJUNTOS" | D "1 CONJUNTOS" | E "<== META"
+    //               todas com linha 4 = "CONJUNTOS"
+    //
+    //   MONTAGENS — cada máquina tem a SUA meta logo ao lado, e a linha 4 da
+    //     coluna de meta é o próprio "<== META":
+    //               T "INTERRUPTOR MÁQUINA" | U "<== META"
+    //
+    // Regra: se a linha 4 da coluna de meta nomeia um grupo, ela vale para
+    // todas as máquinas daquele grupo; se não nomeia, vale só para a máquina
+    // imediatamente à esquerda.
     const colunas = [];
     for (let c = 3; c <= ws.columnCount; c++) {
       const h = texto(ws.getRow(5).getCell(c)).replace(/\s+/g, ' ').trim();
       if (!h) continue;
       const n = norm(h);
-      // Colunas de apoio da planilha, que não são máquina.
-      if (n.includes('META') || ['TOTAL', 'TURNO', 'STATUS', 'FALTA DE MATERIAL', 'FALTAS DE OPERADORES'].includes(n)
+      const g4 = norm(texto(ws.getRow(4).getCell(c)));
+      if (n.includes('META')) {
+        const proprio = !g4 || g4.includes('META');
+        const grupo = proprio
+          ? colunas.filter((x) => x.nome).slice(-1).map((x) => x.nome)
+          : colunas.filter((x) => x.nome && x.g4 === g4).map((x) => x.nome);
+        colunas.push({ c, letra: ws.getColumn(c).letter, meta: true, grupo });
+        continue;
+      }
+      if (['TOTAL', 'TURNO', 'STATUS', 'FALTA DE MATERIAL', 'FALTAS DE OPERADORES'].includes(n)
           || n.startsWith('EMBALADOS')) continue;
       const nome = nomeDaColuna(h);
       if (!nome) { naoReconhecidos.add(`${aba}!${ws.getColumn(c).letter}: ${h}`); continue; }
-      colunas.push({ c, letra: ws.getColumn(c).letter, nome });
+      colunas.push({ c, letra: ws.getColumn(c).letter, nome, g4 });
     }
 
     // A data pode estar só na linha do T1 (abril faz isso); repete para baixo.
@@ -131,6 +157,7 @@ const retrabalhoDe = (aba, celula) => RETRABALHO.find((c) => c.aba === aba && c.
       if (data) ultimaData = data;
       if (!data) return;
 
+      const metaAqui = {};
       const t = ABAS_HORA_EXTRA[aba] || TURNOS[rotulo];
       if (!t) {
         // Linha sem rótulo de turno E sem número nenhum é sobra da planilha
@@ -144,7 +171,16 @@ const retrabalhoDe = (aba, celula) => RETRABALHO.find((c) => c.aba === aba && c.
         return;
       }
 
+      // Meta escrita nesta linha, por máquina do grupo.
+      for (const col of colunas.filter((x) => x.meta)) {
+        const v = cru(row.getCell(col.c));
+        if (typeof v === 'number' && v > 0) for (const nome of col.grupo) ultimaMeta[nome] = v;
+        metaDaLinha[aba] = true;
+        if (typeof v === 'number' && v > 0) for (const nome of col.grupo) metaAqui[nome] = v;
+      }
+
       for (const col of colunas) {
+        if (col.meta) continue;
         const celula = `${col.letra}${r}`;
         const v = cru(row.getCell(col.c));
         if (v === undefined) { semResultado++; continue; }
@@ -155,7 +191,8 @@ const retrabalhoDe = (aba, celula) => RETRABALHO.find((c) => c.aba === aba && c.
         const rt = retrabalhoDe(aba, celula);
         if (rt) {
           linhas.push({ ...base, kind: rt.vira, centro: rt.centro, data, turno: t.turno,
-            modo: rt.vira === 'note' ? null : t.modo, qtd: rt.quantidade ?? null, nota: rt.nota });
+            modo: rt.vira === 'note' ? null : t.modo, qtd: rt.quantidade ?? null, nota: rt.nota,
+            meta: null, metaOrigem: rt.vira === 'note' ? 'sem_meta' : 'meta_de_hoje' });
           continue;
         }
         if (col.nome === 'RETRABALHO GERAL') {
@@ -176,8 +213,13 @@ const retrabalhoDe = (aba, celula) => RETRABALHO.find((c) => c.aba === aba && c.
             linhas.push({ ...base, kind: 'downtime', centro: destino.centro, data, turno: t.turno,
               modo: null, qtd: null, nota: caso.motivo });
           } else {
+            const mc = metaAqui[col.nome] !== undefined
+              ? { meta: metaAqui[col.nome], origem: 'planilha' }
+              : ultimaMeta[col.nome] !== undefined
+                ? { meta: ultimaMeta[col.nome], origem: 'planilha_arrastada' }
+                : { meta: null, origem: 'meta_de_hoje' };
             linhas.push({ ...base, kind: 'production', centro: destino.centro, data, turno: t.turno,
-              modo: t.modo, qtd: caso.quantidade, nota: caso.nota });
+              modo: t.modo, qtd: caso.quantidade, nota: caso.nota, meta: mc.meta, metaOrigem: mc.origem });
           }
           continue;
         }
@@ -191,8 +233,13 @@ const retrabalhoDe = (aba, celula) => RETRABALHO.find((c) => c.aba === aba && c.
         }
 
         if (v > 0) {
+          const m = metaAqui[col.nome] !== undefined
+            ? { meta: metaAqui[col.nome], origem: 'planilha' }
+            : ultimaMeta[col.nome] !== undefined
+              ? { meta: ultimaMeta[col.nome], origem: 'planilha_arrastada' }
+              : { meta: null, origem: 'meta_de_hoje' };   // resolvido na carga
           linhas.push({ ...base, kind: 'production', centro: destino.centro, data, turno: t.turno,
-            modo: t.modo, qtd: v, nota: null });
+            modo: t.modo, qtd: v, nota: null, meta: m.meta, metaOrigem: m.origem });
         } else {
           const antes = !destino.desde || data < destino.desde;
           linhas.push({ ...base, kind: 'discard', centro: destino.centro, data, turno: t.turno,
@@ -224,17 +271,22 @@ const retrabalhoDe = (aba, celula) => RETRABALHO.find((c) => c.aba === aba && c.
   for (let i = 0; i < linhas.length; i += 500) {
     const bloco = linhas.slice(i, i + 500);
     partes.push('insert into public.import_rows (batch_id, source_sheet, source_cell, raw_machine, raw_value,');
-    partes.push('  kind, machine_id, production_date, shift_id, work_mode, quantity, notes, discard_reason)');
+    partes.push('  kind, machine_id, production_date, shift_id, work_mode, quantity, notes, discard_reason,');
+    partes.push('  target_quantity, target_source)');
     partes.push(`select '${lote}', v.aba, v.celula, v.coluna, v.cru, v.kind, m.id, v.data::date,`);
-    partes.push('       v.turno::smallint, v.modo, v.qtd, v.nota, v.descarte');
+    partes.push('       v.turno::smallint, v.modo, v.qtd, v.nota, v.descarte,');
+    // Nível 3: a planilha nunca trouxe meta para este centro, então vale a de hoje.
+    partes.push("       coalesce(v.meta, case when v.origem = 'meta_de_hoje' then t.quantity_per_shift end),");
+    partes.push('       v.origem');
     partes.push('  from (values');
     partes.push(bloco.map((l) => '    (' + [
       esc(l.aba), esc(l.celula), esc(l.coluna), esc(l.cru), esc(l.kind), esc(l.centro),
       esc(l.data), num(l.turno), esc(l.modo ?? null), num(l.qtd ?? null),
-      esc(l.nota ?? null), esc(l.descarte ?? null),
+      esc(l.nota ?? null), esc(l.descarte ?? null), num(l.meta ?? null), esc(l.metaOrigem ?? 'sem_meta'),
     ].join(', ') + ')').join(',\n'));
-    partes.push('  ) as v(aba, celula, coluna, cru, kind, centro, data, turno, modo, qtd, nota, descarte)');
-    partes.push('  left join public.machines m on lower(m.name) = lower(v.centro);');
+    partes.push('  ) as v(aba, celula, coluna, cru, kind, centro, data, turno, modo, qtd, nota, descarte, meta, origem)');
+    partes.push('  left join public.machines m on lower(m.name) = lower(v.centro)');
+    partes.push('  left join public.current_machine_targets t on t.machine_id = m.id;');
     partes.push('');
   }
   partes.push('-- Confira antes de confirmar. Para desistir: rollback;');
@@ -253,6 +305,10 @@ const retrabalhoDe = (aba, celula) => RETRABALHO.find((c) => c.aba === aba && c.
   }
   console.log('');
   console.log(`  total de peças em apontamentos: ${pecas.toLocaleString('pt-BR')}`);
+  const orig = {};
+  for (const l of linhas) if (l.kind === 'production' || l.kind === 'rework') orig[l.metaOrigem] = (orig[l.metaOrigem] || 0) + 1;
+  console.log('\n  de onde vem a meta de cada apontamento:');
+  for (const [k, v] of Object.entries(orig).sort((a, b) => b[1] - a[1])) console.log(`    ${k.padEnd(20)} ${String(v).padStart(6)}`);
   if (semResultado) console.log(`\n  ${semResultado} células com fórmula sem resultado salvo (ignoradas, nada foi inventado)`);
   if (naoReconhecidos.size) {
     console.log(`\n  ${naoReconhecidos.size} cabeçalhos sem destino no mapa:`);
