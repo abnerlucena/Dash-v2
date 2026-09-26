@@ -12,6 +12,12 @@
       "runtimeExecutable": "npx",
       "runtimeArgs": ["vite", "--port", "8080", "--strictPort"],
       "port": 8080
+    },
+    {
+      "name": "prototype",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "proto:dev"],
+      "port": 8090
     }
   ]
 }
