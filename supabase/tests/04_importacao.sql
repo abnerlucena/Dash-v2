@@ -76,7 +76,8 @@ exception when others then insert into ri values (7, 'parada sem quantidade', 'a
 do $$ declare antes int; depois int; begin
   select count(*) into antes from public.import_rows where batch_id = '00000000-0000-0000-0000-0000000ba701'::uuid;
   delete from public.import_batches where id = '00000000-0000-0000-0000-0000000ba701'::uuid;
-  select count(*) into depois from public.import_rows;
+  select count(*) into depois from public.import_rows
+   where batch_id = '00000000-0000-0000-0000-0000000ba701'::uuid;
   insert into ri values (8, 'apagar lote leva as linhas junto', 'aceita',
     case when antes = 3 and depois = 0 then 'ACEITOU' else format('RECUSOU: antes=%s depois=%s', antes, depois) end);
 exception when others then insert into ri values (8, 'apagar lote leva as linhas junto', 'aceita', 'RECUSOU: ' || sqlerrm); end $$;

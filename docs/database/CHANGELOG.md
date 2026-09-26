@@ -17,8 +17,58 @@ Formato de cada entrada:
 
 ---
 
+## [0.17.0] — 26/09/2026 — Histórico carregado
+- Status: **Implementado** — aplicado no Supabase (projeto de testes) em 26/09/2026. O histórico real está no banco.
+- Commit/PR: PR #15
+- Migrations: `20260926120000_carga_e_reversao_da_importacao.sql`, `20260926130000_permissoes_novas_alcancam_usuarios.sql`
+- Testes: 01 (24/24), 02 (23/23), 03 (9/9), 04 (12/12), 05 (11/11)
+- Decisões: D35, D22, D09, D08
+
+### O que entrou no banco
+| | |
+|---|---|
+| Apontamentos | **2.507**, todos marcados com o lote |
+| Ordens | **2.508** (2 de retrabalho), todas com o número `IMPORTADO` |
+| Peças | **17.627.977** |
+| Paradas de máquina | 4, com origem `spreadsheet` |
+| Período | 20/12/2025 a 21/09/2026 |
+
+Os 842 apontamentos de demonstração foram removidos antes (`99_remover_demo.sql`),
+porque colidiam em 491 chaves com o histórico real.
+
+### Corrigido: permissão nova não alcançava quem já estava aprovado
+A 0.14.0 concedeu `import.review` e `import.manage` aos **papéis**, o que
+parecia bastar. Mas `user_permissions` é uma **tabela**, não uma view: quando
+alguém é aprovado, as permissões do papel são copiadas para ele. Os 5 usuários
+do banco ficaram com zero permissões de importação e ninguém conseguiria rodar
+a carga.
+
+A cópia existe de propósito — é ela que permite dar ou tirar uma permissão de
+**uma** pessoa sem mexer no papel. O preço é que toda permissão nova precisa
+ser distribuída a quem já existe. Nasce daí a função
+`sincronizar_permissoes_dos_papeis()`, para não ser preciso lembrar disso na
+próxima vez.
+
+### Quem pode carregar
+`pode_importar()`: quem tem `import.manage`, **ou** o dono do banco quando
+ainda não há ninguém logado. Sem a segunda parte haveria um nó — um sistema
+recém-instalado não tem usuário nenhum, e seria preciso ter dados para criar o
+usuário que carrega os dados. Mesmo caminho que a `bootstrap_admin` já usava.
+Quem entra pelo app nunca é o dono, então a exigência de permissão continua
+valendo para todo mundo.
+
+### Dois testes ajustados (nenhum era regressão)
+- `Admin identifica crachá 201` comparava com **18 permissões** escritas na mão; as duas novas de importação levaram o Admin a 20. Passou a comparar com o que o papel realmente tem.
+- `apagar lote leva as linhas junto` contava a tabela inteira de preparo, que agora tem 6.859 linhas reais. Passou a contar só o lote do próprio teste.
+
+### Como desfazer
+`select public.reverter_lote_importacao('<lote>')` apaga os 2.507 apontamentos,
+as ordens (em cascata) e as 4 paradas, e devolve a área de preparo ao estado
+de conferência. **Nada apontado por pessoa é tocado** — é para isso que existe
+a marca `import_batch_id`.
+
 ## [0.16.0] — 26/09/2026 — Carga e reversão da importação
-- Status: Desenhado (testado em transação desfeita; **ainda não aplicado**)
+- Status: **Implementado** — aplicado em 26/09/2026
 - Commit/PR: PR #15
 - Migrations: `20260926110000_meta_retroativa.sql`, `20260926120000_carga_e_reversao_da_importacao.sql`
 - Testes: `supabase/tests/05_carga_importacao.sql` — 11 casos, 11 passando

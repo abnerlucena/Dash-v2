@@ -54,7 +54,7 @@ select pg_temp.as_user('00000000-0000-0000-0000-0000000000c1', '22222222-2222-22
 insert into results(test, ok, info) values ('Admin sem crachá = sem permissão', cardinality(public.my_permissions()) = 0, cardinality(public.my_permissions())::text);
 do $$ declare n text; begin
   n := public.identify_shared_session('201');
-  insert into results(test, ok, info) values ('Admin identifica crachá 201', cardinality(public.my_permissions()) = 18, n || ' / permissões=' || cardinality(public.my_permissions()));
+  insert into results(test, ok, info) values ('Admin identifica crachá 201', cardinality(public.my_permissions()) = (select count(*) from public.role_permissions rp join public.roles r on r.id = rp.role_id where r.code = 'admin'), n || ' / permissões=' || cardinality(public.my_permissions()));
 exception when others then insert into results(test, ok, info) values ('Admin identifica crachá 201', false, sqlerrm); end $$;
 do $$ begin perform public.identify_shared_session('999');
   insert into results(test, ok, info) values ('crachá inexistente recusado', false, 'aceitou!');
