@@ -169,4 +169,43 @@ export const supabaseAuth: DataSource["auth"] = {
     const { data } = await getSupabase().auth.getSession();
     return !!data.session && data.session.user.id === session.userId;
   },
+
+  async requestPasswordReset(email) {
+    const limpo = email.trim().toLowerCase();
+    if (!limpo) throw new Error("Informe o e-mail da sua conta.");
+
+    // Para onde o link do e-mail leva. Usa a URL do próprio app, para
+    // funcionar igual em localhost e no site publicado. Este endereço precisa
+    // estar liberado em Authentication → URL Configuration no painel do
+    // Supabase, senão o link volta para a página inicial sem o token.
+    const destino = `${window.location.origin}${import.meta.env.BASE_URL}?recuperar=1`;
+
+    const { error } = await getSupabase().auth.resetPasswordForEmail(limpo, {
+      redirectTo: destino,
+    });
+
+    // Um erro de "e-mail não encontrado" não é devolvido de propósito pelo
+    // Supabase, e a tela também não deve inventar um: dizer "essa conta não
+    // existe" contaria a qualquer estranho quem tem conta no sistema.
+    if (error) throw toAuthError(error);
+  },
+
+  async setNewPassword(newPassword) {
+    if (newPassword.length < 6) throw new Error("A senha precisa ter pelo menos 6 caracteres.");
+
+    // O link do e-mail cria uma sessão temporária de recuperação. Sem ela, não
+    // há a quem trocar a senha — é o que acontece quando alguém abre a tela
+    // direto, ou quando o link já expirou.
+    const { data } = await getSupabase().auth.getSession();
+    if (!data.session) {
+      throw new Error("O link de recuperação expirou ou já foi usado. Peça um novo e-mail.");
+    }
+
+    const { error } = await getSupabase().auth.updateUser({ password: newPassword });
+    if (error) throw toAuthError(error);
+
+    // Sai da sessão de recuperação: quem trocou a senha entra de novo com ela.
+    // Assim a senha nova é testada na hora, em vez de só na próxima visita.
+    await getSupabase().auth.signOut();
+  },
 };

@@ -17,6 +17,33 @@ Formato de cada entrada:
 
 ---
 
+## [0.17.1] — 26/09/2026 — Recuperação de senha por e-mail
+- Status: **Implementado** no app. **Falta a configuração no painel do Supabase** (só o dono do projeto pode fazer) — ver "O que ainda falta" abaixo.
+- Commit/PR: branch `claude/ui-oficial-transicao`
+- Migration: **nenhuma — o schema não mudou.** A versão sobe só para registrar a mudança de configuração do projeto; quem conferir o banco não vai achar diferença nenhuma em relação à 0.17.0.
+- Decisões: D45 (nova), D44.1 (item 4 — era o único bloqueio para usar o sistema)
+
+### O que mudou
+Quem esquecia a senha no modo Supabase não tinha saída: a tela dizia "fale com o
+administrador", e o administrador também não podia fazer nada — o Supabase Auth
+guarda só o hash da senha. Agora existe recuperação por e-mail, usando o que o
+Supabase Auth já oferece (`resetPasswordForEmail` + `updateUser`): **sem tabela,
+função ou coluna nova**.
+
+### Impacto no frontend
+- `src/lib/repositories/types.ts` — a interface de dados ganha `requestPasswordReset` e `setNewPassword`.
+- `src/lib/repositories/supabase/auth.ts` — implementa as duas.
+- `src/lib/repositories/gas.ts` — responde com "fale com o administrador": no Apps Script não há e-mail.
+- `src/pages/LoginPage.tsx` — o cartão passa a ter quatro telas (entrar, criar conta, pedir o e-mail, definir a senha nova) e um link "Recuperar por e-mail" que só aparece no modo Supabase.
+- `src/lib/recovery.ts` (novo) + `src/main.tsx` — tratam a chegada pelo link antes de a tela montar. O app usa `HashRouter`, e o token do Supabase vem no hash, que é onde mora a rota: sem isso o link cairia na página "não encontrada". Testes em `src/test/recovery.test.ts`.
+
+### O que ainda falta (painel do Supabase, não versionável)
+1. **Authentication → URL Configuration:** incluir em *Site URL* e *Redirect URLs* os endereços do app (`http://localhost:8080/Dash-v2/*` e a URL publicada). Fora da lista, o Supabase devolve o link **sem** token e a tela mostra "o link expirou ou já foi usado".
+2. **Authentication → Emails → SMTP próprio:** o e-mail embutido do Supabase é de teste — poucos envios por hora e, em projetos novos, entrega só para os endereços da equipe do projeto. **Enquanto não houver SMTP, a recuperação não serve para a fábrica.**
+3. Opcional: traduzir o template *Reset Password* para português.
+
+---
+
 ## [0.17.0] — 26/09/2026 — Histórico carregado
 - Status: **Implementado** — aplicado no Supabase (projeto de testes) em 26/09/2026. O histórico real está no banco.
 - Commit/PR: PR #15

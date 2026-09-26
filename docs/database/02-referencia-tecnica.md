@@ -1,6 +1,6 @@
 # Referência Técnica do Schema
 
-> Versão do schema: `v0.17.0` · Última atualização: 26/09/2026 · Status: **implementado no Supabase** (projeto de testes), com o histórico da planilha já carregado. O sistema em produção continua sendo o Google Sheets.
+> Versão do schema: `v0.17.1` · Última atualização: 26/09/2026 · Status: **implementado no Supabase** (projeto de testes), com o histórico da planilha já carregado. O sistema em produção continua sendo o Google Sheets.
 > SGBD: PostgreSQL (Supabase) · Schema: `public` (+ `auth`, gerenciado pelo Supabase)
 > Decisões citadas como `[Dxx]` estão em [03-decisoes.md](03-decisoes.md).
 
@@ -413,3 +413,49 @@ RLS habilitado em **todas** as 16 tabelas de `public` (conferido no banco: 0 sem
 | AuditLogs | todas | `audit_logs` |
 
 Pendência de migração: apontamentos da máquina 19 ("RETRABALHO GERAL"), que não será recriada.
+
+## 10. Autenticação (Supabase Auth) — fora do schema `public`
+
+Senha, sessão e recuperação **não são tabelas deste schema**: ficam em `auth`,
+gerenciado pelo Supabase. O `public` só guarda o perfil (`profiles.id` é FK de
+`auth.users(id)`), criado pelo trigger `handle_new_user`.
+
+| Operação | O que o app chama | Onde |
+|---|---|---|
+| Entrar | `auth.signInWithPassword` | `src/lib/repositories/supabase/auth.ts` |
+| Cadastrar | `auth.signUp` (+ aprovação do gestor, D19–D23) | idem |
+| Sair | `auth.signOut` | idem |
+| Pedir recuperação de senha | `auth.resetPasswordForEmail` | idem (`requestPasswordReset`) |
+| Gravar a senha nova | `auth.updateUser({ password })` | idem (`setNewPassword`) |
+
+### 10.1 Recuperação de senha [D45]
+
+Sem migration: o Supabase Auth já faz tudo. O que o app acrescenta é a chegada
+pelo link do e-mail, tratada em `src/lib/recovery.ts` **antes do render**
+(chamada em `src/main.tsx`), porque o app usa `HashRouter` e o token do Supabase
+vem no hash — o mesmo lugar onde mora a rota. O módulo cria o cliente para o
+`supabase-js` ler o token (`detectSessionInUrl`), limpa o endereço e o histórico,
+descarta o login antigo do navegador e diz à tela de login em que aba abrir.
+
+Formatos que o link pode ter na volta:
+
+| Fluxo | Endereço de volta |
+|---|---|
+| Implícito | `…/Dash-v2/?recuperar=1#access_token=…&type=recovery` |
+| PKCE | `…/Dash-v2/?recuperar=1&code=…` |
+| Link velho | `…/Dash-v2/?recuperar=1#error=access_denied&error_code=otp_expired` |
+
+O `?recuperar=1` é do app (vem do `redirectTo`); o resto é o Supabase que
+acrescenta. Testes da leitura desse endereço: `src/test/recovery.test.ts`.
+
+**Configuração obrigatória no painel** (nenhuma delas é versionável):
+
+1. **Authentication → URL Configuration** — *Site URL* e *Redirect URLs* com os
+   endereços do app (`http://localhost:8080/Dash-v2/*` e a URL publicada).
+   Endereço fora da lista = link devolvido sem token.
+2. **Authentication → Emails → SMTP** — o e-mail embutido do Supabase é de teste
+   (poucos envios por hora; em projetos novos, só para a equipe do projeto).
+   **Sem SMTP próprio a recuperação não atende a fábrica.**
+
+No modo `gas` a operação não existe: `src/lib/repositories/gas.ts` responde com o
+aviso de procurar o administrador.

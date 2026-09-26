@@ -1,6 +1,7 @@
 # Visão Geral do Banco de Dados
 
 > Versão do schema: `v0.10.3` · Última atualização: 21/09/2026 · Documento em linguagem simples, para apresentação.
+> Seção 8 revisada em 26/09/2026 (recuperação de senha, `v0.17.1`); as demais seções ainda descrevem o schema até a `v0.10.3`.
 > Detalhes técnicos: [02-referencia-tecnica.md](02-referencia-tecnica.md)
 
 ## 1. Por que um banco novo
@@ -145,6 +146,33 @@ sequenceDiagram
 
 O perfil é um **ponto de partida**: o gestor pode marcar ou desmarcar permissões individualmente.
 As permissões são impostas **pelo próprio banco**, não apenas escondidas na tela.
+
+### Esqueceu a senha?
+
+A senha não fica guardada em lugar nenhum que alguém possa ler — nem o
+administrador consegue vê-la. Quem esquece resolve pelo e-mail, sem depender de
+ninguém:
+
+```mermaid
+sequenceDiagram
+  actor C as Colaborador
+  participant S as Sistema
+  C->>S: "Esqueceu a senha? Recuperar por e-mail"
+  S-->>C: 📧 Link de uso único, válido por pouco tempo
+  C->>S: Abre o link e escolhe a senha nova
+  S-->>C: "Senha alterada — entre com a senha nova"
+```
+
+Dois detalhes propositais:
+
+- **A resposta é sempre a mesma**, tenha o e-mail conta ou não. Responder "essa
+  conta não existe" contaria a qualquer estranho quem tem acesso ao sistema.
+- **O link vale uma vez e expira.** Se der erro, basta pedir outro — a própria
+  tela oferece.
+
+Enquanto o sistema em produção for a planilha (Apps Script), a recuperação por
+e-mail não existe ali, e a tela continua mandando falar com o administrador.
+Detalhes e o que ainda falta configurar: decisão **D45**.
 
 ## 9. Rastreabilidade
 

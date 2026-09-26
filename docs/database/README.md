@@ -3,7 +3,8 @@
 Esta pasta é a **fonte oficial** sobre o banco de dados do Dash de Produção (Supabase / PostgreSQL).
 Ela registra **o que existe, como funciona, por que foi decidido assim e o que mudou**.
 
-> **Estado atual do schema:** `v0.17.0` — implementado no Supabase (projeto de testes), **com o histórico real carregado**: 2.507 apontamentos de 20/12/2025 a 21/09/2026, 17.627.977 peças. Migrations em `supabase/migrations/`; importação em `supabase/import/`.
+> **Estado atual do schema:** `v0.17.1` — implementado no Supabase (projeto de testes), **com o histórico real carregado**: 2.507 apontamentos de 20/12/2025 a 21/09/2026, 17.627.977 peças. Migrations em `supabase/migrations/`; importação em `supabase/import/`.
+> A `0.17.1` não mexeu no schema: registra a **recuperação de senha por e-mail** (D45), que usa o Supabase Auth e depende de configuração no painel do projeto.
 > O sistema em produção continua sendo Google Sheets + Google Apps Script (`Main.gs`).
 
 ## Os documentos

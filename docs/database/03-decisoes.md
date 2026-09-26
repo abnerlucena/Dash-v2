@@ -51,6 +51,7 @@ Status possíveis: `Aprovada` · `Assumida` (sem confirmação explícita) · `S
 | D42 | Tempo útil por turno guardado no banco | Aprovada | 25/09/2026 |
 | D43 | Destino do histórico das máquinas renomeadas e divididas | Aprovada | 25/09/2026 |
 | D44 | A UI de `prototype/` é a interface oficial | Aprovada | 26/09/2026 |
+| D45 | Recuperação de senha pelo e-mail do Supabase Auth | Aprovada | 26/09/2026 |
 
 ---
 
@@ -524,3 +525,60 @@ script de extração e carga em lote reversível.
    valem antes: a **recuperação de senha** (não existe, e é o único que bloqueia
    o uso hoje) e a **meta por operador** da Bancada A Granél, que hoje aparece
    como 25.000 em vez de 25.000 × pessoas (D39).
+   > **Atualização de 26/09/2026:** a recuperação de senha está feita no app
+   > (**D45**); falta a configuração no painel do Supabase, que só o dono do
+   > projeto pode fazer. A meta por operador continua pendente.
+
+### D45 — Recuperação de senha pelo e-mail do Supabase Auth
+- **Status:** Aprovada (26/09/2026).
+- **Contexto:** no modo Supabase, quem esquecia a senha não tinha saída. A tela
+  de login dizia "fale com o administrador", e o administrador também não tinha
+  o que fazer: o Supabase Auth guarda só o hash da senha, e trocá-la exige ou a
+  chave de administrador do projeto (`service_role`) ou o próprio usuário. Era o
+  item apontado em **D44.1** como o único que bloqueava o uso hoje.
+- **Decisão:** usar a recuperação por e-mail **do próprio Supabase Auth**
+  (`resetPasswordForEmail` para pedir o e-mail, `updateUser` para gravar a senha
+  nova). **Nenhuma tabela, função ou coluna nova** — o schema não muda.
+- **Como fica para quem usa:** o cartão de login passa a ter quatro telas —
+  entrar, criar conta, *pedir o e-mail de recuperação* e *definir a senha nova*.
+  O link do e-mail abre direto na terceira. Depois de salvar, a pessoa entra com
+  a senha nova, que assim é testada na hora.
+- **Privacidade:** a resposta ao pedido é **sempre a mesma**, exista a conta ou
+  não ("se existir uma conta com esse e-mail, o link foi enviado"). Dizer "essa
+  conta não existe" contaria a qualquer estranho quem tem acesso ao sistema.
+- **Detalhe técnico que custou código:** o app usa `HashRouter`, então o hash do
+  endereço **é a rota**. O Supabase devolve o token no hash
+  (`#access_token=...&type=recovery`), que não é rota nenhuma — sem tratamento, o
+  link cairia na página "não encontrada". E quem lê o token é o `supabase-js`, no
+  instante em que o cliente é criado. Por isso a chegada pelo link é resolvida em
+  `src/lib/recovery.ts`, **antes de a tela montar** (chamado em `src/main.tsx`):
+  ele cria o cliente de propósito, deixa o token ser lido, apaga o token do
+  endereço e do histórico do navegador, e devolve o hash que o roteador espera.
+  Também descarta o login antigo guardado neste navegador — senão o app abriria o
+  dashboard e a tela de senha nova nunca apareceria.
+- **O que exige configuração no painel do Supabase** (não dá para versionar, e
+  sem isso a recuperação não funciona):
+  1. **Authentication → URL Configuration:** a *Site URL* e a lista de *Redirect
+     URLs* precisam incluir os endereços do app — `http://localhost:8080/Dash-v2/*`
+     em desenvolvimento e a URL publicada (`https://<usuario>.github.io/Dash-v2/*`).
+     Endereço fora da lista faz o Supabase devolver o link **sem** o token, e a
+     tela mostra "o link expirou ou já foi usado".
+  2. **SMTP próprio (Authentication → Emails):** o serviço de e-mail embutido do
+     Supabase é só para teste — poucos e-mails por hora e, em projetos novos,
+     entrega apenas para os endereços da equipe do projeto. **Enquanto não houver
+     SMTP próprio, a recuperação não serve para a fábrica.**
+  3. Opcional: traduzir para português o template *Reset Password*.
+- **Modo `gas`:** não existe recuperação por e-mail — o Apps Script guarda a
+  senha na planilha e não envia e-mail. A tela continua mandando falar com o
+  administrador, e a camada de dados responde com esse mesmo aviso se alguém
+  chamar a operação. Fingir que existe seria pior do que dizer a verdade.
+- **Alternativas rejeitadas:**
+  - **código de recuperação próprio numa tabela** — reinventa o que o Auth já
+    faz e passa a guardar mais um segredo no banco;
+  - **o gestor define a senha nova de quem pediu** — exigiria a chave
+    `service_role` dentro do navegador, ou seja, a chave de administrador do
+    banco na mão de quem abrir o DevTools. Inaceitável;
+  - **só o dono trocar pelo painel** — não escala e deixa a fábrica dependendo
+    de uma pessoa estar disponível.
+- **Custo assumido:** o e-mail não é do sistema, é do Supabase. Entrega, spam e
+  limite de envio passam a depender do SMTP configurado.
