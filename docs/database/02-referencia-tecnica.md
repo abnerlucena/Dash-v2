@@ -1,6 +1,6 @@
 # Referência Técnica do Schema
 
-> Versão do schema: `v0.13.0` · Última atualização: 25/09/2026 · Status: **implementado no Supabase** (projeto de testes). Dados de produção seguem no Google Sheets.
+> Versão do schema: `v0.14.0` · Última atualização: 25/09/2026 · Status: a `v0.13.0` está **implementada no Supabase** (projeto de testes); a área de preparo da importação (marcada 🕐) está escrita e testada, **ainda não aplicada**. Dados de produção seguem no Google Sheets.
 > SGBD: PostgreSQL (Supabase) · Schema: `public` (+ `auth`, gerenciado pelo Supabase)
 > Decisões citadas como `[Dxx]` estão em [03-decisoes.md](03-decisoes.md).
 
@@ -89,9 +89,11 @@ Exclusão física bloqueada por FK quando houver produção; desativar via `stat
 | `notes` | `text` | CHECK até 500 caracteres | |
 | `created_by`, `updated_by` | `uuid` | FK `profiles`; `created_by` default `auth.uid()` | |
 | `created_at`, `updated_at` | `timestamptz` | NN, default `now()` | |
+| `import_batch_id` 🕐 | `uuid` | FK `import_batches` | Lote que criou o apontamento. **Nulo = apontado por uma pessoa** [D35] |
+| `source_ref` 🕐 | `text` | | Origem na planilha, ex.: `JUN 26!F12` [D35] |
 
 - UQ `production_records_unique_entry (machine_id, production_date, shift_id, work_mode)` [D10, D27]
-- Índices: `(production_date)`, `(shift_id)`, `(created_by)`. A busca por `(machine_id, production_date)` usa o índice da UQ (mesmo prefixo), por isso não há índice separado. Gatilho `set_updated_at`.
+- Índices: `(production_date)`, `(shift_id)`, `(created_by)` e o parcial `(import_batch_id) where import_batch_id is not null` 🕐, que só cobre o que veio de importação. A busca por `(machine_id, production_date)` usa o índice da UQ (mesmo prefixo), por isso não há índice separado. Gatilho `set_updated_at`.
 - `UPDATE`/`DELETE` diretos negados por RLS; somente via funções (seção 6).
 
 ### 3.4 `production_orders` ✅ implementada em 20/09/2026
@@ -174,6 +176,39 @@ PK `(event_id, shift_id)` · Índice `(shift_id)`. Sem linhas = evento vale para
 CHECK `profiles_personal_requires_badge`: `account_type <> 'personal' OR badge_number IS NOT NULL`. Índices: `(status)`, `(role_id)`. Gatilho `set_updated_at`.
 
 > **Criação e remoção de contas [D29]:** o gatilho `handle_new_user` recusa cadastro pessoal sem crachá com mensagem em português. Contas `shared`/`display` são criadas enviando `account_type` nos metadados do cadastro. Usuários que já têm histórico (aprovaram alguém, apontaram produção, aparecem na auditoria) **não podem ser apagados** — as chaves estrangeiras impedem; a saída é `status = 'blocked'`.
+
+### 3.9b `import_batches` 🕐 (migration 0016)
+| Coluna | Tipo | Restrições | Descrição |
+|---|---|---|---|
+| `id` | `uuid` | PK | |
+| `source_file` | `text` | NN, CHECK não vazio | Nome do arquivo da planilha |
+| `description` | `text` | | |
+| `status` | `text` | NN, default `draft`, CHECK `draft`/`loaded`/`reverted`/`failed` | Unidade de carga e reversão |
+| `loaded_at`, `reverted_at` | `timestamptz` | | |
+| `error_message` | `text` | | Preenchido quando a carga falha |
+| `created_by` | `uuid` | FK `profiles`, default `auth.uid()` | |
+| `created_at` | `timestamptz` | NN, default `now()` | |
+
+### 3.9c `import_rows` 🕐 (migration 0016)
+Área de preparo: uma linha por célula da planilha, com a **origem** e a **interpretação** lado a lado.
+
+| Coluna | Tipo | Restrições | Descrição |
+|---|---|---|---|
+| `id` | `bigint` | PK, identity | |
+| `batch_id` | `uuid` | NN, FK `import_batches` ON DELETE CASCADE | Apagar o lote leva as linhas |
+| `source_sheet`, `source_cell` | `text` | NN; UQ `(batch_id, source_sheet, source_cell)` | Origem exata; a UQ impede contar a mesma célula duas vezes |
+| `raw_machine`, `raw_value` | `text` | `raw_machine` NN | O que a planilha dizia, sem interpretação |
+| `kind` | `text` | NN, CHECK `production`/`rework`/`downtime`/`note`/`discard` | No que a célula vira |
+| `machine_id`, `production_date`, `shift_id`, `work_mode`, `quantity`, `operator_count`, `notes` | | CHECK de tabela `import_rows_producao_completa` | Produção e retrabalho exigem máquina, data, turno, quantidade e modo |
+| `discard_reason` | `text` | CHECK de tabela `import_rows_descarte_com_motivo` | Descarte exige motivo escrito |
+| `status` | `text` | NN, default `pending`, CHECK `pending`/`loaded`/`skipped`/`error` | Resultado da carga |
+| `error_message` | `text` | | |
+| `production_record_id`, `downtime_id` | `uuid` | FK, ON DELETE SET NULL | O que a linha gerou |
+| `created_at` | `timestamptz` | NN, default `now()` | |
+
+Índices: `(batch_id, status)`, `(batch_id, kind)` e `(batch_id, machine_id, production_date)` para a conferência.
+
+**RLS:** ler exige `import.review` (gestor e admin); escrever exige `import.manage` (só admin). Invisível para operador, preparador, distribuidor e TV.
 
 ### 3.10 `roles` ✅ implementada em 20/09/2026
 | Coluna | Tipo | Restrições |

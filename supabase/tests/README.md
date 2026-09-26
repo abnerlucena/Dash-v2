@@ -9,6 +9,8 @@ cada execução acontece dentro de uma transação que termina em `rollback`
 | `00_fixtures.sql` | Cria usuários fictícios (gestora, 2 operadores, conta Admin compartilhada, pendente, TV, novo cadastro) e a tabela `results` |
 | `01_funcoes.sql` | Funções de regra de negócio (migration 0009): apontar, completar, hora extra, permissões, conta compartilhada, ações em massa, metas, máquinas |
 | `02_rls.sql` | Políticas de acesso (migration 0010): quem vê e quem altera o quê |
+| `03_capacidade.sql` | Campos de processo, capacidade, tempo de turno e base da meta (migration 0013) |
+| `04_importacao.sql` | Área de preparo da importação (migration 0016): coerência das linhas e quem enxerga |
 
 ## Como rodar (SQL Editor do Supabase)
 

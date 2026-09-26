@@ -17,6 +17,48 @@ Formato de cada entrada:
 
 ---
 
+## [0.14.0] — 25/09/2026 — Área de preparo da importação
+- Status: Desenhado (migration escrita e testada em transação desfeita; **ainda não aplicada** no projeto de testes)
+- Commit/PR: PR #15
+- Migration: `supabase/migrations/20260925130000_area_de_preparo_importacao.sql`
+- Testes: `supabase/tests/04_importacao.sql` — 12 casos, 12 passando
+- Decisões: D35 (itens 3, 4, 6 e 7)
+
+**Passo 1 de 4** da importação do histórico da planilha. Cria o lugar onde os
+dados ficam para conferência **antes** de virarem produção. A tabela nasce
+vazia: esta migration não lê planilha nenhuma.
+
+### Por que uma área de preparo
+Gravar direto na produção tiraria quatro coisas: a conferência do gestor antes
+de o número virar oficial, a rastreabilidade de cada valor até a célula de
+origem, a possibilidade de desfazer um lote inteiro sem tocar no que a equipe
+apontou à mão, e a garantia de que rodar a extração de novo não duplica nada.
+
+### Adicionado
+- **`import_batches`** — uma rodada de importação. É a unidade que se carrega e se desfaz. Estados: `draft` (extraído, em conferência) → `loaded` → `reverted`; `failed` guarda uma carga que deu errado.
+- **`import_rows`** — uma linha por célula da planilha que significa alguma coisa, com a origem (`source_sheet`, `source_cell`, `raw_value`) e a interpretação lado a lado, para a conferência poder discordar. `kind` diz no que a célula vira: `production`, `rework`, `downtime`, `note` ou `discard`.
+- **`production_records.import_batch_id`** e **`production_records.source_ref`** — a marca que separa o que veio da planilha do que uma pessoa apontou. Sem ela não há como desfazer a importação com segurança. Nulo = apontado à mão, que é o caso dos 842 registros atuais.
+- **Duas permissões**, separadas de propósito para quem confere não precisar poder carregar: `import.review` (gestor e admin) e `import.manage` (só admin).
+- Três índices em `import_rows` (por status, por tipo e para a conferência) e um índice parcial em `production_records`, que só cobre o que veio de importação.
+
+### Regras que o banco impõe
+- Uma célula da planilha **só pode aparecer uma vez no mesmo lote** — é o que impede a extração de contar o mesmo número duas vezes.
+- Linha que vira produção **precisa** de máquina, data, turno, quantidade e tipo de trabalho.
+- Linha descartada **precisa** de motivo escrito.
+- Apagar o lote **leva as linhas junto**: um lote pela metade seria pior do que nenhum lote.
+
+### Removido
+- Nada.
+
+### Impacto no frontend
+- **Nenhum.** A área de preparo não aparece em tela nenhuma e é invisível para operador, preparador, distribuidor e TV — testado.
+
+### Descoberto nos testes
+A conta **Admin das fixtures é compartilhada**, e `has_permission` só concede
+permissão a conta compartilhada quando há alguém identificado na sessão. O
+primeiro teste falhava por isso, não por erro da migration. O arquivo passou a
+promover uma conta normal a admin, e a razão está comentada lá.
+
 ## [0.13.0] — 25/09/2026 — As metas reais
 - Status: **Implementado** — aplicada no Supabase (projeto de testes) em 25/09/2026
 - Commit/PR: PR #15
