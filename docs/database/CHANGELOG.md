@@ -18,7 +18,7 @@ Formato de cada entrada:
 ---
 
 ## [0.14.0] — 25/09/2026 — Área de preparo da importação
-- Status: Desenhado (migration escrita e testada em transação desfeita; **ainda não aplicada** no projeto de testes)
+- Status: **Implementado** — aplicada no Supabase (projeto de testes) em 26/09/2026, e já carregada com o histórico extraído da planilha (6.859 linhas na preparo; nada virou produção ainda)
 - Commit/PR: PR #15
 - Migration: `supabase/migrations/20260925130000_area_de_preparo_importacao.sql`
 - Testes: `supabase/tests/04_importacao.sql` — 12 casos, 12 passando

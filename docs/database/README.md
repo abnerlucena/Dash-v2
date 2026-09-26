@@ -3,7 +3,7 @@
 Esta pasta é a **fonte oficial** sobre o banco de dados do Dash de Produção (Supabase / PostgreSQL).
 Ela registra **o que existe, como funciona, por que foi decidido assim e o que mudou**.
 
-> **Estado atual do schema:** `v0.14.0` — a `v0.13.0` está implementada no Supabase (projeto de testes), com a fábrica real de Itajaí refletida no banco: 22 centros de trabalho, 12 com meta e 10 por demanda, 7 planejados. A `v0.14.0` (área de preparo da importação) está escrita e testada, ainda não aplicada. Migrations em `supabase/migrations/`.
+> **Estado atual do schema:** `v0.14.0` — implementado no Supabase (projeto de testes). A fábrica real de Itajaí está no banco (22 centros, 12 com meta), e a área de preparo já contém o histórico da planilha aguardando conferência. Migrations em `supabase/migrations/`; importação em `supabase/import/`.
 > O sistema em produção continua sendo Google Sheets + Google Apps Script (`Main.gs`).
 
 ## Os documentos
