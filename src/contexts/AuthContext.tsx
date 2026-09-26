@@ -1,12 +1,14 @@
-import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from "react";
+import { createContext, useContext, useState, useEffect, useCallback, useRef, type ReactNode } from "react";
+import { toast } from "sonner";
 import {
   type Session, type Machine, type ProdRecord, type Holiday, type OrdemProducao,
   loadSession, saveSession, clearSession,
   loadCachedRecords, saveCachedRecords,
   loadCachedMetas, saveCachedMetas,
   loadCachedHolidays, saveCachedHolidays,
-  api, MACHINES_DEFAULT,
+  MACHINES_DEFAULT,
 } from "@/lib/api";
+import { data as dataSource, DATA_SOURCE, isSupabase, type RegisterInput } from "@/lib/repositories";
 
 export type { OrdemProducao };
 
@@ -30,8 +32,9 @@ interface AuthContextType {
   setTurnosAtivos: (n: number) => void;
   needsOnboarding: boolean;
   completeOnboarding: () => Promise<void>;
-  login: (nome: string, senha: string) => Promise<void>;
-  register: (nome: string, senha: string, inviteCode: string) => Promise<void>;
+  login: (nome: string, senha: string, badgeNumber?: string) => Promise<void>;
+  /** loggedIn=false no modo Supabase: cadastro enviado, aguardando aprovação (message). */
+  register: (input: RegisterInput) => Promise<{ loggedIn: boolean; message?: string }>;
   logout: () => void;
   refreshData: () => Promise<void>;
   silentRefresh: () => Promise<void>;
@@ -101,8 +104,16 @@ function normalizeRecords(raw: any[]): ProdRecord[] {
     .filter((rec: ProdRecord) => rec.machineId > 0 && rec.date);
 }
 
+// Sessão salva só vale para a fonte de dados em uso (uma sessão do GAS não
+// serve no modo Supabase e vice-versa). Sessões antigas, sem "source", são do GAS.
+function loadSourceSession(): Session | null {
+  const s = loadSession();
+  if (!s) return null;
+  return (s.source ?? "gas") === DATA_SOURCE ? s : null;
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser]       = useState<Session | null>(loadSession);
+  const [user, setUser]       = useState<Session | null>(loadSourceSession);
   const [machines, setMachines] = useState<Machine[]>(MACHINES_DEFAULT);
   const [metas, setMetas]     = useState<Record<number, number>>(() => {
     const cached = loadCachedMetas();
@@ -131,7 +142,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const refreshMachines = useCallback(async () => {
     if (!user) return;
     try {
-      const r = await api("getMachines", {}, user);
+      const r = await dataSource.machines.getMachines(user);
       const list = (r.machines || r.allMachines || MACHINES_DEFAULT) as Machine[];
       setMachines(list.filter(m => m.status !== "inativo"));
     } catch {}
@@ -140,7 +151,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const refreshMetas = useCallback(async () => {
     if (!user) return;
     try {
-      const r = await api("getMetas", {}, user);
+      const r = await dataSource.targets.getMetas(user);
       if (r.metas) {
         const newMetas = r.metas as Record<number, number>;
         setMetas(newMetas);
@@ -153,7 +164,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const refreshHolidays = useCallback(async () => {
     if (!user) return;
     try {
-      const r = await api("getHolidays", {}, user);
+      const r = await dataSource.calendar.getHolidays(user);
       if (r.holidays) {
         const normalized = normalizeHolidays(r.holidays);
         setHolidays(normalized);
@@ -167,13 +178,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!user) return;
     setLoading(true);
     try {
-      const r = await api("getAll", {}, user);
+      const r = await dataSource.production.getAll(user);
       const data = normalizeRecords(r.data);
       setRecords(data);
       saveCachedRecords(data);
     } catch {}
     try {
-      const rh = await api("getHolidays", {}, user);
+      const rh = await dataSource.calendar.getHolidays(user);
       if (rh.holidays) {
         const normalized = normalizeHolidays(rh.holidays);
         setHolidays(normalized);
@@ -187,13 +198,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const silentRefreshData = useCallback(async () => {
     if (!user) return;
     try {
-      const r = await api("getAll", {}, user);
+      const r = await dataSource.production.getAll(user);
       const data = normalizeRecords(r.data);
       setRecords(data);
       saveCachedRecords(data);
     } catch {}
     try {
-      const rh = await api("getHolidays", {}, user);
+      const rh = await dataSource.calendar.getHolidays(user);
       if (rh.holidays) {
         const normalized = normalizeHolidays(rh.holidays);
         setHolidays(normalized);
@@ -219,6 +230,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
+  // ── Modo Supabase: a sessão salva ainda vale? ────────────────
+  useEffect(() => {
+    if (!user || !isSupabase) return;
+    dataSource.auth.isSessionValid(user).then(ok => { if (!ok) logout(); }).catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // ── Modo Supabase: acompanhar trocas de login feitas em outra aba ──
+  // O login do Supabase é um só por navegador. Se outra aba entrar com outro
+  // usuário (ou sair), esta aba passa a mostrar quem de fato está logado.
+  const userRef = useRef(user);
+  userRef.current = user;
+  useEffect(() => {
+    if (!isSupabase) return;
+    return dataSource.auth.watchSession(s => {
+      const cur = userRef.current;
+      if (!cur) return;                         // na tela de login: quem cuida é o login()
+      if (!s) {
+        toast.info("Sua sessão foi encerrada (saída ou login feito em outra aba).");
+        logout();
+        return;
+      }
+      if (s.userId !== cur.userId) {
+        saveSession(s);
+        setUser(s);
+        toast.info(`Esta aba agora está com o login de ${s.nome} (entrada feita em outra aba deste navegador).`);
+      }
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // ── Polling every 60 s — always silent ───────────────────────
   useEffect(() => {
     if (!user) return;
@@ -229,18 +271,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // ── Auth actions ──────────────────────────────────────────────
 
-  const login = async (nome: string, senha: string) => {
-    const r = await api("login", { nome, senha });
-    const session: Session = {
-      token:     r.session.token,
-      nome:      r.session.nome,
-      role:      r.session.role,
-      expiresAt: r.session.expiresAt,
-    };
+  const login = async (nome: string, senha: string, badgeNumber?: string) => {
+    const { session, onboardingDone } = await dataSource.auth.login(nome, senha, badgeNumber);
     saveSession(session);
     setUser(session);
     // Verificar se onboarding já foi concluído
-    if (r.session.onboardingDone === false || r.session.onboardingDone === "false") {
+    if (!onboardingDone) {
       setNeedsOnboarding(true);
     }
   };
@@ -248,24 +284,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const completeOnboarding = async () => {
     if (!user) return;
     try {
-      await api("completeOnboarding", {}, user);
+      await dataSource.auth.completeOnboarding(user);
     } catch {}
     setNeedsOnboarding(false);
   };
 
-  const register = async (nome: string, senha: string, inviteCode: string) => {
-    const r = await api("register", { nome, senha, inviteCode });
-    const session: Session = {
-      token:     r.session.token,
-      nome:      r.session.nome,
-      role:      r.session.role,
-      expiresAt: r.session.expiresAt,
-    };
-    saveSession(session);
-    setUser(session);
+  const register = async (input: RegisterInput) => {
+    const r = await dataSource.auth.register(input);
+    if (r.loggedIn === false) return { loggedIn: false, message: (r as { message: string }).message };
+    saveSession(r.session);
+    setUser(r.session);
+    return { loggedIn: true };
   };
 
   const logout = () => {
+    dataSource.auth.logout(user).catch(() => {});
     clearSession();
     setUser(null);
     setRecords([]);

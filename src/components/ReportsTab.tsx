@@ -5,7 +5,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useIsMobile } from "@/hooks/use-mobile";
 import FilterBar from "@/components/FilterBar";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
-import { today, fmt, dispD, pctColor, saveCachedRecords, TURNOS, api } from "@/lib/api";
+import { today, fmt, dispD, pctColor, saveCachedRecords, TURNOS } from "@/lib/api";
+import { data } from "@/lib/repositories";
 import { toast } from "sonner";
 import ExportModal from "@/components/ExportModal";
 
@@ -153,7 +154,7 @@ const ReportsTab = () => {
   async function executeBulkDelete() {
     setBulkLoading(true);
     try {
-      await api("bulkDelete", { ids: [...selectedIds] }, user);
+      await data.production.bulkDelete([...selectedIds], user);
       const next = records.filter(r => !r.id || !selectedIds.has(r.id));
       setRecords(next);
       saveCachedRecords(next);
@@ -172,7 +173,7 @@ const ReportsTab = () => {
     setBulkLoading(true);
     let ok = false;
     try {
-      await api("bulkMove", { ids: [...selectedIds], newDate: bulkMoveDate }, user);
+      await data.production.bulkMove([...selectedIds], bulkMoveDate, user);
       ok = true;
       toast.success(`${selectedIds.size} registro(s) movido(s) para ${dispD(bulkMoveDate)}`);
       setSelectedIds(new Set());
@@ -190,7 +191,7 @@ const ReportsTab = () => {
     setBulkLoading(true);
     let ok = false;
     try {
-      await api("bulkEditTurno", { ids: [...selectedIds], newTurno: bulkTurno }, user);
+      await data.production.bulkEditTurno([...selectedIds], bulkTurno, user);
       ok = true;
       toast.success(`${selectedIds.size} registro(s) atualizados para ${bulkTurno}`);
       setSelectedIds(new Set());
@@ -498,7 +499,15 @@ const ReportsTab = () => {
                               )}
                             </td>
                             <td className="px-4 py-2.5 text-xs">{dispD(r.date)}</td>
-                            <td className="px-3 py-2.5 text-xs">{r.turno}</td>
+                            <td className="px-3 py-2.5 text-xs">
+                              {r.turno}
+                              {r.workMode === "overtime" && (
+                                <span className="ml-1 text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-800" title="Hora extra: fora do cálculo de meta">HE</span>
+                              )}
+                              {r.isExcludedDay && (
+                                <span className="ml-1 text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-red-100 text-red-700" title="Dia/turno anulado: fora do cálculo de meta">anulado</span>
+                              )}
+                            </td>
                             <td className="px-3 py-2.5 text-xs font-semibold">{r.machineName}</td>
                             <td className="px-3 py-2.5 text-right text-xs text-muted-foreground">{meta > 0 ? meta.toLocaleString("pt-BR") : "—"}</td>
                             <td className="px-3 py-2.5 text-right text-xs font-bold">{prod.toLocaleString("pt-BR")}</td>

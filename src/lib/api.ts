@@ -10,6 +10,11 @@ export interface Session {
   nome: string;
   role: "admin" | "user";
   expiresAt?: string;
+  // Campos só do modo Supabase (VITE_DATA_SOURCE=supabase); ausentes no modo GAS.
+  source?: "gas" | "supabase";
+  userId?: string;
+  permissions?: string[];
+  accountType?: "personal" | "shared" | "display";
 }
 
 export interface Machine {
@@ -27,6 +32,9 @@ export interface Holiday {
   type: "feriado" | "dia_anulado";
   createdBy?: string;
   createdAt?: string;
+  // Modo Supabase: tipo original do evento e turnos afetados (vazio = dia inteiro).
+  eventType?: "holiday" | "special_event" | "excluded_day";
+  shiftIds?: number[];
 }
 
 export interface OrdemProducao {
@@ -50,6 +58,14 @@ export interface ProdRecord {
   editTime?: string;
   obs?: string;
   ordensProducao?: OrdemProducao[];
+  // Campos só do modo Supabase (ver src/lib/repositories/supabase/adapters.ts).
+  workMode?: "regular" | "overtime";
+  goodQuantity?: number;
+  reworkQuantity?: number;
+  targetQuantity?: number;
+  countsTowardTarget?: boolean;
+  isExcludedDay?: boolean;
+  operatorCount?: number | null;
 }
 
 // ─── Session helpers ──────────────────────────────────────────

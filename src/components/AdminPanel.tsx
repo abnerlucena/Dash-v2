@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import { X, Users, Factory, KeyRound, CalendarX, Bell } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
-import { api, dispD } from "@/lib/api";
+import { dispD } from "@/lib/api";
+import { data, isSupabase, type AdminUser, type RoleOption } from "@/lib/repositories";
 import { toast } from "sonner";
 import { SelectDropdown } from "@/components/SelectDropdown";
 import { DatePickerInput } from "@/components/DatePickerInput";
@@ -10,11 +11,6 @@ import type { Holiday } from "@/lib/api";
 
 interface AdminPanelProps {
   onClose: () => void;
-}
-
-interface AdminUser {
-  nome: string;
-  status: string;
 }
 
 interface AdminMachine {
@@ -58,26 +54,43 @@ const AdminPanel = ({ onClose }: AdminPanelProps) => {
   const [hLabel, setHLabel] = useState("");
   const [hType, setHType] = useState<"feriado" | "dia_anulado">("feriado");
   const [hAdding, setHAdding] = useState(false);
+  // Só modo Supabase: aprovação de cadastros (D20/D22) e turnos afetados (D17)
+  const [roles, setRoles] = useState<RoleOption[]>([]);
+  const [approveRole, setApproveRole] = useState<Record<string, string>>({});
+  const [hShifts, setHShifts] = useState<number[]>([]);
 
   useEffect(() => {
-    api("listUsers", {}, user)
+    data.users.listUsers(user)
       .then(r => setUsers(r.users || []))
       .catch(() => {})
       .finally(() => setLoading(false));
-    api("getMachines", {}, user)
-      .then(r => setAllMachines(r.allMachines || r.machines || []))
+    data.machines.getMachines(user)
+      .then(r => setAllMachines((r.allMachines || r.machines || []) as AdminMachine[]))
       .catch(() => {})
       .finally(() => setMachLoading(false));
-    api("getHolidays", {}, user)
-      .then(r => setHolidaysList(r.holidays || []))
+    data.calendar.getHolidays(user)
+      .then(r => setHolidaysList((r.holidays || []) as Holiday[]))
       .catch(() => {})
       .finally(() => setHolLoading(false));
+    if (isSupabase) data.users.listRoles(user).then(setRoles).catch(() => {});
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  async function toggleUser(nome: string) {
+  async function approveUser(target: AdminUser) {
+    const roleId = Number(approveRole[target.id ?? ""] || 1);
     try {
-      const r = await api("toggleUser", { targetNome: nome }, user);
+      await data.users.approveUser(target.id ?? "", roleId, user);
+      const r = await data.users.listUsers(user);
+      setUsers(r.users || []);
+      const roleName = roles.find(x => x.id === roleId)?.name ?? "perfil " + roleId;
+      toast.success(target.nome + " aprovado como " + roleName + ".");
+    } catch (e: unknown) { toast.error((e as Error).message); }
+  }
+
+  async function toggleUser(target: AdminUser) {
+    const nome = target.nome;
+    try {
+      const r = await data.users.toggleUser(target, user);
       setUsers(u => u.map(x => x.nome === nome ? { ...x, status: r.newStatus } : x));
       toast.success(`${nome} ${r.newStatus === "ativo" ? "ativado" : "bloqueado"}.`);
     } catch (e: any) { toast.error(e.message); }
@@ -87,10 +100,10 @@ const AdminPanel = ({ onClose }: AdminPanelProps) => {
     if (!cNome || !cSenha) { toast.error("Preencha nome e senha."); return; }
     setCreating(true);
     try {
-      await api("adminCreateUser", { nome: cNome, senha: cSenha }, user);
+      await data.users.adminCreateUser(cNome, cSenha, user);
       toast.success(`Usuário "${cNome}" criado!`);
       setCNome(""); setCSenha("");
-      const r = await api("listUsers", {}, user);
+      const r = await data.users.listUsers(user);
       setUsers(r.users || []);
     } catch (e: any) { toast.error(e.message); }
     setCreating(false);
@@ -99,7 +112,7 @@ const AdminPanel = ({ onClose }: AdminPanelProps) => {
   async function resetPw() {
     if (!rTarget || !newPw) { toast.error("Selecione usuário e nova senha."); return; }
     try {
-      await api("resetPassword", { targetNome: rTarget, novaSenha: newPw }, user);
+      await data.users.resetPassword(rTarget, newPw, user);
       toast.success(`Senha de "${rTarget}" redefinida.`);
       setRTarget(""); setNewPw("");
     } catch (e: any) { toast.error(e.message); }
@@ -109,11 +122,11 @@ const AdminPanel = ({ onClose }: AdminPanelProps) => {
     if (!mName.trim()) { toast.error("Informe o nome da máquina."); return; }
     setMAdding(true);
     try {
-      await api("addMachine", { name: mName.trim(), hasMeta: true, defaultMeta: Number(mMeta) || 0 }, user);
+      await data.machines.addMachine(mName.trim(), Number(mMeta) || 0, user);
       toast.success(`Máquina "${mName}" adicionada!`);
       setMName(""); setMMeta("");
-      const r = await api("getMachines", {}, user);
-      setAllMachines(r.allMachines || r.machines || []);
+      const r = await data.machines.getMachines(user);
+      setAllMachines((r.allMachines || r.machines || []) as AdminMachine[]);
       refreshMachines();
     } catch (e: any) { toast.error(e.message); }
     setMAdding(false);
@@ -121,7 +134,7 @@ const AdminPanel = ({ onClose }: AdminPanelProps) => {
 
   async function toggleMachine(mId: number) {
     try {
-      const r = await api("toggleMachine", { machineId: mId }, user);
+      const r = await data.machines.toggleMachine(mId, user);
       setAllMachines(prev => prev.map(m => m.id === mId ? { ...m, status: r.newStatus } : m));
       toast.success(`Máquina ${r.newStatus === "ativo" ? "ativada" : "desativada"}.`);
       refreshMachines();
@@ -131,7 +144,7 @@ const AdminPanel = ({ onClose }: AdminPanelProps) => {
   async function generateInvite() {
     setInviteLoading(true);
     try {
-      const r = await api("generateInviteCode", {}, user);
+      const r = await data.users.generateInviteCode(user);
       setInviteCode(r.code);
       toast.success("Código de convite gerado!");
     } catch (e: any) { toast.error(e.message); }
@@ -143,11 +156,11 @@ const AdminPanel = ({ onClose }: AdminPanelProps) => {
     if (!hLabel.trim()) { toast.error("Informe a descrição."); return; }
     setHAdding(true);
     try {
-      await api("addHoliday", { date: hDate, label: hLabel.trim(), type: hType }, user);
+      await data.calendar.addHoliday(hDate, hLabel.trim(), hType, user, isSupabase ? hShifts : undefined);
       toast.success("Feriado adicionado!");
-      setHDate(""); setHLabel(""); setHType("feriado");
-      const r = await api("getHolidays", {}, user);
-      setHolidaysList(r.holidays || []);
+      setHDate(""); setHLabel(""); setHType("feriado"); setHShifts([]);
+      const r = await data.calendar.getHolidays(user);
+      setHolidaysList((r.holidays || []) as Holiday[]);
       refreshHolidays();
     } catch (e: any) { toast.error(e.message); }
     setHAdding(false);
@@ -155,7 +168,7 @@ const AdminPanel = ({ onClose }: AdminPanelProps) => {
 
   async function removeHoliday(id: string) {
     try {
-      await api("removeHoliday", { id }, user);
+      await data.calendar.removeHoliday(id, user);
       toast.success("Feriado removido.");
       setHolidaysList(prev => prev.filter(h => h.id !== id));
       refreshHolidays();
@@ -186,9 +199,11 @@ const AdminPanel = ({ onClose }: AdminPanelProps) => {
           <button onClick={() => setTab("machines")} className={tabCls("machines")}>
             <Factory size={14} className="inline mr-1.5" />Máquinas
           </button>
-          <button onClick={() => setTab("invites")} className={tabCls("invites")}>
-            <KeyRound size={14} className="inline mr-1.5" />Convites
-          </button>
+          {!isSupabase && (
+            <button onClick={() => setTab("invites")} className={tabCls("invites")}>
+              <KeyRound size={14} className="inline mr-1.5" />Convites
+            </button>
+          )}
           <button onClick={() => setTab("feriados")} className={tabCls("feriados")}>
             <CalendarX size={14} className="inline mr-1.5" />Feriados
           </button>
@@ -220,17 +235,33 @@ const AdminPanel = ({ onClose }: AdminPanelProps) => {
                           <td className="px-3 py-2 font-semibold text-foreground">{u.nome}</td>
                           <td className="px-3 py-2 text-center">
                             <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${u.role === "admin" ? "bg-amber-100 text-amber-800" : "bg-blue-50 text-blue-800"}`} style={{ borderRadius: 20 }}>
-                              {u.role === "admin" ? "Admin" : "Operador"}
+                              {isSupabase ? (u.roleName ?? "—") : (u.role === "admin" ? "Admin" : "Operador")}
                             </span>
                           </td>
                           <td className="px-3 py-2 text-center">
-                            <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${u.status === "ativo" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`} style={{ borderRadius: 20 }}>
-                              {u.status === "ativo" ? "Ativo" : "Bloqueado"}
+                            <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${u.status === "ativo" ? "bg-green-100 text-green-700" : u.status === "pendente" ? "bg-amber-100 text-amber-800" : "bg-red-100 text-red-700"}`} style={{ borderRadius: 20 }}>
+                              {u.status === "ativo" ? "Ativo" : u.status === "pendente" ? "Pendente" : "Bloqueado"}
                             </span>
+                            {isSupabase && u.badgeNumber && <div className="text-[10px] text-muted-foreground mt-0.5">crachá {u.badgeNumber}</div>}
                           </td>
                           <td className="px-3 py-2 text-center">
-                            {u.nome !== "Admin" && (
-                              <button onClick={() => toggleUser(u.nome)}
+                            {isSupabase && u.status === "pendente" ? (
+                              <div className="flex items-center gap-1.5 justify-center">
+                                <select
+                                  value={approveRole[u.id ?? ""] ?? "1"}
+                                  onChange={e => setApproveRole(prev => ({ ...prev, [u.id ?? ""]: e.target.value }))}
+                                  className="text-xs border border-border rounded-md px-1.5 py-1 bg-background"
+                                  title="Perfil-modelo: as permissões dele são copiadas para o usuário"
+                                >
+                                  {roles.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
+                                </select>
+                                <button onClick={() => approveUser(u)}
+                                  className="text-xs font-semibold px-2 py-1 rounded-md bg-green-50 text-green-600 hover:bg-green-100">
+                                  Aprovar
+                                </button>
+                              </div>
+                            ) : u.nome !== "Admin" && (
+                              <button onClick={() => toggleUser(u)}
                                 className={`text-xs font-semibold px-2 py-1 rounded-md ${u.status === "ativo" ? "bg-red-50 text-red-600 hover:bg-red-100" : "bg-green-50 text-green-600 hover:bg-green-100"}`}>
                                 {u.status === "ativo" ? "Bloquear" : "Ativar"}
                               </button>
@@ -243,7 +274,18 @@ const AdminPanel = ({ onClose }: AdminPanelProps) => {
                 </div>
               )}
 
+              {isSupabase && (
+                <div className="bg-muted/30 rounded-xl p-4 border border-border">
+                  <p className="text-xs text-muted-foreground">
+                    No modo Supabase cada pessoa se cadastra na tela de login (e-mail, senha e nº do crachá) e aparece aqui como
+                    <strong> Pendente</strong>. Escolha o perfil e clique em <strong>Aprovar</strong>: as permissões do perfil são copiadas para ela.
+                    Senhas são trocadas pela própria pessoa (recuperação por e-mail do Supabase).
+                  </p>
+                </div>
+              )}
+
               {/* Create user */}
+              {!isSupabase && <>
               <div className="bg-muted/30 rounded-xl p-4 border border-border">
                 <p className="text-sm font-bold text-foreground mb-3">Criar Novo Usuário</p>
                 <div className="grid grid-cols-2 gap-3 mb-3">
@@ -289,6 +331,7 @@ const AdminPanel = ({ onClose }: AdminPanelProps) => {
                   Redefinir
                 </button>
               </div>
+              </>}
             </>
           )}
 
@@ -317,7 +360,7 @@ const AdminPanel = ({ onClose }: AdminPanelProps) => {
                           <td className="px-3 py-2 text-center text-xs">{m.defaultMeta || "—"}</td>
                           <td className="px-3 py-2 text-center">
                             <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${m.status === "ativo" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`} style={{ borderRadius: 20 }}>
-                              {m.status === "ativo" ? "Ativa" : "Inativa"}
+                              {m.status === "ativo" ? "Ativa" : m.status === "inativo" ? "Inativa" : "Manutenção"}
                             </span>
                           </td>
                           <td className="px-3 py-2 text-center">
@@ -402,6 +445,21 @@ const AdminPanel = ({ onClose }: AdminPanelProps) => {
                       className={inputCls}
                     />
                   </div>
+                  {isSupabase && (
+                    <div>
+                      <label className="text-[10px] font-bold text-muted-foreground uppercase mb-1 block">Turnos afetados</label>
+                      <div className="flex gap-2 h-[38px] items-center">
+                        {[1, 2, 3].map(t => (
+                          <label key={t} className="flex items-center gap-1 text-xs font-semibold cursor-pointer">
+                            <input type="checkbox" checked={hShifts.includes(t)}
+                              onChange={() => setHShifts(prev => prev.includes(t) ? prev.filter(x => x !== t) : [...prev, t].sort())} />
+                            T{t}
+                          </label>
+                        ))}
+                      </div>
+                      <p className="text-[10px] text-muted-foreground">Nenhum marcado = dia inteiro</p>
+                    </div>
+                  )}
                   <button
                     onClick={addHoliday}
                     disabled={hAdding}
@@ -443,7 +501,12 @@ const AdminPanel = ({ onClose }: AdminPanelProps) => {
                               {h.type === "feriado" ? "Feriado" : "Dia Anulado"}
                             </span>
                           </td>
-                          <td className="px-3 py-2 text-foreground text-xs">{h.label}</td>
+                          <td className="px-3 py-2 text-foreground text-xs">
+                            {h.label}
+                            {isSupabase && h.shiftIds && h.shiftIds.length > 0 && (
+                              <span className="ml-1.5 text-[10px] font-semibold text-muted-foreground">({h.shiftIds.map(s => "T" + s).join(", ")})</span>
+                            )}
+                          </td>
                           <td className="px-3 py-2 text-center">
                             <button
                               onClick={() => removeHoliday(h.id)}

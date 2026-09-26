@@ -1,6 +1,6 @@
 # Visão Geral do Banco de Dados
 
-> Versão do schema: `v0.1.0` · Última atualização: 14/09/2026 · Documento em linguagem simples, para apresentação.
+> Versão do schema: `v0.10.3` · Última atualização: 21/09/2026 · Documento em linguagem simples, para apresentação.
 > Detalhes técnicos: [02-referencia-tecnica.md](02-referencia-tecnica.md)
 
 ## 1. Por que um banco novo
@@ -46,11 +46,12 @@ flowchart LR
 
 Um **apontamento** é: *"a máquina X, no dia Y, no turno Z, produziu estas ordens de produção"*.
 
-- Existe **um apontamento por máquina + dia + turno**. Se alguém apontar algo que já existe, o sistema
+- Existe **um apontamento por máquina + dia + turno + tipo de trabalho** (normal ou hora extra). Se alguém apontar algo que já existe, o sistema
   completa o apontamento existente em vez de criar outro.
 - Apontar **atrasado** é permitido.
 - Uma **ordem de produção (OP)** pode ser dividida entre turnos: o 1º turno faz uma parte, o 2º completa.
 - Qualquer pessoa pode apontar qualquer turno. O sistema sempre registra **quem** apontou.
+- **Hora extra** (esporádica, combinada com o gestor) é apontada no turno em que ocorreu, mas **marcada como tal**: entra na produção total e num indicador próprio, e fica fora do cálculo de atingimento de meta — medir poucas horas com a meta de um turno inteiro daria um percentual falso. [D27]
 
 ```mermaid
 flowchart TB
@@ -158,3 +159,23 @@ Nem o Admin consegue apagar esse registro.
 | **SFM** (chão de fábrica) | Tabela de paradas de máquina com código de origem, sem duplicar importações |
 | **SAP** (OPs de PCP/Logística) | Número da OP guardado como texto, preservando zeros à esquerda |
 | **Banco da WEG** | Nomes em inglês, sem acentos, tipos padrão — tradução direta |
+
+## 11. Onde estamos (20/09/2026)
+
+```mermaid
+flowchart LR
+  A["Desenho<br/>✅ 14–16/09"] --> B["Banco criado no Supabase<br/>✅ 20/09"]
+  B --> C["Dados iniciais<br/>(turnos, perfis, máquinas, metas)"]
+  C --> D["App lê e grava no Supabase<br/>atrás de uma chave liga/desliga"]
+  D --> E["Migração dos dados<br/>da planilha"]
+  E --> F["Desligar o Apps Script"]
+```
+
+- O banco está **completo** no Supabase: as 16 tabelas, as 2 views, as regras de negócio e a segurança.
+- Cada regra foi **testada no banco real** (44 testes automáticos): por exemplo, um operador não consegue mexer no apontamento de outro, e um cadastro pendente não enxerga nada.
+- O sistema em produção **continua sendo a planilha** até a migração dos dados e a virada.
+- O que o usuário vai notar quando o app passar a usar o banco:
+  - login por **e-mail e senha**, com cadastro que **aguarda aprovação do gestor**;
+  - marcação de **hora extra** no apontamento;
+  - salvar de novo o mesmo turno **acrescenta** ordens em vez de substituir; para trocar, usa-se **Editar** (D30, confirmada);
+  - o operador vê **os próprios apontamentos** — porque pode corrigi-los em até 24 h (D33, confirmada).

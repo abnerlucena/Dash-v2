@@ -3,11 +3,13 @@ import { Pencil, Trash2, Check, X, Loader, ChevronDown, ChevronUp, ClipboardList
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { pctColor, fmt, dispD, today, api, type ProdRecord } from "@/lib/api";
+import { pctColor, fmt, dispD, today, type ProdRecord } from "@/lib/api";
+import { data } from "@/lib/repositories";
 import { DatePickerInput } from "@/components/DatePickerInput";
 import { SelectDropdown } from "@/components/SelectDropdown";
 
-const recordKey = (r: ProdRecord) => `${r.date}-${r.machineId}-${r.turno}`;
+// Hora extra (só modo Supabase) é outro apontamento no mesmo dia/turno/máquina: chave própria.
+const recordKey = (r: ProdRecord) => `${r.date}-${r.machineId}-${r.turno}${r.workMode === "overtime" ? "-HE" : ""}`;
 
 const FeedbacksTab = () => {
   const { user, records, machines, silentRefresh } = useAuth();
@@ -61,22 +63,7 @@ const FeedbacksTab = () => {
     setSavingKey(key);
     let ok = false;
     try {
-      const nowBR = new Date().toLocaleString("pt-BR");
-      await api("upsert", {
-        records: [{
-          date: r.date,
-          turno: r.turno,
-          machineId: r.machineId,
-          machineName: r.machineName,
-          meta: r.meta,
-          producao: r.producao,
-          savedBy: r.savedBy,
-          savedAt: r.savedAt || "",
-          obs: editText.trim(),
-          editUser: user?.nome || "",
-          editTime: nowBR,
-        }],
-      }, user);
+      await data.production.updateObs(r, editText.trim(), user);
       ok = true;
       toast.success("Observação atualizada!");
       setEditingKey(null);
@@ -95,22 +82,7 @@ const FeedbacksTab = () => {
     setSavingKey(key);
     let ok = false;
     try {
-      const nowBR = new Date().toLocaleString("pt-BR");
-      await api("upsert", {
-        records: [{
-          date: r.date,
-          turno: r.turno,
-          machineId: r.machineId,
-          machineName: r.machineName,
-          meta: r.meta,
-          producao: r.producao,
-          savedBy: r.savedBy,
-          savedAt: r.savedAt || "",
-          obs: "",
-          editUser: user?.nome || "",
-          editTime: nowBR,
-        }],
-      }, user);
+      await data.production.updateObs(r, "", user);
       ok = true;
       toast.success("Observação removida.");
       setDeletingKey(null);
@@ -174,6 +146,12 @@ const FeedbacksTab = () => {
                         Apontamento: {dispD(r.date)} · {r.turno}
                       </p>
                     </div>
+                    {r.workMode === "overtime" ? (
+                      <span className="text-xs font-extrabold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800" style={{ borderRadius: 20 }}
+                        title="Hora extra: fora do cálculo de meta">
+                        Hora extra
+                      </span>
+                    ) : (
                     <span
                       className="text-xs font-extrabold px-2 py-0.5 rounded-full"
                       style={{
@@ -184,6 +162,7 @@ const FeedbacksTab = () => {
                     >
                       {pct}%
                     </span>
+                    )}
                   </div>
 
                   {/* Obs body — textarea in edit mode, static in view mode */}

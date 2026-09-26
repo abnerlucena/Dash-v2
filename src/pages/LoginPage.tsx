@@ -4,6 +4,7 @@ import { Eye, EyeOff, Loader2 } from "lucide-react";
 import WEGLogo from "@/components/WEGLogo";
 import { useAuth } from "@/contexts/AuthContext";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { isSupabase } from "@/lib/repositories";
 
 const LoginPage = () => {
   const navigate = useNavigate();
@@ -15,17 +16,22 @@ const LoginPage = () => {
   const [senha, setSenha] = useState("");
   const [senha2, setSenha2] = useState("");
   const [showPw, setShowPw] = useState(false);
+  // Só modo Supabase: e-mail (login), nº do crachá (cadastro e conta compartilhada)
+  const [email, setEmail] = useState("");
+  const [cracha, setCracha] = useState("");
+  const [needsBadge, setNeedsBadge] = useState(false);
   const [loading, setLoading] = useState(false);
   const [alert, setAlert] = useState<{ type: string; msg: string }>({ type: "", msg: "" });
 
   const isLogin = mode === "login";
 
   function switchMode(m: "login" | "register") {
-    setMode(m); setAlert({ type: "", msg: "" }); setSenha(""); setSenha2(""); setCodigoAcesso("");
+    setMode(m); setAlert({ type: "", msg: "" }); setSenha(""); setSenha2(""); setCodigoAcesso(""); setNeedsBadge(false);
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (isSupabase) return handleSubmitSupabase();
     if (!nome || !senha) { setAlert({ type: "error", msg: "Preencha todos os campos." }); return; }
     if (!isLogin) {
       if (nome.length < 3) { setAlert({ type: "error", msg: "Nome muito curto (mín. 3 caracteres)." }); return; }
@@ -38,12 +44,45 @@ const LoginPage = () => {
       if (isLogin) {
         await login(nome, senha);
       } else {
-        await register(nome, senha, codigoAcesso);
+        await register({ nome, senha, inviteCode: codigoAcesso });
       }
       setAlert({ type: "success", msg: isLogin ? "Bem-vindo!" : "Conta criada com sucesso!" });
       setTimeout(() => navigate("/dashboard"), 600);
     } catch (e: any) {
       setAlert({ type: "error", msg: e.message || "Erro de conexão" });
+    }
+    setLoading(false);
+  }
+
+  // ── Modo Supabase: login por e-mail e cadastro com aprovação (D19–D23) ──
+  async function handleSubmitSupabase() {
+    if (isLogin) {
+      if (!nome || !senha) { setAlert({ type: "error", msg: "Preencha e-mail e senha." }); return; }
+      if (needsBadge && !cracha.trim()) { setAlert({ type: "error", msg: "Informe o nº do crachá." }); return; }
+    } else {
+      if (!nome || !email || !cracha || !senha) { setAlert({ type: "error", msg: "Preencha todos os campos." }); return; }
+      if (nome.trim().length < 3) { setAlert({ type: "error", msg: "Nome muito curto (mín. 3 caracteres)." }); return; }
+      if (senha.length < 6) { setAlert({ type: "error", msg: "Senha muito curta (mín. 6 caracteres)." }); return; }
+      if (senha !== senha2) { setAlert({ type: "error", msg: "As senhas não coincidem." }); return; }
+    }
+    setLoading(true); setAlert({ type: "", msg: "" });
+    try {
+      if (isLogin) {
+        await login(nome, senha, needsBadge ? cracha : undefined);
+        setAlert({ type: "success", msg: "Bem-vindo!" });
+        setTimeout(() => navigate("/dashboard"), 600);
+      } else {
+        const r = await register({ nome, senha, email, badgeNumber: cracha });
+        if (r.loggedIn) {
+          setTimeout(() => navigate("/dashboard"), 600);
+        } else {
+          setMode("login"); setSenha(""); setSenha2(""); setNome(email);
+          setAlert({ type: "success", msg: r.message || "Cadastro enviado!" });
+        }
+      }
+    } catch (e: unknown) {
+      if ((e as { code?: string })?.code === "BADGE_REQUIRED") setNeedsBadge(true);
+      setAlert({ type: "error", msg: (e as Error)?.message || "Erro de conexão" });
     }
     setLoading(false);
   }
@@ -85,13 +124,32 @@ const LoginPage = () => {
           {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="text-xs font-bold mb-1.5 block tracking-wide uppercase" style={{ color: '#1E293B' }}>Nome de usuário</label>
-              <input value={nome} onChange={e => setNome(e.target.value)} placeholder="Seu nome" autoFocus className={inputLight} style={{ borderRadius: 6 }} />
+              <label className="text-xs font-bold mb-1.5 block tracking-wide uppercase" style={{ color: '#1E293B' }}>
+                {isSupabase ? (isLogin ? "E-mail" : "Nome completo") : "Nome de usuário"}
+              </label>
+              <input value={nome} onChange={e => setNome(e.target.value)} autoFocus className={inputLight} style={{ borderRadius: 6 }}
+                type={isSupabase && isLogin ? "email" : "text"}
+                placeholder={isSupabase ? (isLogin ? "seu.email@empresa.com" : "Seu nome completo") : "Seu nome"} />
             </div>
+            {isSupabase && !isLogin && (
+              <div>
+                <label className="text-xs font-bold mb-1.5 block tracking-wide uppercase" style={{ color: '#1E293B' }}>E-mail</label>
+                <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="seu.email@empresa.com"
+                  className={inputLight} style={{ borderRadius: 6 }} />
+              </div>
+            )}
+            {isSupabase && (!isLogin || needsBadge) && (
+              <div>
+                <label className="text-xs font-bold mb-1.5 block tracking-wide uppercase" style={{ color: '#1E293B' }}>Nº do crachá</label>
+                <input value={cracha} onChange={e => setCracha(e.target.value)} placeholder="Nº de cadastro do crachá" inputMode="numeric"
+                  className={inputLight} style={{ borderRadius: 6 }} />
+                {needsBadge && <p className="text-[11px] text-muted-foreground mt-1">Conta compartilhada: identifique-se com o seu crachá.</p>}
+              </div>
+            )}
             <div>
               <label className="text-xs font-bold mb-1.5 block tracking-wide uppercase" style={{ color: '#1E293B' }}>Senha</label>
               <div className="relative">
-                <input type={showPw ? "text" : "password"} value={senha} onChange={e => setSenha(e.target.value)} placeholder="Mínimo 4 caracteres"
+                <input type={showPw ? "text" : "password"} value={senha} onChange={e => setSenha(e.target.value)} placeholder={isSupabase ? "Mínimo 6 caracteres" : "Mínimo 4 caracteres"}
                   className={`${inputLight} pr-16`} style={{ borderRadius: 6 }} />
                 <button type="button" onClick={() => setShowPw(!showPw)}
                   className="absolute right-0 top-0 bottom-0 px-3 flex items-center text-muted-foreground hover:text-foreground transition-colors border-l border-border">
@@ -107,12 +165,13 @@ const LoginPage = () => {
                   <input type={showPw ? "text" : "password"} value={senha2} onChange={e => setSenha2(e.target.value)} placeholder="Repita a senha"
                     className={inputLight} style={{ borderRadius: 6 }} />
                 </div>
-                <div>
+                {!isSupabase && <div>
                   <label className="text-xs font-bold mb-1.5 block tracking-wide uppercase" style={{ color: '#1E293B' }}>Código de acesso</label>
                   <input value={codigoAcesso} onChange={e => setCodigoAcesso(e.target.value)} placeholder="Informe o código fornecido" autoComplete="off"
                     className={inputLight} style={{ borderRadius: 6 }} />
                   <p className="text-[11px] text-muted-foreground mt-1">Solicite o código de acesso ao administrador.</p>
-                </div>
+                </div>}
+                {isSupabase && <p className="text-[11px] text-muted-foreground">Depois do cadastro, o gestor precisa aprovar o seu acesso.</p>}
               </div>
             )}
 

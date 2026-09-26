@@ -22,3 +22,9 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Supabase CLI (cache local)
+supabase/.temp/
+
+# Gerado por supabase/import/extrair.cjs a partir da planilha — derivado, não versionar
+supabase/import/preparo.sql

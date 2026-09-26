@@ -1,6 +1,6 @@
 # Referência Técnica do Schema
 
-> Versão do schema: `v0.1.0` · Última atualização: 14/09/2026 · Status: **desenhado, não implementado**
+> Versão do schema: `v0.17.0` · Última atualização: 26/09/2026 · Status: **implementado no Supabase** (projeto de testes), com o histórico da planilha já carregado. O sistema em produção continua sendo o Google Sheets.
 > SGBD: PostgreSQL (Supabase) · Schema: `public` (+ `auth`, gerenciado pelo Supabase)
 > Decisões citadas como `[Dxx]` estão em [03-decisoes.md](03-decisoes.md).
 
@@ -46,29 +46,37 @@ Colunas de autoria (`created_by`, `updated_by`, `granted_by`, `approved_by`) →
 
 Legenda: **PK** chave primária · **FK** chave estrangeira · **NN** not null · **UQ** unique.
 
-### 3.1 `machines`
+### 3.1 `machines` ✅ implementada em 20/09/2026
 | Coluna | Tipo | Restrições | Descrição |
 |---|---|---|---|
 | `id` | `integer` | PK, `generated always as identity` | [D01] |
-| `name` | `text` | NN; UQ em `lower(name)` | [D02] |
+| `name` | `text` | NN, CHECK não vazio; UQ em `lower(name)` (`machines_name_lower_key`) | [D02] |
 | `has_target` | `boolean` | NN, default `true` | Participa do cálculo de meta |
-| `status` | `text` | NN, default `'active'`, CHECK `active`/`inactive`/`maintenance`/`preventive_maintenance` | [D05] |
-| `status_updated_at` | `timestamptz` | | Última mudança de status |
+| `status` | `text` | NN, default `'active'`, CHECK `active`/`inactive`/`maintenance`/`preventive_maintenance`/`planned` | `planned` = prevista, ainda não existe na fábrica [D05, D41] |
+| `status_updated_at` | `timestamptz` | | Última mudança de status (gatilho `set_machine_status_updated_at`) |
 | `standard_operator_count` | `smallint` | CHECK `>= 0` | Lotação padrão [D12] |
-| `created_by`, `updated_by` | `uuid` | FK `profiles` | [D04] |
+| `process` | `text` | CHECK `assembly`/`packaging` | Processo do centro de trabalho. Nulo nas 18 máquinas antigas até a parte 2 [D37] |
+| `pieces_per_minute` | `numeric(10,3)` | CHECK `> 0` | Da planilha de capacidade. Só alarme de meta impossível, nunca cálculo da meta [D40] |
+| `efficiency` | `numeric(4,3)` | CHECK `> 0 e <= 1` | Eficiência esperada (a fábrica usa 0,60 a 0,90) [D40] |
+| `started_on` | `date` | | Entrada em operação; turnos anteriores não são cobrados [D41, D35] |
+| `created_by`, `updated_by` | `uuid` | FK `profiles`; `created_by` default `auth.uid()` | [D04] |
 | `created_at`, `updated_at` | `timestamptz` | NN, default `now()` | |
 
-Exclusão física bloqueada por FK quando houver produção; desativar via `status`.
+Exclusão física bloqueada por FK quando houver produção; desativar via `status`. Gatilhos: `set_updated_at`, `set_machine_status_updated_at`. `id` só aceita valor manual com `OVERRIDING SYSTEM VALUE` (usado no seed para manter os ids do legado).
 
-### 3.2 `shifts`
+### 3.2 `shifts` ✅ implementada em 16/09/2026 (reaplicada no projeto atual em 20/09/2026 — D28)
 | Coluna | Tipo | Restrições | Descrição |
 |---|---|---|---|
 | `id` | `smallint` | PK | 1, 2, 3 |
-| `name` | `text` | NN, UQ | "TURNO 1" |
+| `name` | `text` | NN, UQ, CHECK não vazio | "TURNO 1" |
 | `start_time`, `end_time` | `time` | | Turno 3 atravessa a meia-noite (`end_time < start_time`) |
+| `gross_minutes` | `smallint` | CHECK `> 0` | Duração bruta segundo a planilha de capacidade. Informativo |
+| `useful_minutes` | `smallint` | CHECK `> 0`; CHECK de tabela `shifts_useful_within_gross` (`useful <= gross`) | Minutos que realmente produzem. T1 493, T2 481, T3 271 [D42] |
 | `is_active` | `boolean` | NN, default `true` | Substitui `localStorage.turnosAtivos` [D06] |
 
-### 3.3 `production_records`
+> **Regra: `start_time`/`end_time` são descritivos.** O turno de um apontamento vem SEMPRE do `shift_id` escolhido por quem aponta, nunca do relógio. Apontadores costumam trabalhar além do horário do turno (passagem de turno, organização interna), então inferir o turno pelo horário produziria dado errado. `created_at` registra *quando* o apontamento foi feito; `shift_id` registra *a que turno* a produção pertence. [D06]
+
+### 3.3 `production_records` ✅ implementada em 20/09/2026
 | Coluna | Tipo | Restrições | Descrição |
 |---|---|---|---|
 | `id` | `uuid` | PK | |
@@ -77,15 +85,18 @@ Exclusão física bloqueada por FK quando houver produção; desativar via `stat
 | `machine_id` | `integer` | NN, FK `machines` | |
 | `target_quantity` | `integer` | NN, CHECK `>= 0` | Snapshot da meta vigente [D08] |
 | `operator_count` | `smallint` | CHECK `>= 0` | [D12] |
-| `notes` | `text` | | |
-| `created_by`, `updated_by` | `uuid` | FK `profiles` | |
+| `work_mode` | `text` | NN, default `'regular'`, CHECK `regular`/`overtime` | Hora extra não entra no cálculo de meta [D27] |
+| `notes` | `text` | CHECK até 500 caracteres | |
+| `created_by`, `updated_by` | `uuid` | FK `profiles`; `created_by` default `auth.uid()` | |
 | `created_at`, `updated_at` | `timestamptz` | NN, default `now()` | |
+| `import_batch_id` | `uuid` | FK `import_batches` | Lote que criou o apontamento. **Nulo = apontado por uma pessoa** [D35] |
+| `source_ref` | `text` | | Origem na planilha, ex.: `JUN 26!F12` [D35] |
 
-- UQ `(machine_id, production_date, shift_id)` [D10]
-- Índices: `(production_date)`, `(machine_id, production_date)`, `(shift_id)`
+- UQ `production_records_unique_entry (machine_id, production_date, shift_id, work_mode)` [D10, D27]
+- Índices: `(production_date)`, `(shift_id)`, `(created_by)` e o parcial `(import_batch_id) where import_batch_id is not null`, que só cobre o que veio de importação. A busca por `(machine_id, production_date)` usa o índice da UQ (mesmo prefixo), por isso não há índice separado. Gatilho `set_updated_at`.
 - `UPDATE`/`DELETE` diretos negados por RLS; somente via funções (seção 6).
 
-### 3.4 `production_orders`
+### 3.4 `production_orders` ✅ implementada em 20/09/2026
 | Coluna | Tipo | Restrições | Descrição |
 |---|---|---|---|
 | `id` | `uuid` | PK | |
@@ -98,49 +109,50 @@ Exclusão física bloqueada por FK quando houver produção; desativar via `stat
 
 Índices: `(production_record_id)`, `(order_number)`. [D09]
 
-### 3.5 `machine_downtimes` *(criada sem uso — integração SFM futura)*
+### 3.5 `machine_downtimes` ✅ implementada em 20/09/2026 *(sem uso — integração SFM futura)*
 | Coluna | Tipo | Restrições | Descrição |
 |---|---|---|---|
 | `id` | `uuid` | PK | |
 | `machine_id` | `integer` | NN, FK `machines` | |
 | `reason` | `text` | NN, CHECK `maintenance`/`preventive_maintenance` | |
 | `started_at` | `timestamptz` | NN | |
-| `ended_at` | `timestamptz` | CHECK `ended_at > started_at` | Nulo = em andamento |
+| `ended_at` | `timestamptz` | CHECK `machine_downtimes_period_check`: `ended_at > started_at` | Nulo = em andamento |
 | `source` | `text` | NN, default `'manual'`, CHECK `manual`/`sfm` | |
 | `external_id` | `text` | | ID no sistema de origem |
 | `notes` | `text` | | |
-| `created_by` | `uuid` | FK `profiles` | |
+| `created_by` | `uuid` | FK `profiles`, default `auth.uid()` | |
 | `created_at` | `timestamptz` | NN, default `now()` | |
 
-UQ `(source, external_id)` (idempotência de importação) · Índice `(machine_id, started_at)`. [D05]
+UQ `machine_downtimes_source_external_id_key (source, external_id)` (idempotência de importação) · Índice `(machine_id, started_at)`. [D05]
 
-### 3.6 `machine_targets`
+### 3.6 `machine_targets` ✅ implementada em 20/09/2026
 | Coluna | Tipo | Restrições | Descrição |
 |---|---|---|---|
 | `id` | `uuid` | PK | |
 | `machine_id` | `integer` | NN, FK `machines` | |
 | `quantity_per_shift` | `integer` | NN, CHECK `>= 0` | Igual para todos os turnos [D14] |
-| `valid_from` | `date` | NN; trigger recusa data < hoje (SP) | [D15] |
-| `created_by` | `uuid` | FK `profiles` | |
+| `basis` | `text` | NN, default `'per_shift'`, CHECK `per_shift`/`per_operator` | Como ler a quantidade: meta do turno ou meta por pessoa (A Granel) [D39] |
+| `valid_from` | `date` | NN; gatilho recusa data < hoje (SP) em INSERT e UPDATE | [D15] |
+| `created_by` | `uuid` | FK `profiles`, default `auth.uid()` | |
 | `created_at` | `timestamptz` | NN, default `now()` | |
 
-UQ `(machine_id, valid_from)` — também atende a busca "maior `valid_from` ≤ data". Append-only. [D13]
+UQ `machine_targets_machine_valid_from_key (machine_id, valid_from)` — também atende a busca "maior `valid_from` ≤ data". Append-only para o passado: metas já vigentes antes de hoje não podem ser alteradas; a meta de hoje/futura pode ser corrigida pela função `save_machine_targets` [D13, D31].
 
-### 3.7 `calendar_events`
+### 3.7 `calendar_events` ✅ implementada em 20/09/2026
 | Coluna | Tipo | Restrições | Descrição |
 |---|---|---|---|
 | `id` | `uuid` | PK | |
 | `event_date` | `date` | NN | |
-| `description` | `text` | NN | |
+| `description` | `text` | NN, CHECK não vazio | |
 | `event_type` | `text` | NN, CHECK `holiday`/`special_event`/`excluded_day` | [D16] |
 | `scope` | `text` | NN, CHECK `national`/`state`/`municipal`/`company` | |
 | `source` | `text` | NN, default `'manual'`, CHECK `manual`/`brasil_api` | |
-| `created_by` | `uuid` | FK `profiles` | Nulo quando importado |
+| `created_by` | `uuid` | FK `profiles`, default `auth.uid()` | Nulo quando importado |
 | `created_at` | `timestamptz` | NN, default `now()` | |
 
-Índice `(event_date)` · UQ parcial `(event_date) WHERE source = 'brasil_api'` [D17, D18]
+Índice `(event_date)` · UQ parcial `calendar_events_brasil_api_date_key (event_date) WHERE source = 'brasil_api'` [D17, D18]. A rotina de importação (Edge Function + Cron) ainda não existe.
 
-### 3.8 `calendar_event_shifts`
+### 3.8 `calendar_event_shifts` ✅ implementada em 20/09/2026
 | Coluna | Tipo | Restrições |
 |---|---|---|
 | `event_id` | `uuid` | FK `calendar_events` `ON DELETE CASCADE` |
@@ -148,12 +160,12 @@ UQ `(machine_id, valid_from)` — também atende a busca "maior `valid_from` ≤
 
 PK `(event_id, shift_id)` · Índice `(shift_id)`. Sem linhas = evento vale para todos os turnos. [D17]
 
-### 3.9 `profiles`
+### 3.9 `profiles` ✅ implementada em 20/09/2026
 | Coluna | Tipo | Restrições | Descrição |
 |---|---|---|---|
 | `id` | `uuid` | PK, FK `auth.users(id)` `ON DELETE CASCADE` | |
-| `full_name` | `text` | NN | Não único |
-| `badge_number` | `text` | UQ | Nº de cadastro do crachá [D21] |
+| `full_name` | `text` | NN, CHECK não vazio | Não único |
+| `badge_number` | `text` | UQ, CHECK não vazio | Nº de cadastro do crachá [D21] |
 | `account_type` | `text` | NN, default `'personal'`, CHECK `personal`/`shared`/`display` | |
 | `status` | `text` | NN, default `'pending'`, CHECK `pending`/`active`/`blocked` | [D20] |
 | `role_id` | `smallint` | FK `roles` | Perfil-modelo aplicado |
@@ -161,30 +173,65 @@ PK `(event_id, shift_id)` · Índice `(shift_id)`. Sem linhas = evento vale para
 | `approved_at` | `timestamptz` | | |
 | `created_at`, `updated_at` | `timestamptz` | NN, default `now()` | |
 
-CHECK `account_type <> 'personal' OR badge_number IS NOT NULL`.
+CHECK `profiles_personal_requires_badge`: `account_type <> 'personal' OR badge_number IS NOT NULL`. Índices: `(status)`, `(role_id)`. Gatilho `set_updated_at`.
 
-### 3.10 `roles`
+> **Criação e remoção de contas [D29]:** o gatilho `handle_new_user` recusa cadastro pessoal sem crachá com mensagem em português. Contas `shared`/`display` são criadas enviando `account_type` nos metadados do cadastro. Usuários que já têm histórico (aprovaram alguém, apontaram produção, aparecem na auditoria) **não podem ser apagados** — as chaves estrangeiras impedem; a saída é `status = 'blocked'`.
+
+### 3.9b `import_batches` (migration 0016)
+| Coluna | Tipo | Restrições | Descrição |
+|---|---|---|---|
+| `id` | `uuid` | PK | |
+| `source_file` | `text` | NN, CHECK não vazio | Nome do arquivo da planilha |
+| `description` | `text` | | |
+| `status` | `text` | NN, default `draft`, CHECK `draft`/`loaded`/`reverted`/`failed` | Unidade de carga e reversão |
+| `loaded_at`, `reverted_at` | `timestamptz` | | |
+| `error_message` | `text` | | Preenchido quando a carga falha |
+| `created_by` | `uuid` | FK `profiles`, default `auth.uid()` | |
+| `created_at` | `timestamptz` | NN, default `now()` | |
+
+### 3.9c `import_rows` (migration 0016)
+Área de preparo: uma linha por célula da planilha, com a **origem** e a **interpretação** lado a lado.
+
+| Coluna | Tipo | Restrições | Descrição |
+|---|---|---|---|
+| `id` | `bigint` | PK, identity | |
+| `batch_id` | `uuid` | NN, FK `import_batches` ON DELETE CASCADE | Apagar o lote leva as linhas |
+| `source_sheet`, `source_cell` | `text` | NN; UQ `(batch_id, source_sheet, source_cell)` | Origem exata; a UQ impede contar a mesma célula duas vezes |
+| `raw_machine`, `raw_value` | `text` | `raw_machine` NN | O que a planilha dizia, sem interpretação |
+| `kind` | `text` | NN, CHECK `production`/`rework`/`downtime`/`note`/`discard` | No que a célula vira |
+| `machine_id`, `production_date`, `shift_id`, `work_mode`, `quantity`, `operator_count`, `notes` | | CHECK de tabela `import_rows_producao_completa` | Produção e retrabalho exigem máquina, data, turno, quantidade e modo |
+| `discard_reason` | `text` | CHECK de tabela `import_rows_descarte_com_motivo` | Descarte exige motivo escrito |
+| `status` | `text` | NN, default `pending`, CHECK `pending`/`loaded`/`skipped`/`error` | Resultado da carga |
+| `error_message` | `text` | | |
+| `production_record_id`, `downtime_id` | `uuid` | FK, ON DELETE SET NULL | O que a linha gerou |
+| `created_at` | `timestamptz` | NN, default `now()` | |
+
+Índices: `(batch_id, status)`, `(batch_id, kind)` e `(batch_id, machine_id, production_date)` para a conferência.
+
+**RLS:** ler exige `import.review` (gestor e admin); escrever exige `import.manage` (só admin). Invisível para operador, preparador, distribuidor e TV.
+
+### 3.10 `roles` ✅ implementada em 20/09/2026
 | Coluna | Tipo | Restrições |
 |---|---|---|
-| `id` | `smallint` | PK |
-| `code` | `text` | NN, UQ |
-| `name` | `text` | NN |
+| `id` | `smallint` | PK (valor fixo definido no seed) |
+| `code` | `text` | NN, UQ, CHECK `code ~ '^[a-z_]+$'` |
+| `name` | `text` | NN, CHECK não vazio |
 | `description` | `text` | |
 
-Carga inicial: `operator`, `preparer`, `distributor`, `technician`, `manager`, `admin`, `tv_display`.
+Carga inicial (seed estrutural): `operator`, `preparer`, `distributor`, `technician`, `manager`, `admin`, `tv_display`.
 
-### 3.11 `permissions`
+### 3.11 `permissions` ✅ implementada em 20/09/2026
 | Coluna | Tipo | Restrições |
 |---|---|---|
-| `code` | `text` | PK |
+| `code` | `text` | PK, CHECK formato `area.acao` (`^[a-z_]+\.[a-z_]+$`) |
 | `description` | `text` | NN |
 | `category` | `text` | NN (agrupa na UI) |
 | `sort_order` | `smallint` | NN |
 
-### 3.12 `role_permissions`
-PK `(role_id, permission_code)` · FKs para `roles` e `permissions`.
+### 3.12 `role_permissions` ✅ implementada em 20/09/2026
+PK `(role_id, permission_code)` · FKs para `roles` e `permissions`, ambas `ON DELETE CASCADE` · Índice `(permission_code)`.
 
-### 3.13 `user_permissions`
+### 3.13 `user_permissions` ✅ implementada em 20/09/2026
 | Coluna | Tipo | Restrições |
 |---|---|---|
 | `user_id` | `uuid` | FK `profiles` `ON DELETE CASCADE` |
@@ -192,20 +239,20 @@ PK `(role_id, permission_code)` · FKs para `roles` e `permissions`.
 | `granted_by` | `uuid` | FK `profiles` |
 | `granted_at` | `timestamptz` | NN, default `now()` |
 
-PK `(user_id, permission_code)`. Permissões efetivas = somente esta tabela (perfil é copiado na aprovação). [D22]
+PK `(user_id, permission_code)` · Índice `(permission_code)`. Permissões efetivas = somente esta tabela (perfil é copiado na aprovação). [D22]
 
-### 3.14 `shared_account_sessions`
+### 3.14 `shared_account_sessions` ✅ implementada em 20/09/2026
 | Coluna | Tipo | Restrições |
 |---|---|---|
 | `id` | `uuid` | PK |
 | `auth_session_id` | `uuid` | NN, UQ (claim `session_id` do JWT) |
-| `account_id` | `uuid` | NN, FK `profiles` |
-| `identified_user_id` | `uuid` | NN, FK `profiles` (ativo, `personal`) |
+| `account_id` | `uuid` | NN, FK `profiles` `ON DELETE CASCADE` |
+| `identified_user_id` | `uuid` | NN, FK `profiles` `ON DELETE CASCADE` (ativo, `personal` — checado pela função) |
 | `identified_at` | `timestamptz` | NN, default `now()` |
 
-[D23]
+Índices: `(account_id)`, `(identified_user_id)`. Escrita só pela função `identify_shared_session`. [D23]
 
-### 3.15 `notifications`
+### 3.15 `notifications` ✅ implementada em 20/09/2026
 | Coluna | Tipo | Restrições |
 |---|---|---|
 | `id` | `uuid` | PK |
@@ -216,9 +263,9 @@ PK `(user_id, permission_code)`. Permissões efetivas = somente esta tabela (per
 | `read_at` | `timestamptz` | Nulo = não lida |
 | `created_at` | `timestamptz` | NN, default `now()` |
 
-Índice parcial `(recipient_id, created_at) WHERE read_at IS NULL`. Publicada no Realtime. [D25]
+Índice parcial `notifications_unread_idx (recipient_id, created_at) WHERE read_at IS NULL` · Índice `(related_table, related_id)`. Publicada no Realtime (`supabase_realtime`). [D25]
 
-### 3.16 `audit_logs`
+### 3.16 `audit_logs` ✅ implementada em 20/09/2026
 | Coluna | Tipo | Restrições |
 |---|---|---|
 | `id` | `bigint` | PK, identity |
@@ -231,54 +278,89 @@ PK `(user_id, permission_code)`. Permissões efetivas = somente esta tabela (per
 | `old_data`, `new_data` | `jsonb` | |
 | `ip_address` | `inet` | De `request.headers` (`x-forwarded-for`) |
 
-Índices: `(occurred_at)`, `(table_name, record_id)`, `(actor_id)`. Append-only: sem políticas de `UPDATE`/`DELETE`. [D26]
+Índices: `(occurred_at)`, `(table_name, record_id)`, `(actor_id)`. Append-only: sem políticas de `UPDATE`/`DELETE` **e** gatilhos `prevent_audit_log_changes`/`prevent_audit_log_truncate`, que recusam UPDATE, DELETE e TRUNCATE até para o dono do banco. `record_id` = `id` da linha, ou `user_id:permission_code` / `event_id:shift_id` nas tabelas de ligação. [D26]
 
-## 4. Views
+## 4. Views ✅ implementadas em 20/09/2026
 
 | View | Retorna |
 |---|---|
-| `production_summary` | Colunas de `production_records` + `good_quantity`, `rework_quantity`, `total_quantity`, `staffing_ratio`, `adjusted_target` [D11, D12] |
-| `current_machine_targets` | Meta vigente hoje (SP) por máquina: maior `valid_from <= current_date` |
+| `production_summary` | Colunas de `production_records` + `shift_name`, `machine_name`, `good_quantity` (ordens sem retrabalho), `rework_quantity`, `total_quantity`, `order_count`, `staffing_ratio` (= `operator_count / standard_operator_count`), `adjusted_target` (= meta × lotação), `is_excluded_day` (existe `excluded_day` na data, para o dia inteiro ou para o turno) e `counts_toward_target` (= `work_mode = 'regular'` **e** não anulado) [D11, D12, D16, D27] |
+| `current_machine_targets` | `machine_id`, `target_id`, `quantity_per_shift`, `valid_from`, `created_by`, `created_at`, `basis` — meta vigente hoje (SP) por máquina: maior `valid_from <= hoje` |
 
-Views devem ser criadas com `security_invoker = true` para respeitar o RLS de quem consulta.
+Ambas criadas com `security_invoker = true`: respeitam o RLS de quem consulta.
+
+> **Regra de leitura para gráficos:** atingimento de meta = `sum(good_quantity) / sum(target_quantity)` filtrando `counts_toward_target`. Produção total soma todas as linhas (inclusive hora extra).
 
 ## 5. Triggers
 
 | Trigger | Tabela / evento | Ação |
 |---|---|---|
-| `set_updated_at` | tabelas com `updated_at`, `BEFORE UPDATE` | `updated_at = now()` |
+| `set_updated_at` | `profiles`, `machines`, `production_records` (todas com `updated_at`), `BEFORE UPDATE` | `updated_at = now()` |
 | `handle_new_user` | `auth.users`, `AFTER INSERT` | Cria `profiles` (`pending`, `personal`) a partir dos metadados do cadastro |
 | `notify_approvers` | `profiles`, `AFTER INSERT` com `status = 'pending'` | Uma `notification` por usuário ativo com `users.approve` |
 | `resolve_approval_notifications` | `profiles`, `AFTER UPDATE` de `status` | Marca `read_at` nas notificações do perfil para todos |
-| `validate_target_valid_from` | `machine_targets`, `BEFORE INSERT` | Recusa `valid_from < (now() at time zone 'America/Sao_Paulo')::date` |
-| `audit_row_change` | produção, ordens, máquinas, metas, eventos, perfis, permissões | Insere em `audit_logs` |
+| `validate_target_valid_from` | `machine_targets`, `BEFORE INSERT OR UPDATE` | Recusa `valid_from < (now() at time zone 'America/Sao_Paulo')::date` e UPDATE de meta com `valid_from` antigo |
+| `set_machine_status_updated_at` | `machines`, `BEFORE INSERT OR UPDATE OF status` | `status_updated_at = now()` quando o status muda |
+| `audit_row_change` | `production_records`, `production_orders`, `machines`, `machine_targets`, `calendar_events`, `calendar_event_shifts`, `profiles`, `user_permissions` — `AFTER INSERT OR UPDATE OR DELETE` | Insere em `audit_logs` (autor, pessoa identificada, IP do `x-forwarded-for`); ignora UPDATE sem mudança |
+| `prevent_audit_log_changes` | `audit_logs`, `BEFORE UPDATE OR DELETE` (+ `prevent_audit_log_truncate`, `BEFORE TRUNCATE`) | Recusa a operação |
 
-## 6. Funções (RPC)
+## 6. Funções ✅ implementadas em 20/09/2026
+
+### 6.1 Funções de apoio
+
+| Função | Retorno | Observação |
+|---|---|---|
+| `is_active_user()` | `boolean` | Perfil do usuário logado com `status = 'active'` |
+| `has_permission(p_code text)` | `boolean` | `status = 'active'` + `user_permissions`; em conta `shared`, só com identificação na sessão atual [D22, D23] |
+| `my_permissions()` | `text[]` | Permissões efetivas (mesmas regras); o app usa para mostrar/esconder botões |
+| `current_identified_user_id()` | `uuid` | Pessoa identificada por crachá na sessão (claim `session_id` do JWT) [D23] |
+| `machine_target_on(p_machine_id, p_date)` | `integer` | Meta vigente na data; antes do início do histórico, a mais antiga [D32] |
+| `list_profile_names()` | `table(id, full_name)` | Só id + nome, só para usuários ativos (exibir "quem apontou" sem expor crachá) |
+| `can_edit_production_record(created_by, created_at)` / `can_delete_production_record(...)` | `boolean` | Regra D24. Nunca devolve `NULL`: apontamento **sem autor** só é editável/apagável com `production.edit` / `production.delete` (correção 0.10.3) |
+| `insert_production_orders(record_id, orders jsonb)` | `integer` | Interna (sem permissão de execução para o app) |
+
+### 6.2 Funções RPC (chamadas pelo app)
 
 | Função | Permissão exigida | Observação |
 |---|---|---|
-| `has_permission(code text) → boolean` | — | Considera `status = 'active'` e, em contas `shared`, identificação na sessão atual |
-| `save_production_record(...)` | `production.create` (ou edição, se existir) | Registro + ordens numa transação |
-| `update_production_record(id, ...)` | `production.edit`, ou `production.edit_own` se autor e `created_at > now() - 24h` | [D24] |
-| `delete_production_record(id)` | `production.delete` (ou `edit_own` na janela) | |
-| `bulk_update_production_records(ids, ...)` | `production.bulk_edit` | Mover data / trocar turno |
-| `bulk_delete_production_records(ids)` | `production.bulk_delete` | |
-| `create_machine(name, ..., initial_target)` | `machines.manage` | Máquina + primeira meta [D13] |
-| `approve_user(user_id, role_id, permissions[])` | `users.approve` | Copia o perfil e aplica ajustes |
-| `identify_shared_session(badge_number)` | conta `shared` | Grava `shared_account_sessions` |
+| `save_production_record(p_production_date, p_shift_id, p_machine_id, p_orders jsonb = null, p_notes = null, p_operator_count = null, p_work_mode = 'regular', p_replace_orders = false) → uuid` | `production.create` para criar; regra de edição (D24) se já existir | Cria ou **completa** o apontamento; ordens enviadas são acrescentadas (D30), ou substituídas com `p_replace_orders`. Meta copiada de `machine_target_on` (D08); operadores = lotação padrão se não informados. `p_notes`: null mantém, `''` apaga |
+| `update_production_record(p_id, p_notes, p_operator_count, p_orders, p_production_date, p_shift_id, p_work_mode) → uuid` | `production.edit`, ou `edit_own` se autor e `created_at > now() - 24h` | null = manter; `p_orders` substitui [D24] |
+| `delete_production_record(p_id)` | `production.delete`, ou `edit_own` na janela | Ordens apagadas em cascata |
+| `bulk_update_production_records(p_ids uuid[], p_new_date = null, p_new_shift_id = null) → integer` | `production.bulk_edit` | Até 200; colisão com apontamento existente → nada é alterado |
+| `bulk_delete_production_records(p_ids uuid[]) → integer` | `production.bulk_delete` | Até 200 |
+| `create_machine(p_name, p_initial_target = 0, p_has_target = true, p_standard_operator_count = null) → integer` | `machines.manage` | Máquina + primeira meta vigente hoje [D13] |
+| `save_machine_targets(p_targets jsonb {"id": meta}, p_valid_from = hoje) → integer` | `targets.manage` | Grava só as metas que mudaram; mesma data (hoje/futura) é corrigida [D15, D31] |
+| `approve_user(p_user_id, p_role_id, p_permissions text[] = null)` | `users.approve` | Ativa, aplica o perfil e copia (ou ajusta) as permissões [D22] |
+| `identify_shared_session(p_badge_number) → text` | conta `shared` ativa | Crachá de usuário `personal` ativo; grava `shared_account_sessions`; devolve o nome |
+| `bootstrap_admin(p_email, p_role_code = 'manager')` | só o dono do banco | Instalação: ativa o primeiro gestor. Sem execução para `anon`/`authenticated` |
 
-Funções que escrevem usam `SECURITY DEFINER` com `search_path` fixo e checagem explícita de permissão.
+Funções que escrevem usam `SECURITY DEFINER` com `search_path = ''` e checagem explícita de permissão. Execução revogada de `public`/`anon` e concedida a `authenticated`. Mensagens de erro em português (códigos `42501` sem permissão, `23505` duplicidade, `22023` parâmetro inválido, `P0002` não encontrado).
 
-## 7. Segurança (RLS)
+## 7. Segurança (RLS) ✅ implementada em 20/09/2026
 
-RLS habilitado em **todas** as tabelas de `public`. Princípios:
+RLS habilitado em **todas** as 16 tabelas de `public` (conferido no banco: 0 sem RLS). Todas as políticas valem `to authenticated`; `anon` não tem política nem privilégio de tabela.
 
-- Leitura de produção: `history.view` OR `dashboard.view` OR `tv_mode.view`.
-- `INSERT` direto só onde não há regra de negócio adicional; escrita de produção via RPC.
-- `notifications`: cada usuário lê/atualiza apenas `recipient_id = auth.uid()`.
-- `audit_logs`: leitura para `system.admin`; nenhuma política de escrita (somente triggers).
-- `profiles`: usuário lê o próprio; `users.approve` lê e altera todos.
+| Tabela | SELECT | INSERT | UPDATE | DELETE |
+|---|---|---|---|---|
+| `shifts` | ativo | — | `system.admin` | — |
+| `machines` | ativo | — (via `create_machine`) | `machines.manage` | — |
+| `machine_targets` | ativo | `targets.manage` (e `save_machine_targets`) | — (append-only) | — |
+| `production_records` | `history.view` ∨ `dashboard.view` ∨ `tv_mode.view` ∨ (autor ∧ `production.edit_own`) [D33] | — (RPC) | — (RPC) | — (RPC) |
+| `production_orders` | se o apontamento-pai é visível | — (RPC) | — | — |
+| `machine_downtimes` | ativo | — | — | — |
+| `calendar_events` | ativo | `calendar.manage` | `calendar.manage` | `calendar.manage` |
+| `calendar_event_shifts` | ativo | `calendar.manage` | — | `calendar.manage` |
+| `roles`, `permissions`, `role_permissions` | ativo | — | — | — |
+| `profiles` | próprio ∨ `users.approve` | — (gatilho) | `users.approve` | — |
+| `user_permissions` | próprias ∨ `users.approve` | `users.approve` | — | `users.approve` |
+| `shared_account_sessions` | própria conta ∨ `system.admin` | — (RPC) | — | — |
+| `notifications` | `recipient_id = auth.uid()` | — (gatilho) | próprio, **só a coluna `read_at`** | — |
+| `audit_logs` | `system.admin` | — (gatilho) | — (bloqueado por gatilho) | — (bloqueado por gatilho) |
+
+"ativo" = `is_active_user()`. Nas políticas as funções aparecem como `(select public.f())`, para serem avaliadas uma vez por consulta. Views usam `security_invoker = true` e herdam estas regras.
+
 - Chaves no frontend: somente URL do projeto e `anon key`. A `service_role` nunca sai do Supabase.
+- Testes: `supabase/tests/02_rls.sql`.
 
 ## 8. Catálogo de permissões
 

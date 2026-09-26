@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Banco de dados do Dash — 7. O mapa da fábrica</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap">
+<link rel="stylesheet" href="estilo.css">
+</head>
+<body>
+
+<div class="eyebrow">Dash de Produção · Banco de dados · Caderno 7 de 7</div>
+<h1>O mapa da fábrica</h1>
+<p class="sub">O desenho real de Itajaí, levantado a partir da planilha de capacidade de 09/09/2026 e confirmado com o gestor. É este mapa que o banco precisa passar a refletir.</p>
+<div class="rule"></div>
+
+<section class="flow">
+  <h2>1. Dois processos, 22 centros de trabalho</h2>
+  <div class="analogy"><p><b>Analogia:</b> a fábrica não é uma lista de máquinas, é uma <b>cozinha com duas bancadas</b>. Na primeira monta-se o prato; na segunda, embala-se. Cada posto tem nome próprio e é contado sozinho.</p></div>
+  <p>Cada nome abaixo é um <b>centro de trabalho</b>: ele recebe apontamento próprio e é interpretado no seu contexto. Doze são cobrados por meta; dez existem para atender demanda conforme ela aparece, e por isso não entram no cálculo de atingimento.</p>
+
+  <figure>
+    <svg viewBox="0 0 820 628" role="img" aria-label="Mapa da fábrica: o centro é Itajaí com 22 centros de trabalho, dividido em Processo de Montagem com 13 centros (3 com meta e 10 por demanda) e Processo de Embalagem com 9 centros, todos com meta.">
+      <defs>
+        <marker id="mp" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="currentColor"/>
+        </marker>
+      </defs>
+
+      <!-- centro -->
+      <rect x="260" y="8" width="300" height="58" rx="10" fill="#003366"/>
+      <text x="410" y="32" font-size="13.5" font-weight="700" text-anchor="middle" fill="#fff">FÁBRICA ITAJAÍ</text>
+      <text x="410" y="52" font-size="10.5" text-anchor="middle" fill="#C9DCEC">22 centros de trabalho ativos</text>
+
+      <path d="M320 66 C 250 86, 240 86, 205 98" fill="none" stroke="currentColor" marker-end="url(#mp)"/>
+      <path d="M500 66 C 570 86, 580 86, 615 98" fill="none" stroke="currentColor" marker-end="url(#mp)"/>
+
+      <!-- cabeçalhos de processo -->
+      <rect x="35" y="100" width="340" height="38" rx="8" fill="#EEF3F8" stroke="#0066B3" stroke-width="1.5"/>
+      <text x="205" y="125" font-size="12.5" font-weight="700" text-anchor="middle" fill="#003366">PROCESSO DE MONTAGEM · 13</text>
+      <rect x="445" y="100" width="340" height="38" rx="8" fill="#EEF3F8" stroke="#0066B3" stroke-width="1.5"/>
+      <text x="615" y="125" font-size="12.5" font-weight="700" text-anchor="middle" fill="#003366">PROCESSO DE EMBALAGEM · 9</text>
+
+      <!-- MONTAGEM · com meta -->
+      <text x="35" y="162" font-size="10" font-weight="700" letter-spacing="1" fill="#186A3B">COM META · 3</text>
+      <rect x="35" y="170" width="340" height="28" rx="6" fill="#EEF3F8" stroke="#0066B3"/>
+      <text x="45" y="188" font-size="9.5" fill="#15202B">MÁQUINA DE INTERRUPTORES COMPOSÉ N°1</text>
+      <text x="365" y="188" font-size="9.5" font-weight="700" text-anchor="end" fill="#003366">4.500</text>
+      <rect x="35" y="202" width="340" height="28" rx="6" fill="#EEF3F8" stroke="#0066B3"/>
+      <text x="45" y="220" font-size="9.5" fill="#15202B">MÁQUINA DE TOMADAS COMPOSÉ — AUMAQ</text>
+      <text x="365" y="220" font-size="9.5" font-weight="700" text-anchor="end" fill="#003366">12.500</text>
+      <rect x="35" y="234" width="340" height="28" rx="6" fill="#EEF3F8" stroke="#0066B3"/>
+      <text x="45" y="252" font-size="9.5" fill="#15202B">MÁQUINA DE PLUGUE SLIN — AUMAQ</text>
+      <text x="365" y="252" font-size="9.5" font-weight="700" text-anchor="end" fill="#003366">6.500</text>
+
+      <!-- MONTAGEM · por demanda -->
+      <text x="35" y="292" font-size="10" font-weight="700" letter-spacing="1" fill="#8A5200">POR DEMANDA · 10 — fora do cálculo de meta</text>
+      <rect x="35" y="300" width="340" height="28" rx="6" fill="none" stroke="#7C8B9A" stroke-dasharray="4 3"/>
+      <text x="45" y="318" font-size="9.5" fill="#4A5A6A">EMBALADORA KIT PARAFUSOS N°1</text>
+      <rect x="35" y="332" width="340" height="28" rx="6" fill="none" stroke="#7C8B9A" stroke-dasharray="4 3"/>
+      <text x="45" y="350" font-size="9.5" fill="#4A5A6A">EMBALADORA KIT PARAFUSOS N°2</text>
+      <rect x="35" y="364" width="340" height="28" rx="6" fill="none" stroke="#7C8B9A" stroke-dasharray="4 3"/>
+      <text x="45" y="382" font-size="9.5" fill="#4A5A6A">BANCADA N°1 — TESTE INTERRUPTORES</text>
+      <rect x="35" y="396" width="340" height="28" rx="6" fill="none" stroke="#7C8B9A" stroke-dasharray="4 3"/>
+      <text x="45" y="414" font-size="9.5" fill="#4A5A6A">BANCADA N°2 — MONTAGEM INTERRUPTORES</text>
+      <rect x="35" y="428" width="340" height="28" rx="6" fill="none" stroke="#7C8B9A" stroke-dasharray="4 3"/>
+      <text x="45" y="446" font-size="9.5" fill="#4A5A6A">BANCADA N°3 — DIVERSOS</text>
+      <rect x="35" y="460" width="340" height="28" rx="6" fill="none" stroke="#7C8B9A" stroke-dasharray="4 3"/>
+      <text x="45" y="478" font-size="9.5" fill="#4A5A6A">BANCADA N°4 — DIVERSOS</text>
+      <rect x="35" y="492" width="340" height="28" rx="6" fill="none" stroke="#7C8B9A" stroke-dasharray="4 3"/>
+      <text x="45" y="510" font-size="9.5" fill="#4A5A6A">BANCADA N°5 — ELETRÔNICOS</text>
+      <rect x="35" y="524" width="340" height="28" rx="6" fill="none" stroke="#7C8B9A" stroke-dasharray="4 3"/>
+      <text x="45" y="542" font-size="9.5" fill="#4A5A6A">PRENSA INSERÇÃO CONTATOS INTERRUPTORES</text>
+      <rect x="35" y="556" width="340" height="28" rx="6" fill="none" stroke="#7C8B9A" stroke-dasharray="4 3"/>
+      <text x="45" y="574" font-size="9.5" fill="#4A5A6A">PRENSA TOX</text>
+      <rect x="35" y="588" width="340" height="28" rx="6" fill="none" stroke="#7C8B9A" stroke-dasharray="4 3"/>
+      <text x="45" y="606" font-size="9.5" fill="#4A5A6A">PRENSA PLACA REFINATTO</text>
+
+      <!-- EMBALAGEM · com meta -->
+      <text x="445" y="162" font-size="10" font-weight="700" letter-spacing="1" fill="#186A3B">COM META · 9 — todas</text>
+      <rect x="445" y="170" width="340" height="28" rx="6" fill="#EEF3F8" stroke="#0066B3"/>
+      <text x="455" y="188" font-size="9.5" fill="#15202B">EMBALADORA HORIZONTAL N°1</text>
+      <text x="775" y="188" font-size="9.5" font-weight="700" text-anchor="end" fill="#003366">10.000</text>
+      <rect x="445" y="202" width="340" height="28" rx="6" fill="#EEF3F8" stroke="#0066B3"/>
+      <text x="455" y="220" font-size="9.5" fill="#15202B">EMBALADORA HORIZONTAL N°2</text>
+      <text x="775" y="220" font-size="9.5" font-weight="700" text-anchor="end" fill="#003366">10.000</text>
+      <rect x="445" y="234" width="340" height="28" rx="6" fill="#EEF3F8" stroke="#0066B3"/>
+      <text x="455" y="252" font-size="9.5" fill="#15202B">EMBALADORA 4X2 SUPORTES/PLACAS N°1</text>
+      <text x="775" y="252" font-size="9.5" font-weight="700" text-anchor="end" fill="#003366">7.500</text>
+      <rect x="445" y="266" width="340" height="28" rx="6" fill="#EEF3F8" stroke="#0066B3"/>
+      <text x="455" y="284" font-size="9.5" fill="#15202B">EMBALADORA 4X2 SUPORTES/PLACAS N°2</text>
+      <text x="775" y="284" font-size="9.5" font-weight="700" text-anchor="end" fill="#003366">7.500</text>
+      <rect x="445" y="298" width="340" height="28" rx="6" fill="#EEF3F8" stroke="#0066B3"/>
+      <text x="455" y="316" font-size="9.5" fill="#15202B">EMBALADORA VERTICAL MÓDULOS N°1</text>
+      <text x="775" y="316" font-size="9.5" font-weight="700" text-anchor="end" fill="#003366">13.000</text>
+      <rect x="445" y="330" width="340" height="28" rx="6" fill="#EEF3F8" stroke="#0066B3"/>
+      <text x="455" y="348" font-size="9.5" fill="#15202B">EMBALADORA VERTICAL MÓDULOS N°2</text>
+      <text x="775" y="348" font-size="9.5" font-weight="700" text-anchor="end" fill="#003366">13.000</text>
+      <rect x="445" y="362" width="340" height="28" rx="6" fill="#EEF3F8" stroke="#0066B3"/>
+      <text x="455" y="380" font-size="9.5" fill="#15202B">EMBALADORA VERTICAL CONJUNTOS N°1</text>
+      <text x="775" y="380" font-size="9.5" font-weight="700" text-anchor="end" fill="#003366">5.000</text>
+      <rect x="445" y="394" width="340" height="28" rx="6" fill="#EEF3F8" stroke="#0066B3"/>
+      <text x="455" y="412" font-size="9.5" fill="#15202B">EMBALADORA VERTICAL CONJUNTOS N°2</text>
+      <text x="775" y="412" font-size="9.5" font-weight="700" text-anchor="end" fill="#003366">5.000</text>
+      <rect x="445" y="426" width="340" height="28" rx="6" fill="#E6F6EC" stroke="#186A3B" stroke-opacity=".6"/>
+      <text x="455" y="444" font-size="9.5" fill="#15202B">BANCADA EMBALAGEM A GRANÉL</text>
+      <text x="775" y="444" font-size="9.5" font-weight="700" text-anchor="end" fill="#186A3B">25.000 / pessoa</text>
+
+      <rect x="445" y="474" width="340" height="76" rx="8" fill="#FDF3E2" stroke="#D99A2B"/>
+      <text x="459" y="496" font-size="10.5" font-weight="700" fill="#8A5200">A única meta por pessoa</text>
+      <text x="459" y="514" font-size="9.5" fill="#8A5200">A Granel multiplica pela lotação do turno:</text>
+      <text x="459" y="530" font-size="9.5" fill="#8A5200">3 pessoas apontadas = meta de 75.000.</text>
+      <text x="459" y="546" font-size="9.5" fill="#8A5200">Todas as outras são fixas por turno.</text>
+
+      <text x="615" y="590" font-size="10" text-anchor="middle" fill="#4A5A6A">Embalagem: 9 de 9 são cobradas por meta.</text>
+      <text x="615" y="606" font-size="10" text-anchor="middle" fill="#4A5A6A">Montagem: só 3 de 13 — o resto atende demanda.</text>
+    </svg>
+    <figcaption>Valores em peças por turno, confirmados com o gestor em 25/09/2026; centros por demanda continuam somando na produção total e só ficam fora do percentual. <b>Este mapa já está no banco</b> desde 25/09/2026 (schema 0.13.0).</figcaption>
+  </figure>
+</section>
+
+<section class="pagebreak">
+  <h2>2. Os turnos, com o tempo que realmente produz</h2>
+  <div class="analogy"><p><b>Analogia:</b> o turno é uma <b>jarra com marca de cheio</b>. O tempo bruto é a jarra inteira; refeição, ginástica, intervalo e troca de turno são o espaço que não dá para encher. Sobra o tempo útil, e é só ele que vira peça.</p></div>
+  <table>
+    <tr><th>Turno</th><th>Horário</th><th>Bruto</th><th>Descontos</th><th>Tempo útil</th><th>Situação hoje</th></tr>
+    <tr><td class="k">T1</td><td>04:55 — 14:18</td><td class="num">558 min</td><td class="num">−65</td><td class="num"><b>493 min</b></td><td>Turno normal</td></tr>
+    <tr><td class="k">T2</td><td>14:18 — 23:24</td><td class="num">546 min</td><td class="num">−65</td><td class="num"><b>481 min</b></td><td>Turno normal</td></tr>
+    <tr><td class="k">T3</td><td>23:24 — 05:00</td><td class="num">336 min</td><td class="num">−65</td><td class="num"><b>271 min</b></td><td>Só hora extra, por enquanto</td></tr>
+  </table>
+  <p>Os 65 minutos de desconto são iguais nos três: 30 de refeição, 10 de ginástica laboral, 10 de intervalo e 15 de troca de turno e limpeza.</p>
+  <p class="note"><b>O problema que ainda não chegou:</b> o T3 tem <b>271 minutos úteis contra 493 do T1</b> — 55%. Enquanto ele for só hora extra, a regra atual do banco (uma meta só, igual para os três turnos) não machuca ninguém, porque hora extra já fica fora do cálculo. No dia em que o T3 virar turno normal com a mesma meta do T1, ele nasce reprovado. Por isso o tempo útil de cada turno precisa estar guardado <b>antes</b> disso acontecer.</p>
+</section>
+
+<section>
+  <h2>3. De onde vem cada meta</h2>
+  <p>A planilha de capacidade não entrega a meta pronta. Ela entrega o <b>teto</b>, por uma cadeia de multiplicações:</p>
+  <table>
+    <tr><th>Passo</th><th>De onde vem</th><th>Exemplo: Horizontal N°1</th></tr>
+    <tr><td class="k">peças por minuto</td><td>Cadastro da máquina</td><td class="num">33,33</td></tr>
+    <tr><td class="k">× tempo útil do turno</td><td>Tabela da seção 2</td><td class="num">487 min</td></tr>
+    <tr><td class="k">= capacidade técnica</td><td>O teto físico</td><td class="num">16.232</td></tr>
+    <tr><td class="k">× eficiência da máquina</td><td>0,60 a 0,90, varia por máquina</td><td class="num">0,70</td></tr>
+    <tr><td class="k">= capacidade realista</td><td>O teto praticável</td><td class="num">11.362</td></tr>
+    <tr><td class="k">meta acordada</td><td><b>Decisão do gestor</b></td><td class="num">10.000</td></tr>
+  </table>
+  <p><b>A meta é negociada, não calculada.</b> Conferindo cada uma contra o próprio teto da planilha, elas ficam entre 62% e 86% da capacidade técnica — apertadas, mas dentro do possível:</p>
+  <table>
+    <tr><th>Centro</th><th>Teto técnico</th><th>Meta</th><th>% do teto</th></tr>
+    <tr><td class="k">Horizontais</td><td class="num">16.232</td><td class="num">10.000</td><td class="num">62%</td></tr>
+    <tr><td class="k">Vertical Placas / Sup.</td><td class="num">10.587</td><td class="num">7.500</td><td class="num">71%</td></tr>
+    <tr><td class="k">Vertical Conjuntos</td><td class="num">6.818</td><td class="num">5.000</td><td class="num">73%</td></tr>
+    <tr><td class="k">Interruptores Composé N°1</td><td class="num">5.867</td><td class="num">4.500</td><td class="num">77%</td></tr>
+    <tr><td class="k">A Granel (por pessoa)</td><td class="num">31.655</td><td class="num">25.000</td><td class="num">79%</td></tr>
+    <tr><td class="k">Vertical Módulos</td><td class="num">15.710</td><td class="num">13.000</td><td class="num">83%</td></tr>
+    <tr><td class="k">Plugue Slin</td><td class="num">7.792</td><td class="num">6.500</td><td class="num">83%</td></tr>
+    <tr><td class="k">Tomadas Composé</td><td class="num">14.610</td><td class="num">12.500</td><td class="num">86%</td></tr>
+  </table>
+  <p>Guardar peças por minuto e eficiência na ficha da máquina não serve para calcular a meta — serve como <b>alarme</b>: meta acima do teto técnico é fisicamente impossível, e o sistema pode avisar na hora em que o gestor digitar.</p>
+</section>
+
+<section class="pagebreak">
+  <h2>4. As sete que ainda não existem</h2>
+  <p>Marcadas em amarelo na planilha: já foram compradas ou estão previstas, mas não produzem nada hoje.</p>
+  <table>
+    <tr><th>Processo</th><th>Centro</th></tr>
+    <tr><td class="k">Montagem</td><td>MÁQUINA DE INTERRUPTORES (NOVA BASE)</td></tr>
+    <tr><td class="k">Montagem</td><td>MÁQUINA DE PLUGUE FÊMEA</td></tr>
+    <tr><td class="k">Montagem</td><td>MÁQUINA DE TOMADAS N°2</td></tr>
+    <tr><td class="k">Embalagem</td><td>EMBALADORA VERTICAL LUFATI KLIN PADRÃO</td></tr>
+    <tr><td class="k">Embalagem</td><td>EMBALADORA VERTICAL LUFATI PL+SUP 4X4</td></tr>
+    <tr><td class="k">Embalagem</td><td>EMBALADORA VERTICAL PLUGUES</td></tr>
+    <tr><td class="k">Embalagem</td><td>EMBALADORA VERTICAL CONJUNTOS N°3</td></tr>
+  </table>
+  <p>Elas justificam um estado novo na ficha da máquina — <b>planejada</b> — e uma <b>data de início</b>. Sem isso, cadastrar a máquina hoje faria o indicador contar dezenas de turnos zerados de um equipamento que nem chegou. É o mesmo remédio para o problema dos zeros antigos da planilha de produção.</p>
+</section>
+
+<section>
+  <h2>5. O que muda no banco</h2>
+  <div class="tiles">
+    <div class="tile"><b>Setor na ficha da máquina</b><span>Montagem ou embalagem. Permite indicador por processo e parar um setor inteiro no calendário com um evento só.</span></div>
+    <div class="tile"><b>Peças por minuto e eficiência</b><span>Não calculam a meta; servem de alarme quando alguém digita um número impossível.</span></div>
+    <div class="tile"><b>Estado planejada e data de início</b><span>Para as sete amarelas e para os zeros do histórico.</span></div>
+    <div class="tile"><b>Minutos úteis no turno</b><span>493 / 481 / 271. Guardado agora, usado quando o T3 virar turno normal.</span></div>
+    <div class="tile"><b>Base da meta</b><span>Por turno (onze centros) ou por operador (A Granel). Sem isso, A Granel não tem como ser medida certo.</span></div>
+    <div class="tile"><b>Dez centros sem meta</b><span>A marca "tem meta = não" já existe. O efeito é o atingimento passar a falar de 12 centros, não de 22.</span></div>
+  </div>
+  <p class="note"><b>Efeito que o gestor precisa saber antes:</b> tirar 10 centros do cálculo muda o percentual da fábrica que ele está acostumado a ver. O número não fica pior nem melhor de propósito — fica <b>sobre outra coisa</b>: só sobre o que se cobra.</p>
+</section>
+
+<section>
+  <h2>6. As pontas que estavam soltas</h2>
+  <p>Todas fechadas com o gestor em 25/09/2026 e registradas como decisões D37 a D43.</p>
+  <table>
+    <tr><th>Ponta</th><th>Como ficou</th></tr>
+    <tr><td class="k">Nomes antigos</td><td><code>MONTAGEM TOMADAS MANUAL</code> e <code>FECHAMENTO TECLA INTERRUPTORES</code> foram renomeadas e readequadas: todo o histórico das duas vai para a <b>Bancada N°3 — Diversos</b></td></tr>
+    <tr><td class="k">Divisão de Diversos</td><td><code>MONTAGEM DIVERSOS</code> vira duas bancadas; o histórico acumulado vai inteiro para a <b>Bancada N°4 — Diversos</b></td></tr>
+    <tr><td class="k">Os 5 minutos do T1</td><td>O horário fica <b>04:55 — 14:18</b> e o tempo útil fica <b>493 minutos</b>. Os dois não fecham por subtração de propósito: 04:55 às 05:00 é entrada e preparação, não produção</td></tr>
+  </table>
+  <p class="note"><b>O que continua em aberto, com honestidade:</b> a produção antiga de três centros fica concentrada em duas bancadas e <b>não tem como ser separada depois</b> — a planilha nunca registrou essa distinção. Vale só para o passado. E a eficiência da Plugue Slin (0,60 na planilha) provavelmente está desatualizada: a meta de 6.500 exige 83% do teto, o que não combina com 60%.</p>
+  </section>
+
+</body>
+</html>

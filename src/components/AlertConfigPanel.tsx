@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Bell, BellOff, Send, Loader2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
-import { api } from "@/lib/api";
+import { data, isSupabase } from "@/lib/repositories";
 import { toast } from "sonner";
 
 interface AlertConfig {
@@ -32,7 +32,7 @@ const AlertConfigPanel = () => {
   });
 
   useEffect(() => {
-    api("getAlertConfig", {}, user)
+    data.alerts.getAlertConfig(user)
       .then((r) => {
         if (r.config) {
           setConfig({
@@ -65,7 +65,7 @@ const AlertConfigPanel = () => {
     }
     setSaving(true);
     try {
-      await api("saveAlertConfig", { config }, user);
+      await data.alerts.saveAlertConfig(config, user);
       toast.success("Configuração salva!");
     } catch (e: any) {
       toast.error(e.message || "Erro ao salvar.");
@@ -80,7 +80,7 @@ const AlertConfigPanel = () => {
     }
     setTesting(true);
     try {
-      await api("testAlertEmail", {}, user);
+      await data.alerts.testAlertEmail(user);
       toast.success("E-mail de teste enviado!");
     } catch (e: any) {
       toast.error(e.message || "Erro ao enviar e-mail de teste.");
@@ -90,6 +90,17 @@ const AlertConfigPanel = () => {
 
   const inputCls =
     "w-full px-3 py-2.5 rounded-md border border-border bg-background text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all";
+
+  // Alertas por e-mail não fazem parte do banco novo (nem do Main.gs atual).
+  if (isSupabase) {
+    return (
+      <div className="bg-muted/30 rounded-xl p-5 border border-border text-center">
+        <BellOff size={20} className="mx-auto mb-2 text-muted-foreground" />
+        <p className="text-sm font-bold text-foreground">Alertas por e-mail ainda não existem no modo Supabase</p>
+        <p className="text-xs text-muted-foreground mt-1">Pendência registrada para uma próxima etapa (Edge Function + Cron).</p>
+      </div>
+    );
+  }
 
   if (loading) {
     return (

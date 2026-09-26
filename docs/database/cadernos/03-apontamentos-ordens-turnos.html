@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Banco de dados do Dash — 3. Apontamentos, ordens e turnos</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap">
+<link rel="stylesheet" href="estilo.css">
+</head>
+<body>
+
+<div class="eyebrow">Dash de Produção · Banco de dados · Caderno 3 de 6</div>
+<h1>Apontamentos, ordens e turnos</h1>
+<p class="sub">Aqui mora a produção. É a parte que a equipe usa todo dia e a que mais mudou em relação à planilha.</p>
+<div class="rule"></div>
+
+<section>
+  <h2>1. Turno é uma escolha, não um relógio</h2>
+  <div class="analogy"><p><b>Analogia:</b> é como o <b>carimbo do lote</b>. A peça pode ser embalada às 23h50 e ainda pertencer ao lote do dia anterior. O turno do apontamento é o que a pessoa <b>informa</b>, nunca o horário em que ela digitou.</p></div>
+  <p>Os turnos são três (T1, T2, T3) e ficam numa ficha própria. Os horários guardados ali são só descritivos: ninguém calcula turno pelo relógio. Na prática, quem aponta costuma ficar além do horário — passagem de turno, organização — e deduzir pelo horário produziria dado errado.</p>
+  <p>O T3 existe no cadastro, mas hoje recebe só hora extra de madrugada.</p>
+</section>
+
+<section>
+  <h2>2. A anatomia de um apontamento</h2>
+  <div class="analogy"><p><b>Analogia:</b> o apontamento é a <b>capa de uma pasta</b> ("Horizontal 1, 19/09, T1"), e as ordens de produção são as <b>folhas dentro dela</b>. A capa não guarda quantidade: a quantidade é a soma das folhas.</p></div>
+
+  <figure>
+    <svg viewBox="0 0 800 340" role="img" aria-label="Um apontamento com três ordens, uma delas retrabalho, e as contas resultantes: produção boa, retrabalho, carga e atingimento.">
+      <defs>
+        <marker id="n" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="currentColor"/>
+        </marker>
+      </defs>
+      <rect x="20" y="20" width="300" height="70" rx="8" fill="#003366"/>
+      <text x="170" y="46" font-size="13" font-weight="700" text-anchor="middle" fill="#fff">HORIZONTAL 1 · 19/09 · T1</text>
+      <text x="170" y="65" font-size="10.5" text-anchor="middle" fill="#C9DCEC">turno normal · 2 operadores</text>
+      <text x="170" y="80" font-size="10.5" text-anchor="middle" fill="#C9DCEC">meta guardada: 8.000</text>
+
+      <rect x="20" y="112" width="300" height="38" rx="6" fill="#EEF3F8" stroke="#0066B3"/>
+      <text x="34" y="136" font-size="11" fill="#15202B">OP 000001004521 · <tspan font-weight="700">5.000 peças</tspan></text>
+      <rect x="20" y="158" width="300" height="38" rx="6" fill="#EEF3F8" stroke="#0066B3"/>
+      <text x="34" y="182" font-size="11" fill="#15202B">OP 000001004522 · <tspan font-weight="700">2.000 peças</tspan></text>
+      <rect x="20" y="204" width="300" height="38" rx="6" fill="#FDF3E2" stroke="#D99A2B"/>
+      <text x="34" y="228" font-size="11" fill="#15202B">OP 000001004530 · <tspan font-weight="700">1.000 peças</tspan> · retrabalho</text>
+
+      <line x1="170" y1="90" x2="170" y2="108" stroke="currentColor" marker-end="url(#n)"/>
+      <text x="180" y="104" font-size="9.5" fill="#4A5A6A">tem várias ordens</text>
+
+      <line x1="330" y1="130" x2="430" y2="130" stroke="currentColor" marker-end="url(#n)"/>
+      <text x="380" y="120" font-size="9.5" text-anchor="middle" fill="#4A5A6A">o banco soma</text>
+
+      <rect x="440" y="24" width="330" height="218" rx="8" fill="none" stroke="var(--line)"/>
+      <text x="456" y="48" font-size="11.5" font-weight="700" fill="#003366">O que o sistema calcula sozinho</text>
+
+      <text x="456" y="78" font-size="11" fill="#4A5A6A">produção boa</text>
+      <text x="754" y="78" font-size="12" font-weight="700" text-anchor="end" fill="#15202B">7.000</text>
+      <line x1="456" y1="86" x2="754" y2="86" stroke="var(--line)"/>
+
+      <text x="456" y="108" font-size="11" fill="#4A5A6A">retrabalho</text>
+      <text x="754" y="108" font-size="12" font-weight="700" text-anchor="end" fill="#8A5200">1.000</text>
+      <line x1="456" y1="116" x2="754" y2="116" stroke="var(--line)"/>
+
+      <text x="456" y="138" font-size="11" fill="#4A5A6A">carga da máquina (boa + retrabalho)</text>
+      <text x="754" y="138" font-size="12" font-weight="700" text-anchor="end" fill="#15202B">8.000</text>
+      <line x1="456" y1="146" x2="754" y2="146" stroke="var(--line)"/>
+
+      <text x="456" y="168" font-size="11" fill="#4A5A6A">atingimento (boa ÷ meta)</text>
+      <text x="754" y="168" font-size="12" font-weight="700" text-anchor="end" fill="#186A3B">88%</text>
+      <line x1="456" y1="176" x2="754" y2="176" stroke="var(--line)"/>
+
+      <text x="456" y="198" font-size="11" fill="#4A5A6A">taxa de retrabalho</text>
+      <text x="754" y="198" font-size="12" font-weight="700" text-anchor="end" fill="#15202B">12,5%</text>
+      <line x1="456" y1="206" x2="754" y2="206" stroke="var(--line)"/>
+
+      <text x="456" y="228" font-size="11" fill="#4A5A6A">conta para a meta?</text>
+      <text x="754" y="228" font-size="12" font-weight="700" text-anchor="end" fill="#186A3B">sim</text>
+
+      <text x="400" y="290" font-size="10.5" text-anchor="middle" fill="#4A5A6A">Na planilha, esse mesmo turno apareceria como 8.000 peças e 100% da meta.</text>
+      <text x="400" y="308" font-size="10.5" text-anchor="middle" fill="#4A5A6A">O retrabalho inflava o número: as 1.000 peças refeitas não são peças novas.</text>
+    </svg>
+    <figcaption>A capa guarda <b>onde, quando e com que meta</b>. As folhas guardam <b>quanto</b>. O sistema faz as contas na hora de mostrar, e nunca guarda um total que possa "desbater" da soma.</figcaption>
+  </figure>
+</section>
+
+<section class="pagebreak">
+  <h2>3. A chave: o que torna um apontamento único</h2>
+  <p>Só pode existir <b>um</b> apontamento por combinação de quatro coisas:</p>
+  <figure>
+    <svg viewBox="0 0 760 170" role="img" aria-label="Quatro peças formam a chave de um apontamento: máquina, dia, turno e tipo de trabalho. Turno normal e hora extra do mesmo turno são apontamentos diferentes.">
+      <rect x="20" y="30" width="150" height="50" rx="7" fill="#EEF3F8" stroke="#0066B3"/>
+      <text x="95" y="60" font-size="12" font-weight="700" text-anchor="middle" fill="#003366">máquina</text>
+      <text x="184" y="60" font-size="16" text-anchor="middle" fill="#4A5A6A">+</text>
+      <rect x="198" y="30" width="150" height="50" rx="7" fill="#EEF3F8" stroke="#0066B3"/>
+      <text x="273" y="60" font-size="12" font-weight="700" text-anchor="middle" fill="#003366">dia</text>
+      <text x="362" y="60" font-size="16" text-anchor="middle" fill="#4A5A6A">+</text>
+      <rect x="376" y="30" width="150" height="50" rx="7" fill="#EEF3F8" stroke="#0066B3"/>
+      <text x="451" y="60" font-size="12" font-weight="700" text-anchor="middle" fill="#003366">turno</text>
+      <text x="540" y="60" font-size="16" text-anchor="middle" fill="#4A5A6A">+</text>
+      <rect x="554" y="30" width="186" height="50" rx="7" fill="#FDF3E2" stroke="#D99A2B"/>
+      <text x="647" y="54" font-size="12" font-weight="700" text-anchor="middle" fill="#8A5200">tipo de trabalho</text>
+      <text x="647" y="70" font-size="10" text-anchor="middle" fill="#8A5200">normal ou hora extra</text>
+      <text x="380" y="122" font-size="11" text-anchor="middle" fill="#15202B">Por isso a hora extra do T1 de sexta convive com o turno normal do T1 de sexta:</text>
+      <text x="380" y="140" font-size="11" text-anchor="middle" fill="#15202B">são dois apontamentos, cada um com o seu número — como já acontecia na planilha.</text>
+    </svg>
+    <figcaption>Essa chave é o que impede o apontamento duplicado. Se alguém tentar criar o mesmo de novo, o banco recusa — e o sistema, em vez de duplicar, completa o que já existe.</figcaption>
+  </figure>
+</section>
+
+<section>
+  <h2>4. Apontar de novo completa, não substitui</h2>
+  <div class="analogy"><p><b>Analogia:</b> é a diferença entre <b>acrescentar uma folha na pasta</b> e <b>trocar o conteúdo inteiro da pasta</b>. Se o T1 lançou duas OPs de manhã e mais uma à tarde, a pasta fica com três folhas.</p></div>
+  <p>Na planilha, salvar de novo a mesma máquina, dia e turno <b>substituía</b> a lista de ordens. No sistema novo, acrescenta. Para trocar ou apagar uma ordem errada, usa-se a edição. Foi a decisão <b>D30</b>, que você confirmou.</p>
+</section>
+
+<section>
+  <h2>5. Quem pode mexer, e por quanto tempo</h2>
+  <table>
+    <tr><th>Ação</th><th>Quem pode</th><th>Regra</th></tr>
+    <tr><td class="k">Apontar</td><td>Qualquer perfil, menos a TV</td><td>Pode apontar qualquer turno, inclusive atrasado</td></tr>
+    <tr><td class="k">Corrigir o próprio</td><td>Quem apontou</td><td>Até <b>24 horas</b> depois. A janela é de horas, não "até meia-noite", por causa do T3 que atravessa o dia</td></tr>
+    <tr><td class="k">Corrigir o dos outros</td><td>Preparador para cima</td><td>Precisa da permissão de editar qualquer apontamento</td></tr>
+    <tr><td class="k">Mexer em vários de uma vez</td><td>Distribuidor para cima</td><td>Até 200 por vez; se um deles colidir no destino, <b>nada</b> é alterado</td></tr>
+    <tr><td class="k">Ver</td><td>Preparador para cima vê tudo</td><td>O operador vê <b>só o que ele mesmo apontou</b> — é o que permite corrigir em 24 h</td></tr>
+  </table>
+  <p class="note"><b>Um detalhe que pegamos em teste:</b> apontamento sem autor (os importados e os de demonstração) só pode ser alterado por quem tem permissão de editar qualquer apontamento. Antes de 21/09 havia uma falha aqui, corrigida na versão 0.10.3 do banco.</p>
+</section>
+
+<section class="pagebreak">
+  <h2>6. O que a ficha guarda, campo a campo</h2>
+  <table>
+    <tr><th>No apontamento</th><th>Para que serve</th></tr>
+    <tr><td class="k">data, turno, máquina</td><td>Onde e quando a produção aconteceu</td></tr>
+    <tr><td class="k">tipo de trabalho</td><td>Normal ou hora extra. Hora extra soma na produção, mas fica fora da meta</td></tr>
+    <tr><td class="k">meta guardada</td><td>A "foto" da meta daquele dia (caderno 2)</td></tr>
+    <tr><td class="k">operadores</td><td>Quantas pessoas operaram no turno. Vazio = lotação padrão</td></tr>
+    <tr><td class="k">observação</td><td>Até 500 caracteres. É o que aparece na aba Feedbacks</td></tr>
+    <tr><td class="k">quem criou / quem alterou</td><td>Com data e hora de cada um</td></tr>
+  </table>
+  <table>
+    <tr><th>Em cada ordem</th><th>Para que serve</th></tr>
+    <tr><td class="k">número da OP</td><td>Guardado como <b>texto</b>, para não perder os zeros à esquerda do SAP</td></tr>
+    <tr><td class="k">quantidade</td><td>Tem que ser maior que zero</td></tr>
+    <tr><td class="k">é retrabalho?</td><td>Sim ou não. É o que separa produção boa de esforço refeito</td></tr>
+    <tr><td class="k">observação</td><td>Opcional, específica daquela ordem</td></tr>
+  </table>
+  <p>Apagar um apontamento apaga junto as ordens dele — elas não existem sozinhas.</p>
+</section>
+
+<section>
+  <h2>7. Duas regras que mudam os números do dashboard</h2>
+  <div class="tiles">
+    <div class="tile"><b>Retrabalho não é produção nova</b><span>Refazer 4.000 peças não vira 4.000 peças. A meta usa só a produção boa, e a taxa de retrabalho vira um indicador próprio.</span></div>
+    <div class="tile"><b>Hora extra fora da meta</b><span>Medir 3 horas de sábado com a meta de um turno inteiro daria um percentual falso. Ela entra na produção total e num indicador separado.</span></div>
+  </div>
+  <p class="note">Próximo caderno: <b>calendário e paradas</b> — feriados, dias anulados e o que fazer quando a máquina não roda.</p>
+</section>
+
+</body>
+</html>
