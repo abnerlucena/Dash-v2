@@ -1,11 +1,16 @@
 import type { ReactNode } from "react";
-import { STATUS_META, plantSeries, type Machine } from "@/data/machines";
+import { STATUS_META, plantSeries, type DateRange, type Machine, type Shift } from "@/data/machines";
 import { formatNumber, formatShortDate } from "@/lib/utils";
 import { ChartCard, MiniTable } from "@/components/data/Chart";
 import { AttainmentBars, BURNUP_LEGEND, BurnupChart, DAILY_LEGEND, DailyColumns } from "@/components/echarts";
 
 interface ChartsViewProps {
   rows: Machine[];
+  /** Período escolhido no filtro (qualquer intervalo de dias) */
+  range: DateRange;
+  /** Período por extenso, para os subtítulos */
+  periodText: string;
+  shift: Shift | "all";
   isLoading: boolean;
   isRefetching: boolean;
   activeId: string | null;
@@ -20,9 +25,9 @@ interface ChartsViewProps {
  * período os gráficos mantêm o quadro anterior esmaecido (sem skeleton);
  * o skeleton aparece só no carregamento inicial.
  */
-export function ChartsView({ rows, isLoading, isRefetching, activeId, onSelect, replacement, scopeLabel }: ChartsViewProps) {
+export function ChartsView({ rows, range, periodText, isLoading, isRefetching, activeId, onSelect, replacement, scopeLabel }: ChartsViewProps) {
   if (replacement) return <>{replacement}</>;
-  const series = plantSeries(rows);
+  const series = plantSeries(rows, range);
   const elapsed = series.filter((p) => p.value != null);
 
   return (
@@ -31,7 +36,7 @@ export function ChartsView({ rows, isLoading, isRefetching, activeId, onSelect, 
       <ChartCard
         className="basis-full"
         title="Produção acumulada vs meta"
-        subtitle={`Soma de ${scopeLabel}, dias úteis de março de 2026`}
+        subtitle={`Soma de ${scopeLabel}, dias úteis de ${periodText}`}
         legend={BURNUP_LEGEND}
         isLoading={isLoading}
         isRefetching={isRefetching}

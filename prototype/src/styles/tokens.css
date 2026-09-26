@@ -173,6 +173,7 @@
   --dash-size-menu-min: 12rem; /* 192px */
   --dash-size-popover: 22.5rem; /* 360px */
   --dash-size-inbox: 24rem; /* 384px: lista de conversas (Feedbacks) */
+  --dash-size-range-presets: 12rem; /* 192px: coluna de atalhos do seletor de período */
   --dash-size-chat: 40rem; /* 640px: altura da conversa no desktop */
   --dash-size-bubble: 36rem; /* 576px: largura máxima de uma mensagem */
   --dash-size-flag: 22.5rem; /* 360px */

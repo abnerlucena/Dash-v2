@@ -1,5 +1,5 @@
 import { Download, History, PackageOpen } from "lucide-react";
-import { PERIOD_LABEL, STATUS_META, WORKING_DAYS, type Machine, type ProductionOrder } from "@/data/machines";
+import { STATUS_META, type Machine, type ProductionOrder } from "@/data/machines";
 import { formatLongDate, formatNumber } from "@/lib/utils";
 import { Panel } from "@/components/layout/Panel";
 import { Button } from "@/components/ui/Button";
@@ -11,11 +11,14 @@ interface MachinePanelProps {
   open: boolean;
   /** Recorte ativo (ex.: "Turno 2"); a máquina já chega recortada */
   scopeLabel: string | null;
+  /** período em texto ("março de 2026", "16 – 20 mar") e seus dias úteis já transcorridos */
+  periodText: string;
+  workingDays: number;
   onClose: () => void;
   onAction: (action: string, m: Machine) => void;
 }
 
-export function MachinePanel({ machine, open, scopeLabel, onClose, onAction }: MachinePanelProps) {
+export function MachinePanel({ machine, open, scopeLabel, periodText, workingDays, onClose, onAction }: MachinePanelProps) {
   if (!machine) return null;
   const groups = groupByDay(machine.orders);
   const meta = STATUS_META[machine.status];
@@ -27,7 +30,7 @@ export function MachinePanel({ machine, open, scopeLabel, onClose, onAction }: M
       title={machine.name}
       subtitle={
         <>
-          Ordens de produção · {PERIOD_LABEL}
+          Ordens de produção · {periodText}
           {scopeLabel && ` · ${scopeLabel}`}
         </>
       }
@@ -46,7 +49,7 @@ export function MachinePanel({ machine, open, scopeLabel, onClose, onAction }: M
           <div className="col-span-3 flex items-center gap-100 border-t px-150 py-100">
             <Lozenge appearance={meta.appearance}>{meta.label}</Lozenge>
             <span className="font-body-small text-subtlest">
-              {machine.days} de {WORKING_DAYS} dias com apontamento · meta diária {formatNumber(machine.dailyTarget)}
+              {machine.days} de {workingDays} dias com apontamento · meta diária {formatNumber(machine.dailyTarget)}
             </span>
           </div>
         </dl>
@@ -67,7 +70,7 @@ export function MachinePanel({ machine, open, scopeLabel, onClose, onAction }: M
           headingLevel={3}
           icon={PackageOpen}
           title="Nenhuma ordem neste recorte"
-          hint={`Não há apontamentos${scopeLabel ? ` do ${scopeLabel.toLowerCase()}` : ""} para esta máquina em ${PERIOD_LABEL}.`}
+          hint={`Não há apontamentos${scopeLabel ? ` do ${scopeLabel.toLowerCase()}` : ""} para esta máquina em ${periodText}.`}
           className="py-600"
         />
       ) : (

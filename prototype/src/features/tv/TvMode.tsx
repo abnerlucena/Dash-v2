@@ -19,11 +19,11 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
-import { LINE_ACCENT, REFERENCE_DATE, SHIFT_META, STATUS_META, plantSeries, statusFor, type Status } from "@/data/machines";
+import { LINE_ACCENT, REFERENCE_DATE, SHIFTS, SHIFT_META, STATUS_META, plantSeries, statusFor, type Status } from "@/data/machines";
 import { cn, formatDecimal, formatNumber, formatShortDate, plural, readToken } from "@/lib/utils";
 import { BURNUP_LEGEND, BurnupChart, ShiftStackBars } from "@/components/echarts";
-import { Legend } from "@/components/data/Chart";
-import { SHIFT_FILL, SHIFT_LEGEND } from "@/components/data/StackedBar";
+import { Legend, type LegendItem } from "@/components/data/Chart";
+import { SHIFT_FILL } from "@/components/data/StackedBar";
 import { IconButton } from "@/components/ui/Button";
 import { Lozenge } from "@/components/ui/Lozenge";
 import { Menu, MenuContent, MenuLabel, MenuRadioGroup, MenuRadioItem, MenuTrigger } from "@/components/ui/Menu";
@@ -58,6 +58,8 @@ const STATUS_TONE: Record<Status, string> = {
 const clock = new Intl.DateTimeFormat("pt-BR", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
 const today = new Intl.DateTimeFormat("pt-BR", { weekday: "long", day: "numeric", month: "long" });
 const perMin = (v: number) => formatDecimal(v);
+// Na TV, só o nome do turno: horário é poluição visual de longe
+const SHIFT_LEGEND_TV: LegendItem[] = SHIFTS.map((s) => ({ label: SHIFT_META[s].label, shape: "rect", colorClass: SHIFT_FILL[s] }));
 
 /**
  * Modo TV: telão no meio da fábrica, entre as máquinas. Cada TV mostra uma
@@ -96,7 +98,7 @@ export function TvMode({ scope: scopeParam, onExit }: { scope?: string; onExit: 
           <div className="flex min-h-0 flex-col gap-200">
             <div className="flex flex-wrap items-center justify-between gap-200">
               <h2 className="font-tv-body text-default">OPs concluídas por dia</h2>
-              <Legend items={SHIFT_LEGEND} className="[&>li]:font-tv-body" />
+              <Legend items={SHIFT_LEGEND_TV} className="[&>li]:font-tv-body" />
             </div>
             <div className="min-h-0 flex-1">
               <ShiftStackBars days={perDay} label="OPs concluídas por dia, por turno" unit="OPs concluídas" />
@@ -288,10 +290,7 @@ function ShiftBoard({ scores }: { scores: ReturnType<typeof shiftScores> }) {
             <span className="flex items-center gap-150">
               {s.competing && <span className="font-tv-metric tabular-nums text-subtle">{i + 1}º</span>}
               <span aria-hidden className={cn("size-200 rounded-full", SHIFT_FILL[s.shift])} />
-              <span className="flex flex-col">
-                <span className="font-tv-body font-semibold text-default">{SHIFT_META[s.shift].label}</span>
-                <span className="font-body-large text-subtlest">{SHIFT_META[s.shift].hours}</span>
-              </span>
+              <span className="font-tv-body font-semibold text-default">{SHIFT_META[s.shift].label}</span>
               {leader && <Trophy aria-label="Líder do mês" className="ml-auto size-600 text-icon-warning" />}
             </span>
             <span className="flex flex-wrap items-baseline gap-200">
@@ -364,11 +363,12 @@ function MachineRanking({ ranking }: { ranking: ReturnType<typeof machineRanking
 
 function MachineCards({ months }: { months: ReturnType<typeof machineMonths> }) {
   return (
-    <ul className="grid h-full grid-cols-tv-cards content-center gap-200">
+    // auto-rows-fr: as linhas dividem a altura toda; o conteúdo do cartão fica centralizado na vertical
+    <ul className="grid h-full auto-rows-fr grid-cols-tv-cards gap-200">
       {months.map(({ machine: m, perMinute, opsDone, daysOnTarget, streak }) => (
-        <li key={m.id} className="flex flex-col gap-100 rounded-xlarge bg-surface-raised p-250 shadow-raised">
+        <li key={m.id} className="flex min-h-0 flex-col justify-center gap-150 rounded-xlarge bg-surface-raised p-300 shadow-raised">
           <span className="flex items-start justify-between gap-100">
-            <span className="line-clamp-2 font-body-large font-semibold text-default">{m.name}</span>
+            <span className="line-clamp-2 font-tv-body font-semibold text-default">{m.name}</span>
             {!m.hasTarget && <Tag accent={LINE_ACCENT["Por demanda"]}>Por demanda</Tag>}
           </span>
           {m.hasTarget ? (
@@ -382,7 +382,7 @@ function MachineCards({ months }: { months: ReturnType<typeof machineMonths> }) 
               <span className="font-body-large text-subtle">peças</span>
             </span>
           )}
-          <dl className="grid grid-cols-3 gap-100 font-body-large">
+          <dl className="grid grid-cols-3 gap-100 font-tv-body">
             <div>
               <dt className="text-subtlest">Peças/min</dt>
               <dd className="font-semibold tabular-nums text-default">{perMin(perMinute)}</dd>
@@ -397,8 +397,8 @@ function MachineCards({ months }: { months: ReturnType<typeof machineMonths> }) 
             </div>
           </dl>
           {streak >= 2 && (
-            <span className="flex items-center gap-075 font-body-large font-semibold text-warning">
-              <Flame aria-hidden className="size-icon-medium" />
+            <span className="flex items-center gap-075 font-tv-body font-semibold text-warning">
+              <Flame aria-hidden className="size-icon-large" />
               {streak} dias seguidos na meta
             </span>
           )}
@@ -428,17 +428,18 @@ function Highlights({ data, hasRanking }: { data: ReturnType<typeof highlights>;
       : null,
   ];
   return (
-    <ul className="grid h-full grid-cols-1 content-center gap-300 m:grid-cols-3">
+    // Feito para ser lido de longe: valor no maior tamanho da TV, rótulo e detalhe em fonte de TV
+    <ul className="grid h-full auto-rows-fr grid-cols-1 gap-300 m:grid-cols-3">
       {cards.filter(Boolean).map((c) => {
         const Icon = c!.icon;
         return (
-          <li key={c!.label} className="flex flex-col gap-150 rounded-xlarge bg-surface-raised p-400 shadow-raised">
-            <span className="flex items-center gap-150 font-tv-body text-subtle">
-              <Icon aria-hidden className="size-icon-large text-icon-warning" />
+          <li key={c!.label} className="flex min-h-0 flex-col justify-center gap-200 rounded-xlarge bg-surface-raised p-400 shadow-raised">
+            <span className="flex items-center gap-150 font-tv-body font-semibold text-default">
+              <Icon aria-hidden className="size-500 shrink-0 text-icon-warning" />
               {c!.label}
             </span>
-            <span className="font-tv-metric tabular-nums text-default">{c!.value}</span>
-            <span className="font-body-large text-subtle">{c!.detail}</span>
+            <span className="font-tv-hero tabular-nums text-default">{c!.value}</span>
+            <span className="line-clamp-2 font-tv-body text-subtle">{c!.detail}</span>
           </li>
         );
       })}

@@ -142,7 +142,16 @@ export function HistoryPage({ notify }: { notify: Notify }) {
       ),
     },
     { id: "op", header: "OP", cell: (o) => <span className="font-code text-default">{o.opId.replace("OP ", "")}</span> },
-    { id: "product", header: "Produto", cell: (o) => <span className="text-subtle">{o.product}</span> },
+    {
+      id: "product",
+      header: "Material",
+      cell: (o) => (
+        <span className="flex items-baseline gap-075 whitespace-nowrap">
+          <span className="font-code text-subtle">{o.material}</span>
+          <span className="text-subtle">{o.product}</span>
+        </span>
+      ),
+    },
     {
       id: "qty",
       header: "Quantidade",

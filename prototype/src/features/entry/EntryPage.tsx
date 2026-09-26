@@ -396,7 +396,7 @@ function MachineEntryRow({
         <datalist id={listId}>
           {openOps.map((op) => (
             <option key={op.id} value={op.id.replace("OP ", "")}>
-              {op.product}
+              {`Material ${op.material} · ${op.product}`}
             </option>
           ))}
         </datalist>

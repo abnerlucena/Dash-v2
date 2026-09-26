@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react";
-import { ELAPSED_DATES, STATUS_META, dayKey, type Machine, type Status } from "@/data/machines";
+import { STATUS_META, dayKey, type Machine, type Status } from "@/data/machines";
 import { formatCompact, formatNumber } from "@/lib/utils";
 import { DataTable, type Column, type TableState } from "@/components/data/DataTable";
 import { HeatCell, type HeatMode } from "@/components/data/HeatCell";
@@ -9,6 +9,8 @@ import { SegmentedControl } from "@/components/ui/SegmentedControl";
 
 interface DetailedViewProps {
   rows: Machine[];
+  /** dias úteis do período (uma coluna por dia) */
+  dates: Date[];
   state: TableState;
   activeId: string | null;
   onRowActivate: (m: Machine) => void;
@@ -23,10 +25,10 @@ const WEEKDAY = new Intl.DateTimeFormat("pt-BR", { weekday: "short" });
  * dia (ou % da meta diária) no tom do status; "–" marca dia sem apontamento,
  * o que deixa as falhas de apontamento visíveis de relance.
  */
-export function DetailedView({ rows, state, activeId, onRowActivate, emptyState, errorState }: DetailedViewProps) {
+export function DetailedView({ rows, dates, state, activeId, onRowActivate, emptyState, errorState }: DetailedViewProps) {
   const [mode, setMode] = useState<HeatMode>("quantity");
 
-  const dayTotals = ELAPSED_DATES.map((d) => rows.reduce((s, m) => s + (m.daily.get(dayKey(d)) ?? 0), 0));
+  const dayTotals = dates.map((d) => rows.reduce((s, m) => s + (m.daily.get(dayKey(d)) ?? 0), 0));
 
   const columns: Column<Machine>[] = [
     {
@@ -36,7 +38,7 @@ export function DetailedView({ rows, state, activeId, onRowActivate, emptyState,
       cell: (m) => <span className="font-medium text-default">{m.name}</span>,
       skeleton: <Skeleton className="h-150 w-1000" />,
     },
-    ...ELAPSED_DATES.map<Column<Machine>>((date, i) => ({
+    ...dates.map<Column<Machine>>((date, i) => ({
       id: `d${dayKey(date)}`,
       header: String(date.getDate()),
       srHeader: ` de março, ${WEEKDAY.format(date)}`,

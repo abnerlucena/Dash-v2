@@ -44,12 +44,13 @@ function downloadCsv(orders: ProductionOrder[], filename: string) {
 }
 
 function toCsv(orders: ProductionOrder[]) {
-  const header = ["Data", "Máquina", "Turno", "OP", "Produto", "Quantidade", "Retrabalho", "Motivo", "Operador", "Observação"];
+  const header = ["Data", "Máquina", "Turno", "OP", "Material", "Descrição do material", "Quantidade", "Retrabalho", "Motivo", "Operador", "Observação"];
   const rows = orders.map((o) => [
     o.date.toLocaleDateString("pt-BR"),
     machineById(o.machineId).name,
     SHIFT_META[o.shift].label,
     o.opId.replace("OP ", ""),
+    o.material,
     o.product,
     String(o.quantity),
     o.rework ? "Sim" : "Não",

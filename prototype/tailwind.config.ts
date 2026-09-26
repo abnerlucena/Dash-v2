@@ -109,6 +109,7 @@ const sizeKeys = [
   "menu-min",
   "popover",
   "inbox",
+  "range-presets",
   "chat",
   "bubble",
   "flag",
