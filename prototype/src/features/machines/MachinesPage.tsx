@@ -9,9 +9,16 @@ import {
   SHIFTS,
   SHIFT_META,
   STATUS_META,
+  DATA_END,
+  DATA_START,
+  MONTH_RANGE,
+  WORKING_DATES,
   aggregate,
-  scopeToShift,
+  isMonthRange,
+  scopeMachine,
   statusFor,
+  workingDatesIn,
+  type DateRange,
   type Machine,
   type Shift,
   type Status,
@@ -22,6 +29,7 @@ import { KpiStrip, type KpiItem } from "@/components/data/KpiStrip";
 import { Button } from "@/components/ui/Button";
 import { EmptyState, ErrorMessage } from "@/components/ui/Feedback";
 import { FilterPill, type FilterOption } from "@/components/ui/FilterPill";
+import { DateRangePicker, rangeLabel } from "@/components/ui/DateRangePicker";
 import { Lozenge } from "@/components/ui/Lozenge";
 import { ChartsView } from "./ChartsView";
 import { DetailedView } from "./DetailedView";
@@ -48,12 +56,6 @@ interface MachinesPageProps {
   notify: (title: string, description?: string) => void;
 }
 
-const PERIODS: FilterOption[] = [
-  { value: "2026-03", label: "Março de 2026", short: "Março 2026" },
-  { value: "2026-02", label: "Fevereiro de 2026", short: "Fevereiro 2026" },
-  { value: "2026-01", label: "Janeiro de 2026", short: "Janeiro 2026" },
-  { value: "90d", label: "Últimos 90 dias" },
-];
 const SHIFT_OPTIONS: FilterOption[] = [
   { value: "all", label: "Todos" },
   ...SHIFTS.map((s) => ({ value: String(s), label: SHIFT_META[s].label, hint: SHIFT_META[s].hours })),
@@ -109,11 +111,17 @@ export function MachinesPage({
     [pool],
   );
   const DEFAULT_FILTERS = useMemo(
-    () => ({ period: "2026-03", machine: "all", shift: presetShift ? String(presetShift) : "all", status: "all" }),
+    () => ({ machine: "all", shift: presetShift ? String(presetShift) : "all", status: "all" }),
     [presetShift],
   );
   const [tab, setTab] = useState("overview");
   const [filters, setFilters] = useState(DEFAULT_FILTERS);
+  // Período livre: qualquer intervalo de dias (padrão: o mês inteiro)
+  const [range, setRange] = useState<DateRange>(MONTH_RANGE);
+  const monthView = isMonthRange(range);
+  const periodText = monthView ? "março de 2026" : rangeLabel(range);
+  /** dias úteis do período que já aconteceram (base da taxa de apontamento) */
+  const elapsedDays = useMemo(() => workingDatesIn(range).filter((d) => d <= DATA_END), [range]);
   const [sort, setSort] = useState<SortState | null>({ columnId: "produced", direction: "descending" });
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -134,8 +142,8 @@ export function MachinesPage({
   // O turno recorta os dados de todas as abas (exceto a comparação em "Turnos")
   // Centros de 2 turnos não entram no recorte do Turno 3 (não rodam nele)
   const scoped = useMemo(
-    () => pool.filter((m) => shift === "all" || shift <= m.regime).map((m) => scopeToShift(m, shift)),
-    [pool, shift],
+    () => pool.filter((m) => shift === "all" || shift <= m.regime).map((m) => scopeMachine(m, shift, range)),
+    [pool, shift, range],
   );
 
   const rows = useMemo(() => {
@@ -156,13 +164,32 @@ export function MachinesPage({
     });
   }, [scoped, filters, search, sort]);
 
-  // Aba Turnos: as mesmas máquinas filtradas, mas com todos os turnos
-  const unscopedRows = useMemo(() => rows.map((r) => TARGET_MACHINES.find((m) => m.id === r.id)!), [rows]);
+  // Aba Turnos: as mesmas máquinas filtradas, no período, mas com todos os turnos
+  const unscopedRows = useMemo(
+    () => rows.map((r) => scopeMachine(TARGET_MACHINES.find((m) => m.id === r.id)!, "all", range)),
+    [rows, range],
+  );
 
-  const totals = aggregate(rows);
+  const totals = aggregate(rows, elapsedDays.length);
   const onlyDefaults =
-    Object.entries(DEFAULT_FILTERS).every(([k, v]) => filters[k as keyof typeof filters] === v) && !search;
-  const growth = ((totals.produced - PREVIOUS_MONTH_PRODUCED) / PREVIOUS_MONTH_PRODUCED) * 100;
+    Object.entries(DEFAULT_FILTERS).every(([k, v]) => filters[k as keyof typeof filters] === v) && !search && monthView;
+
+  // Comparação: mês inteiro × fevereiro; outro período × os mesmos dias úteis logo antes dele
+  const previous = useMemo(() => {
+    if (monthView) return null;
+    const before = WORKING_DATES.filter((d) => d < range.from && d >= DATA_START).slice(-elapsedDays.length);
+    if (!elapsedDays.length || before.length < elapsedDays.length) return { range: null, produced: 0 };
+    const prev = { from: before[0], to: before[before.length - 1] };
+    const produced = rows.reduce((s, r) => s + scopeMachine(TARGET_MACHINES.find((m) => m.id === r.id)!, shift, prev).produced, 0);
+    return { range: prev, produced };
+  }, [monthView, range, elapsedDays.length, rows, shift]);
+  const growth = previous
+    ? previous.produced
+      ? ((totals.produced - previous.produced) / previous.produced) * 100
+      : 0
+    : ((totals.produced - PREVIOUS_MONTH_PRODUCED) / PREVIOUS_MONTH_PRODUCED) * 100;
+  const growthLabel = previous?.range ? `o período anterior (${rangeLabel(previous.range)})` : "fevereiro";
+  const showGrowth = previous ? !!previous.range : onlyDefaults && !groupId && !presetShift;
 
   const tableState: TableState =
     demoState === "loading" || periodLoading
@@ -180,13 +207,17 @@ export function MachinesPage({
     if (panelMachine) setLastPanelMachine(panelMachine);
   }, [panelMachine]);
 
-  const setFilter = (key: "period" | "machine" | "shift" | "status") => (value: string) => {
+  const setFilter = (key: "machine" | "shift" | "status") => (value: string) => {
     setFilters((f) => ({ ...f, [key]: value }));
-    if (key === "period") setPeriodLoading(true);
+  };
+  const changeRange = (r: DateRange) => {
+    setRange(r);
+    setPeriodLoading(true);
   };
 
   const clearFilters = () => {
     setFilters(DEFAULT_FILTERS);
+    setRange(MONTH_RANGE);
     onClearSearch();
     if (demoState === "empty") onDemoStateChange("live");
   };
@@ -194,7 +225,7 @@ export function MachinesPage({
   const openPanel = (m: Machine) => setActiveId((id) => (id === m.id ? null : m.id));
 
   const onAction = (action: string, m: Machine) => {
-    if (action === "export") notify("Exportação pronta", `${m.name} · março de 2026 (.xlsx)`);
+    if (action === "export") notify("Exportação pronta", `${m.name} · ${periodText} (.xlsx)`);
     else if (action === "entry") window.location.hash = "/apontamento";
     else notify("Histórico da máquina", "Esta tela ainda não faz parte do protótipo.");
   };
@@ -203,7 +234,7 @@ export function MachinesPage({
     setExporting(true);
     window.setTimeout(() => {
       setExporting(false);
-      notify("Exportação pronta", `${plural(rows.length, "máquina", "máquinas")} · março de 2026 (.xlsx)`);
+      notify("Exportação pronta", `${plural(rows.length, "máquina", "máquinas")} · ${periodText} (.xlsx)`);
     }, readToken("--ds-motion-duration-skeleton") / 2);
   };
 
@@ -212,7 +243,7 @@ export function MachinesPage({
     demoState === "empty" ? (
       <EmptyState
         icon={LayoutList}
-        title="Nenhum apontamento em março"
+        title={`Nenhum apontamento em ${periodText}`}
         hint="Ainda não há produção registrada neste período. Os números aparecem assim que o primeiro turno apontar."
         action={{ label: "Novo apontamento", icon: Plus, onClick: () => (window.location.hash = "/apontamento") }}
       />
@@ -230,7 +261,7 @@ export function MachinesPage({
     );
   const errorState = (
     <ErrorMessage
-      title="Não foi possível carregar a produção de março"
+      title={`Não foi possível carregar a produção de ${periodText}`}
       actions={
         <>
           <Button iconBefore={RefreshCw} onClick={() => onDemoStateChange("loading")}>
@@ -255,19 +286,21 @@ export function MachinesPage({
       value: noData ? "—" : formatNumber(totals.produced),
       footer: noData ? (
         "Sem dados no período"
-      ) : onlyDefaults && !groupId && !presetShift ? (
-        // comparação com fevereiro só existe para a fábrica inteira
-        <span className="flex items-center gap-050">
+      ) : showGrowth ? (
+        // mês: contra fevereiro (só a fábrica inteira); outro período: contra os dias úteis logo antes
+        <span className="flex flex-wrap items-center gap-x-050">
           <span className={`flex items-center gap-025 font-medium ${growth >= 0 ? "text-success" : "text-danger"}`}>
             {growth >= 0 ? <ArrowUp aria-hidden className="size-icon-small" /> : <ArrowDown aria-hidden className="size-icon-small" />}
             {formatDecimal(Math.abs(growth))}%
           </span>
-          {growth >= 0 ? "acima de" : "abaixo de"} fevereiro
+          {growth >= 0 ? "acima de" : "abaixo de"} {growthLabel}
         </span>
       ) : (
-        groupId || presetShift
-          ? `Produção de março${shiftLabel ? ` no ${shiftLabel.toLowerCase()}` : ""}`
-          : `Recorte filtrado${shiftLabel ? ` · ${shiftLabel}` : ""}`
+        previous && !previous.range
+          ? "Sem período anterior nos dados do protótipo"
+          : groupId || presetShift
+            ? `Produção de ${periodText}${shiftLabel ? ` no ${shiftLabel.toLowerCase()}` : ""}`
+            : `Recorte filtrado${shiftLabel ? ` · ${shiftLabel}` : ""}`
       ),
     },
     {
@@ -277,13 +310,13 @@ export function MachinesPage({
       aside: noData ? undefined : <Lozenge appearance={status.appearance}>{status.label}</Lozenge>,
       footer: noData
         ? "Sem dados no período"
-        : `Meta ${shiftLabel ? `do ${shiftLabel.toLowerCase()}` : "do mês"}: ${formatNumber(totals.target)}`,
+        : `Meta ${shiftLabel ? `do ${shiftLabel.toLowerCase()}` : monthView ? "do mês" : "do período"}: ${formatNumber(totals.target)}`,
     },
     {
       id: "rate",
       label: "Taxa de apontamento",
       value: noData ? "—" : `${totals.entryRate}%`,
-      footer: noData ? "Sem dados no período" : "Dias com apontamento sobre dias úteis",
+      footer: noData ? "Sem dados no período" : `Dias com apontamento sobre ${plural(elapsedDays.length, "dia útil", "dias úteis")}`,
     },
     {
       id: "active",
@@ -294,7 +327,9 @@ export function MachinesPage({
         ? "Sem dados no período"
         : shiftLabel
           ? `Com apontamento no ${shiftLabel.toLowerCase()}`
-          : "Com apontamento no mês",
+          : monthView
+            ? "Com apontamento no mês"
+            : "Com apontamento no período",
     },
   ];
 
@@ -343,12 +378,14 @@ export function MachinesPage({
 
         {/* ---------- Filtros: uma linha acima do conteúdo; valem para todas as abas ---------- */}
         <div role="toolbar" aria-label="Filtros" className={`${pad} flex flex-wrap items-center gap-100 pt-300`}>
-          <FilterPill
+          <DateRangePicker
             label="Período"
-            value={filters.period}
-            defaultValue={DEFAULT_FILTERS.period}
-            options={PERIODS}
-            onChange={setFilter("period")}
+            value={range}
+            defaultValue={MONTH_RANGE}
+            onChange={changeRange}
+            min={DATA_START}
+            max={MONTH_RANGE.to}
+            dataEnd={DATA_END}
           />
           <FilterPill
             label="Máquina"
@@ -382,7 +419,7 @@ export function MachinesPage({
         <Tabs.Content value="overview" className={`${pad} flex flex-col gap-300 py-300 outline-none data-[state=inactive]:hidden`}>
           <KpiStrip items={kpis} isLoading={tableState === "loading"} />
           <DataTable
-            caption="Produção por máquina em março de 2026"
+            caption={`Produção por máquina em ${periodText}`}
             columns={machineColumns({ onOpenOrders: openPanel, onAction, totals })}
             rows={rows}
             getRowId={(m) => m.id}
@@ -412,6 +449,7 @@ export function MachinesPage({
         <Tabs.Content value="detailed" className={`${pad} py-300 outline-none data-[state=inactive]:hidden`}>
           <DetailedView
             rows={rows}
+            dates={elapsedDays}
             state={tableState}
             activeId={activeId}
             onRowActivate={openPanel}
@@ -437,6 +475,9 @@ export function MachinesPage({
         <Tabs.Content value="charts" className={`${pad} py-300 outline-none data-[state=inactive]:hidden`}>
           <ChartsView
             rows={rows}
+            range={range}
+            periodText={periodText}
+            shift={shift}
             isLoading={demoState === "loading"}
             isRefetching={periodLoading}
             activeId={activeId}
@@ -457,6 +498,8 @@ export function MachinesPage({
         machine={panelMachine ?? lastPanelMachine}
         open={panelMachine != null}
         scopeLabel={shiftLabel}
+        periodText={periodText}
+        workingDays={elapsedDays.length}
         onClose={() => {
           // devolve o foco ao que abriu o painel (linha da tabela ou barra do gráfico)
           document.querySelector<HTMLElement>('tr[aria-current="true"], button[aria-pressed="true"]')?.focus();

@@ -65,7 +65,7 @@ export function OpsPage({ notify }: { notify: Notify }) {
   const [line, setLine] = useState("all");
   const [query, setQuery] = useState("");
   const [creating, setCreating] = useState(false);
-  const [draft, setDraft] = useState({ number: "", machineId: MACHINES[0].id, product: "", planned: "" });
+  const [draft, setDraft] = useState({ number: "", machineId: MACHINES[0].id, material: "", product: "", planned: "" });
   const [tried, setTried] = useState(false);
 
   const count = (fn: (op: WorkOrder) => boolean) => ops.filter(fn).length;
@@ -93,7 +93,7 @@ export function OpsPage({ notify }: { notify: Notify }) {
         return (
           byStage &&
           (line === "all" || m.line === line) &&
-          (!q || op.id.toLowerCase().includes(q) || op.product.toLowerCase().includes(q) || m.name.toLowerCase().includes(q))
+          (!q || op.id.toLowerCase().includes(q) || op.material.includes(q) || op.product.toLowerCase().includes(q) || m.name.toLowerCase().includes(q))
         );
       })
       .sort((a, b) => lastActivity(b).getTime() - lastActivity(a).getTime());
@@ -103,12 +103,15 @@ export function OpsPage({ notify }: { notify: Notify }) {
     { id: "op", header: "OP", cell: (op) => <span className="font-code text-default">{opNumber(op.id)}</span> },
     {
       id: "product",
-      header: "Produto e máquina",
+      header: "Material e máquina",
       cell: (op) => {
         const m = machineById(op.machineId);
         return (
           <span className="flex min-w-0 flex-col">
-            <span className="truncate font-medium text-default">{op.product}</span>
+            <span className="flex items-baseline gap-100 truncate">
+              <span className="font-code text-subtle">{op.material}</span>
+              <span className="truncate font-medium text-default">{op.product}</span>
+            </span>
             <span className="flex items-center gap-075 truncate font-body-small text-subtle">
               <Tag accent={LINE_ACCENT[m.line]}>{m.line}</Tag>
               <span className="truncate">{m.name}</span>
@@ -190,10 +193,11 @@ export function OpsPage({ notify }: { notify: Notify }) {
   const planned = Number(draft.planned);
   const errors = {
     number: !/^\d{7}$/.test(number) ? "Use os 7 dígitos da OP" : ops.some((o) => o.id === `OP ${number}`) ? "Essa OP já está no sistema" : null,
-    product: draft.product.trim() ? null : "Informe o produto",
+    material: /^d{8}$/.test(draft.material) ? null : "Use os 8 dígitos do material",
+    product: draft.product.trim() ? null : "Informe a descrição do material",
     planned: Number.isInteger(planned) && planned > 0 ? null : "Informe a quantidade pedida",
   };
-  const valid = !errors.number && !errors.product && !errors.planned;
+  const valid = !errors.number && !errors.material && !errors.product && !errors.planned;
 
   return (
     <>
@@ -205,7 +209,7 @@ export function OpsPage({ notify }: { notify: Notify }) {
             appearance="primary"
             iconBefore={Plus}
             onClick={() => {
-              setDraft({ number: "", machineId: MACHINES[0].id, product: "", planned: "" });
+              setDraft({ number: "", machineId: MACHINES[0].id, material: "", product: "", planned: "" });
               setTried(false);
               setCreating(true);
             }}
@@ -229,7 +233,7 @@ export function OpsPage({ notify }: { notify: Notify }) {
           <TextField
             label="Buscar OP"
             hideLabel
-            placeholder="Número, produto ou máquina"
+            placeholder="OP, material ou máquina"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             elemAfter={<Search aria-hidden className="size-icon-small" />}
@@ -245,7 +249,7 @@ export function OpsPage({ notify }: { notify: Notify }) {
           columns={columns}
           rows={rows}
           getRowId={(op) => op.id}
-          getRowLabel={(op) => `${op.id}, ${op.product}, ${stageView(op).label}`}
+          getRowLabel={(op) => `${op.id}, material ${op.material} ${op.product}, ${stageView(op).label}`}
           selectable={false}
           onRowActivate={openChat}
           emptyState={
@@ -278,7 +282,7 @@ export function OpsPage({ notify }: { notify: Notify }) {
           onClick: () => {
             setTried(true);
             if (!valid) return;
-            const id = create({ number, machineId: draft.machineId, product: draft.product.trim(), planned });
+            const id = create({ number, machineId: draft.machineId, material: draft.material, product: draft.product.trim(), planned });
             setCreating(false);
             setStage("waiting");
             notify(`${id} cadastrada`, "Ela aguarda liberação para a produção.", "success", {
@@ -324,14 +328,29 @@ export function OpsPage({ notify }: { notify: Notify }) {
               ))}
             </select>
           </div>
-          <TextField
-            label="Produto"
-            isRequired
-            placeholder="Ex.: Tomada 10A"
-            value={draft.product}
-            onChange={(e) => setDraft({ ...draft, product: e.target.value })}
-            error={tried ? errors.product : null}
-          />
+          {/* O material anda junto com a OP: código + descrição */}
+          <div className="flex flex-wrap items-start gap-200">
+            <TextField
+              label="Material"
+              isRequired
+              inputMode="numeric"
+              placeholder="Ex.: 12345678"
+              value={draft.material}
+              onChange={(e) => setDraft({ ...draft, material: e.target.value.replace(/D/g, "").slice(0, 8) })}
+              error={tried ? errors.material : null}
+              inputClassName="font-code"
+              className="w-column-name"
+            />
+            <TextField
+              label="Descrição do material"
+              isRequired
+              placeholder="Ex.: Tomada 10A"
+              value={draft.product}
+              onChange={(e) => setDraft({ ...draft, product: e.target.value })}
+              error={tried ? errors.product : null}
+              className="min-w-column-name flex-1"
+            />
+          </div>
           <TextField
             label="Quantidade pedida"
             isRequired

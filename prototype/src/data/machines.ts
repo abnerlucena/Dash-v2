@@ -87,8 +87,12 @@ export interface ProductionOrder {
   machineId: string;
   date: Date;
   shift: Shift;
+  /** material da OP (anda junto com a ordem) */
+  material: string;
   product: string;
   quantity: number;
+  /** minutos produtivos do turno nesta OP (para peças/minuto) */
+  minutes: number;
   /** apontamento marcado como retrabalho (como no app atual) */
   rework: boolean;
   reworkReason: string | null;
@@ -197,7 +201,8 @@ export const OPERATORS: Record<Shift, string[]> = {
   2: ["Marcos Vieira", "Patrícia Gomes", "Rodrigo Alves", "Larissa Monteiro", "Thiago Barros", "Vanessa Cardoso"],
   3: ["Fernanda Costa", "Lucas Pereira", "Gustavo Rezende"],
 };
-/** Quem responde e movimenta as OPs */
+/** Quem responde e movimenta as OPs (conversas: preparadores para cima) */
+export const SETTERS: Record<Shift, string> = { 1: "Otávio Mendes", 2: "Renata Sales", 3: "Caio Fontes" };
 export const LEADERS: Record<Shift, string> = { 1: "Beatriz Nunes", 2: "Diego Ramos", 3: "Helena Prado" };
 export const MANAGER = "Rafael Souza";
 
@@ -291,7 +296,8 @@ function buildMachine(raw: RawCenter, index: number): Machine {
       byShift[shift] += quantities[i];
       ordersByShift[shift] += 1;
       // tempo produtivo do turno: tempo útil menos paradas (fictício)
-      minutesByShift[shift] += Math.round(USEFUL[shift] * (0.72 + extra() * 0.22));
+      const worked = Math.round(USEFUL[shift] * (0.72 + extra() * 0.22));
+      minutesByShift[shift] += worked;
       const rework = extra() < raw.reworkRate;
       const operators = OPERATORS[shift];
       const operator = operators[(index + Math.floor(extra() * operators.length)) % operators.length];
@@ -310,8 +316,10 @@ function buildMachine(raw: RawCenter, index: number): Machine {
         machineId: raw.id,
         date,
         shift,
+        material: "",
         product: "",
         quantity: quantities[i],
+        minutes: worked,
         rework,
         reworkReason,
         operator,
@@ -371,7 +379,8 @@ export const OP_STAGE_META: Record<OpStage, { label: string; appearance: "neutra
   done: { label: "Concluída", appearance: "success" },
 };
 
-export type MessageRole = "operator" | "leader" | "manager" | "system";
+/** operator = observação vinda do apontamento (o operador não acessa a conversa) */
+export type MessageRole = "operator" | "setter" | "leader" | "manager" | "system";
 
 export interface OpMessage {
   id: string;
@@ -389,6 +398,9 @@ export interface WorkOrder {
   /** número da OP ("OP 4501234") */
   id: string;
   machineId: string;
+  /** código do material (8 dígitos) que anda junto com a OP */
+  material: string;
+  /** descrição do material */
   product: string;
   /** quantidade pedida na OP */
   planned: number;
@@ -406,6 +418,13 @@ export interface WorkOrder {
 export const isReadyToClose = (op: WorkOrder) => op.stage === "running" && op.produced >= op.planned;
 
 const roundTo = (n: number, step: number) => Math.max(step, Math.round(n / step) * step);
+
+/** Código de material fictício e estável por produto (mesmo produto → mesmo material) */
+export function materialOf(product: string) {
+  let h = 7;
+  for (const ch of product) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  return String(10000000 + (h % 9000000));
+}
 const minutesLater = (d: Date, min: number) => new Date(d.getTime() + min * 60000);
 
 function buildWorkOrders(m: Machine, index: number, products: string[]): WorkOrder[] {
@@ -423,6 +442,7 @@ function buildWorkOrders(m: Machine, index: number, products: string[]): WorkOrd
     const op: WorkOrder = {
       id: nextId(),
       machineId: m.id,
+      material: materialOf(product),
       product,
       planned: roundTo(avg * (2 + Math.floor(random() * 4)), 500),
       produced: 0,
@@ -443,6 +463,7 @@ function buildWorkOrders(m: Machine, index: number, products: string[]): WorkOrd
     if (!current) current = open(e.recordedAt);
     const op: WorkOrder = current;
     e.opId = op.id;
+    e.material = op.material;
     e.product = op.product;
     op.produced += e.quantity;
     op.entryIds.push(e.id);
@@ -450,24 +471,27 @@ function buildWorkOrders(m: Machine, index: number, products: string[]): WorkOrd
       op.messages.push({ id: e.note.id, opId: op.id, at: e.recordedAt, author: e.operator, role: "operator", shift: e.shift, text: e.note.text, rework: e.rework });
       const roll = random();
       if (roll < 0.6) {
-        const replier = roll < 0.12 ? MANAGER : LEADERS[e.shift];
+        // quem responde: gestor, líder ou preparador do turno
+        const role: MessageRole = roll < 0.1 ? "manager" : roll < 0.3 ? "leader" : "setter";
+        const replier = role === "manager" ? MANAGER : role === "leader" ? LEADERS[e.shift] : SETTERS[e.shift];
         const replyAt = minutesLater(e.recordedAt, 20 + Math.floor(random() * 70));
         op.messages.push({
           id: `${e.note.id}-r`,
           opId: op.id,
           at: replyAt,
           author: replier,
-          role: replier === MANAGER ? "manager" : "leader",
-          shift: replier === MANAGER ? undefined : e.shift,
+          role,
+          shift: role === "manager" ? undefined : e.shift,
           text: REPLIES[Math.floor(random() * REPLIES.length)],
         });
-        if (roll < 0.25)
+        // o preparador fecha o assunto quando resolve
+        if (roll < 0.3)
           op.messages.push({
             id: `${e.note.id}-f`,
             opId: op.id,
             at: minutesLater(replyAt, 30 + Math.floor(random() * 60)),
-            author: e.operator,
-            role: "operator",
+            author: SETTERS[e.shift],
+            role: "setter",
             shift: e.shift,
             text: FOLLOW_UPS[Math.floor(random() * FOLLOW_UPS.length)],
           });
@@ -498,10 +522,12 @@ function buildWorkOrders(m: Machine, index: number, products: string[]): WorkOrd
   for (let i = 0; i < waiting; i++) {
     const releasedAt = at(new Date(YEAR, MONTH, REFERENCE_DAY - Math.floor(random() * 3)), 8 + i, Math.floor(random() * 50));
     const id = nextId();
+    const product = products[Math.floor(random() * products.length)];
     ops.push({
       id,
       machineId: m.id,
-      product: products[Math.floor(random() * products.length)],
+      material: materialOf(product),
+      product,
       planned: roundTo(avg * (2 + Math.floor(random() * 3)), 500),
       produced: 0,
       stage: "waiting",
@@ -571,18 +597,44 @@ export const INITIAL_UNREAD = WORK_ORDERS.flatMap((op) => op.messages)
   .slice(0, 12)
   .map((msg) => msg.id);
 
+/* ---------- Período de análise ---------- */
+/** Intervalo de datas (inclusivo). Os dados do protótipo cobrem março/2026 até o dia 27. */
+export interface DateRange {
+  from: Date;
+  to: Date;
+}
+/** Mês inteiro (dias futuros contam só na meta) — é o recorte padrão */
+export const MONTH_RANGE: DateRange = { from: new Date(YEAR, MONTH, 1), to: new Date(YEAR, MONTH, 31) };
+export const DATA_START = new Date(YEAR, MONTH, 1);
+export const DATA_END = REFERENCE_DATE;
+
+const inRange = (d: Date, r: DateRange) => d >= r.from && d <= r.to;
+export const workingDatesIn = (r: DateRange) => WORKING_DATES.filter((d) => inRange(d, r));
+export const isMonthRange = (r: DateRange) => r.from.getTime() === MONTH_RANGE.from.getTime() && r.to.getTime() === MONTH_RANGE.to.getTime();
+
 /**
- * Recorta o centro para um turno: produção, dias, ordens e tendência só
- * daquele turno, contra a meta do turno. "all" devolve o centro inteiro.
+ * Recorta o centro por turno e por período: produção, dias, ordens, turnos,
+ * minutos e tendência só do recorte. A meta acompanha: a do turno (meta ÷
+ * turnos do centro) e proporcional aos dias úteis do período.
  */
-export function scopeToShift(m: Machine, shift: Shift | "all"): Machine {
-  if (shift === "all") return m;
-  const orders = m.orders.filter((o) => o.shift === shift);
+export function scopeMachine(m: Machine, shift: Shift | "all", range: DateRange = MONTH_RANGE): Machine {
+  if (shift === "all" && isMonthRange(range)) return m;
+  const orders = m.orders.filter((o) => (shift === "all" || o.shift === shift) && inRange(o.date, range));
   const daily = new Map<number, number>();
-  for (const o of orders) daily.set(dayKey(o.date), (daily.get(dayKey(o.date)) ?? 0) + o.quantity);
+  const byShift: Record<Shift, number> = { 1: 0, 2: 0, 3: 0 };
+  const ordersByShift: Record<Shift, number> = { 1: 0, 2: 0, 3: 0 };
+  const minutesByShift: Record<Shift, number> = { 1: 0, 2: 0, 3: 0 };
+  for (const o of orders) {
+    daily.set(dayKey(o.date), (daily.get(dayKey(o.date)) ?? 0) + o.quantity);
+    byShift[o.shift] += o.quantity;
+    ordersByShift[o.shift] += 1;
+    minutesByShift[o.shift] += o.minutes;
+  }
   const produced = orders.reduce((s, o) => s + o.quantity, 0);
-  const target = shift <= m.regime ? Math.round(m.target / m.regime) : 0;
+  const monthTarget = shift === "all" ? m.target : shift <= m.regime ? m.target / m.regime : 0;
+  const target = Math.round(monthTarget * (workingDatesIn(range).length / WORKING_DAYS));
   const percent = target ? Math.round((produced / target) * 100) : 0;
+  const last = orders[0];
   return {
     ...m,
     orders,
@@ -592,13 +644,22 @@ export function scopeToShift(m: Machine, shift: Shift | "all"): Machine {
     percent,
     status: statusFor(percent),
     days: daily.size,
-    dailyTarget: Math.round(target / WORKING_DAYS),
-    trend: trendFrom(daily),
-    lastEntry: orders[0] ? { date: orders[0].date, shift } : null,
+    dailyTarget: Math.round(monthTarget / WORKING_DAYS),
+    trend: ELAPSED_DATES.filter((d) => d <= range.to)
+      .slice(-14)
+      .map((date) => ({ date, value: daily.get(dayKey(date)) ?? null })),
+    byShift,
+    ordersByShift,
+    minutesByShift,
+    lastEntry: last ? { date: last.date, shift: last.shift } : null,
   };
 }
 
-export function aggregate(machines: Machine[]) {
+/** Recorte só por turno (mês inteiro) */
+export const scopeToShift = (m: Machine, shift: Shift | "all") => scopeMachine(m, shift);
+
+/** Totais do recorte; `workingDays` = dias úteis do período (taxa de apontamento) */
+export function aggregate(machines: Machine[], workingDays = WORKING_DAYS) {
   const produced = machines.reduce((s, m) => s + m.produced, 0);
   const target = machines.reduce((s, m) => s + m.target, 0);
   const days = machines.reduce((s, m) => s + m.days, 0);
@@ -607,7 +668,7 @@ export function aggregate(machines: Machine[]) {
     produced,
     target,
     percent: target ? Math.round((produced / target) * 100) : 0,
-    entryRate: machines.length ? Math.round((days / (machines.length * WORKING_DAYS)) * 100) : 0,
+    entryRate: machines.length ? Math.round((days / (machines.length * Math.max(1, workingDays))) * 100) : 0,
   };
 }
 
@@ -629,12 +690,12 @@ export function shiftTotals(machines: Machine[]) {
   });
 }
 
-/** Série diária da fábrica (dias úteis transcorridos) e acumulado vs meta */
-export function plantSeries(machines: Machine[]) {
-  const target = machines.reduce((s, m) => s + m.target, 0);
-  const dailyTarget = target / WORKING_DAYS;
+/** Série diária da fábrica no período (dias úteis) e acumulado vs meta */
+export function plantSeries(machines: Machine[], range: DateRange = MONTH_RANGE) {
+  // soma das metas diárias (já no recorte de turno de cada máquina)
+  const dailyTarget = machines.reduce((s, m) => s + m.dailyTarget, 0);
   let cumulative = 0;
-  return WORKING_DATES.map((date, i) => {
+  return workingDatesIn(range).map((date, i) => {
     const elapsed = date.getDate() <= REFERENCE_DAY;
     const value = elapsed ? machines.reduce((s, m) => s + (m.daily.get(dayKey(date)) ?? 0), 0) : null;
     if (value != null) cumulative += value;

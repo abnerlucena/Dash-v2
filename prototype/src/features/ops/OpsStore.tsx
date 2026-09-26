@@ -22,6 +22,7 @@ import { formatNumber } from "@/lib/utils";
 export interface NewOp {
   number: string;
   machineId: string;
+  material: string;
   product: string;
   planned: number;
 }
@@ -111,13 +112,14 @@ export function OpsProvider({ children }: { children: ReactNode }) {
             messages: [...op.messages, { ...system(opId, text), at }],
           };
         }),
-      create: ({ number, machineId, product, planned }) => {
+      create: ({ number, machineId, material, product, planned }) => {
         const id = `OP ${number}`;
         const at = tick();
         setOps((list) => [
           {
             id,
             machineId,
+            material,
             product,
             planned,
             produced: 0,
