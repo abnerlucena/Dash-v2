@@ -50,6 +50,7 @@ Status possíveis: `Aprovada` · `Assumida` (sem confirmação explícita) · `S
 | D41 | Máquina planejada e data de entrada em operação | Aprovada | 25/09/2026 |
 | D42 | Tempo útil por turno guardado no banco | Aprovada | 25/09/2026 |
 | D43 | Destino do histórico das máquinas renomeadas e divididas | Aprovada | 25/09/2026 |
+| D44 | A UI de `prototype/` é a interface oficial | Aprovada | 26/09/2026 |
 
 ---
 
@@ -478,3 +479,48 @@ script de extração e carga em lote reversível.
   - `MONTAGEM DIVERSOS`, que virou dois centros na fábrica (Bancadas N°3 e N°4), tem todo o histórico levado para **BANCADA N°4 — DIVERSOS**.
 - **Custo assumido:** a produção antiga de três centros fica concentrada em duas bancadas e **não tem como ser separada depois** — a planilha nunca registrou essa distinção. Vale só para o passado; a partir da migração, cada bancada recebe o seu próprio apontamento.
 - **Alternativas rejeitadas:** criar centros "legado" só para segurar o histórico (polui a lista de apontamento para sempre); descartar o histórico (perde produção real).
+
+### D44 — A UI de `prototype/` é a interface oficial
+- **Status:** Aprovada (26/09/2026).
+- **Contexto:** o projeto passou a ter **duas interfaces**. A de `src/` está
+  ligada aos dados reais (Apps Script e Supabase, atrás de `VITE_DATA_SOURCE`)
+  mas é a antiga; a de `prototype/`, construída sobre um sistema de tokens com
+  a marca WEG, é a que o usuário quer levar adiante — mas roda com dados
+  fictícios e não conhece o banco.
+- **Decisão:** a interface de `prototype/` é a **interface do sistema**, não um
+  protótipo. A UI de `src/` será substituída por ela. A camada de dados de
+  `src/lib/repositories/` é o que fica, e é para dentro da UI nova que ela vai.
+- **O que NÃO muda agora:** o nome da pasta. Renomear `prototype/` mexe em mais
+  de cem arquivos e quebraria qualquer branch em andamento. O nome é corrigido
+  quando a transição começar de fato; até lá, o `README.md` da pasta avisa em
+  letras grandes o que ela é.
+- **Consequências:**
+  - toda tela nova nasce em `prototype/`, não em `src/`;
+  - `src/pages/` e `src/components/` passam a ser código com data de validade —
+    consertar bug ali só se atrapalhar alguém hoje;
+  - `src/lib/repositories/`, `src/contexts/AuthContext.tsx` e
+    `src/lib/database.types.ts` continuam sendo a fonte da verdade sobre dados;
+  - os dois modos (`gas` e `supabase`) precisam continuar funcionando durante a
+    transição: o Apps Script ainda é o sistema em produção.
+- **Alternativas rejeitadas:** levar a UI nova para dentro de `src/` agora (um
+  único commit gigante, sem como testar em pedaços); manter as duas interfaces
+  vivas (dobra o custo de toda mudança e garante que uma delas fica para trás).
+
+#### D44.1 — O que a transição exige, em ordem
+
+1. **`MACHINES_DEFAULT` em `src/lib/api.ts` está mentindo.** Ainda lista as 18
+   máquinas antigas com metas inventadas (`HORIZONTAL 1` com meta 500). Hoje o
+   app tem duas realidades: em modo `gas` mostra isso, em modo `supabase`
+   mostra os 22 centros reais. É a primeira coisa a acertar — enquanto estiver
+   assim, quem comparar as duas telas vai achar que o banco está errado.
+2. **A UI nova precisa de uma camada de dados.** Nenhum arquivo de
+   `prototype/src/` menciona Supabase, repositório ou `fetch`: são dados
+   fictícios. Ligar é trocar as fontes fictícias pelas funções de
+   `src/lib/repositories/`, tela por tela.
+3. **Tela por tela, não tudo de uma vez.** A ordem sugerida segue o risco:
+   apontamento (o que a fábrica usa todo dia), dashboard, metas, histórico,
+   calendário, usuários, TV.
+4. **Duas pendências do banco afetam telas que a UI nova vai reconstruir**, e
+   valem antes: a **recuperação de senha** (não existe, e é o único que bloqueia
+   o uso hoje) e a **meta por operador** da Bancada A Granél, que hoje aparece
+   como 25.000 em vez de 25.000 × pessoas (D39).

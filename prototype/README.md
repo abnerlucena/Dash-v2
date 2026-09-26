@@ -1,9 +1,19 @@
-# Dash de Produção — protótipo de interface
+# Dash de Produção — a interface do sistema
 
-Protótipo de alta fidelidade do **Dash de Produção** (todas as páginas do menu), construído sobre um sistema de
-tokens derivado do Atlassian Design System (fundações → componentes → padrões),
-com a marca WEG. Fica isolado do app em produção: Vite, Tailwind e tokens próprios,
-reaproveitando os `node_modules` da raiz.
+> **Esta pasta não é mais um protótipo.** Em 26/09/2026 ficou decidido que é
+> **esta** a interface do Dash de Produção; a UI antiga em `src/` vai ser
+> substituída por ela. O nome da pasta continua `prototype/` por enquanto só
+> para não quebrar branches em andamento — ver a decisão **D44** em
+> [`../docs/database/03-decisoes.md`](../docs/database/03-decisoes.md).
+>
+> O que ainda falta: ela roda com **dados fictícios**. A transição é ligá-la à
+> camada de dados que já existe em `src/lib/repositories/`, que fala com o
+> Supabase e com o Apps Script.
+
+Interface de alta fidelidade do **Dash de Produção** (todas as páginas do menu),
+construída sobre um sistema de tokens derivado do Atlassian Design System
+(fundações → componentes → padrões), com a marca WEG. Hoje ainda roda isolada do
+app: Vite, Tailwind e tokens próprios, reaproveitando os `node_modules` da raiz.
 
 ## Como rodar
 
