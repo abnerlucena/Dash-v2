@@ -68,10 +68,13 @@ const ABAS_HORA_EXTRA = { '10 de Jan 26': { turno: 1, modo: 'overtime' } };
 // revisada pelo gestor; o que não estiver nesta lista vira descarte com o
 // texto guardado, para ninguém perder informação por engano.
 const CASOS = [
-  { aba: 'MAR 26', celula: 'I10', vira: 'downtime', motivo: 'manutenção preventiva' },
-  { aba: 'MAR 26', celula: 'F14', vira: 'downtime', motivo: 'manutenção' },
-  { aba: 'MAR 26', celula: 'F16', vira: 'downtime', motivo: 'manutenção preventiva' },
-  { aba: 'MAR 26', celula: 'F24', vira: 'downtime', motivo: 'manutenção' },
+  // O motivo é o CÓDIGO que a tabela de paradas aceita (nomes em inglês no
+  // banco, D03). O texto original da planilha fica em raw_value, que é o que
+  // aparece na conferência.
+  { aba: 'MAR 26', celula: 'I10', vira: 'downtime', motivo: 'preventive_maintenance' },
+  { aba: 'MAR 26', celula: 'F14', vira: 'downtime', motivo: 'maintenance' },
+  { aba: 'MAR 26', celula: 'F16', vira: 'downtime', motivo: 'preventive_maintenance' },
+  { aba: 'MAR 26', celula: 'F24', vira: 'downtime', motivo: 'maintenance' },
 
   // Número cortado na planilha ("10."). O gestor confirmou 10.000 peças.
   { aba: 'AGO 26', celula: 'X38', vira: 'production', quantidade: 10000,

@@ -249,6 +249,31 @@ const retrabalhoDe = (aba, celula) => RETRABALHO.find((c) => c.aba === aba && c.
     });
   }
 
+  // ─── Meta retroativa: a primeira conhecida, puxada para trás ──────────────
+  // Sete centros têm meta na planilha, mas os primeiros registros deles são
+  // anteriores ao mês em que a coluna de meta começa. Sem isto, esses
+  // registros cairiam na meta de HOJE — a Bancada A Granél seria medida em
+  // dezembro por 25.000 quando a própria planilha diz que a meta era 15.000.
+  //
+  // Só vale para quem TEM meta na planilha em algum momento. Quem nunca teve
+  // continua com a meta de hoje: não há nada para puxar.
+  const primeira = {};
+  for (const l of linhas) {
+    if (l.metaOrigem !== 'planilha' || l.meta == null) continue;
+    if (!primeira[l.coluna] || l.data < primeira[l.coluna].data) {
+      primeira[l.coluna] = { data: l.data, meta: l.meta };
+    }
+  }
+  let retro = 0;
+  for (const l of linhas) {
+    if (l.metaOrigem !== 'meta_de_hoje') continue;
+    const p = primeira[l.coluna];
+    if (!p || l.data >= p.data) continue;
+    l.meta = p.meta;
+    l.metaOrigem = 'planilha_retroativa';
+    retro++;
+  }
+
   // ─── Id do lote: derivado do arquivo, para ser sempre o mesmo ─────────────
   const digest = crypto.createHash('sha256')
     .update(path.basename(arquivo) + '|' + fs.statSync(arquivo).size)

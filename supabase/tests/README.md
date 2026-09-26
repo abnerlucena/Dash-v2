@@ -11,6 +11,7 @@ cada execução acontece dentro de uma transação que termina em `rollback`
 | `02_rls.sql` | Políticas de acesso (migration 0010): quem vê e quem altera o quê |
 | `03_capacidade.sql` | Campos de processo, capacidade, tempo de turno e base da meta (migration 0013) |
 | `04_importacao.sql` | Área de preparo da importação (migration 0016): coerência das linhas e quem enxerga |
+| `05_carga_importacao.sql` | Carga e reversão do lote (migration 0019): exige um lote na área de preparo |
 
 ## Como rodar (SQL Editor do Supabase)
 

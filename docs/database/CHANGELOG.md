@@ -17,6 +17,45 @@ Formato de cada entrada:
 
 ---
 
+## [0.16.0] — 26/09/2026 — Carga e reversão da importação
+- Status: Desenhado (testado em transação desfeita; **ainda não aplicado**)
+- Commit/PR: PR #15
+- Migrations: `20260926110000_meta_retroativa.sql`, `20260926120000_carga_e_reversao_da_importacao.sql`
+- Testes: `supabase/tests/05_carga_importacao.sql` — 11 casos, 11 passando
+- Decisões: D35 (itens 6, 7 e 12), D09, D08
+
+Passo 3 de 4 da importação.
+
+### Adicionado
+- `carregar_lote_importacao(lote)` — transforma a área de preparo em produção, tudo ou nada. Exige `import.manage`.
+- `reverter_lote_importacao(lote)` — desfaz o lote sem tocar no que foi apontado à mão.
+- `planilha_retroativa` como quarta origem de meta: a **primeira** meta conhecida do centro, puxada para trás. São 89 apontamentos que antes caíam na meta de hoje — a A Granél em dezembro passa a ser medida por 15.000, que era a meta da época, e não por 25.000.
+
+### Alterado
+- `machine_downtimes.source` passa a aceitar `spreadsheet`. Troca que só amplia; `manual` e `sfm` continuam valendo.
+
+### Como o apontamento importado nasce
+- **Sem autor.** Ninguém o apontou. Pela regra da 0.10.3, apontamento sem autor só pode ser alterado por quem tem permissão de editar qualquer apontamento — o desejado para dado histórico.
+- **Com a origem na planilha** em `source_ref` (ex.: `JUN 26!F12`) e a marca do lote em `import_batch_id`.
+- **Com ordem `IMPORTADO`**, que não é uma OP de verdade: a planilha nunca registrou número de OP e não vai registrar até o sistema entrar em produção (D35 item 12).
+
+### O que o ensaio produziu
+| | |
+|---|---|
+| Apontamentos | 2.507 |
+| Ordens | 2.508, sendo 2 de retrabalho |
+| Peças | 17.627.977 |
+| Paradas de máquina | 4 |
+
+Os 2.507 saem de 2.508 linhas da preparo menos uma agrupada: em 02/09 a
+Horizontal N°1 tem produção e retrabalho no mesmo turno, e isso vira **um
+apontamento com duas ordens** (D09), não dois apontamentos.
+
+### Bloqueio conhecido antes de carregar de verdade
+Os 842 apontamentos de demonstração ocupam de 21/08 a 19/09 e colidem em
+**491** chaves com o histórico real. É preciso rodar
+`supabase/seed/99_remover_demo.sql` antes da carga.
+
 ## [0.15.0] — 26/09/2026 — A meta na área de preparo
 - Status: **Implementado** — aplicada no Supabase (projeto de testes) em 26/09/2026
 - Commit/PR: PR #15
