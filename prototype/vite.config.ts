@@ -5,7 +5,7 @@ import tailwindcss from "tailwindcss";
 import autoprefixer from "autoprefixer";
 
 // Protótipo isolado do app de produção: config, Tailwind e tokens próprios.
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
   root: __dirname,
   base: "./",
   plugins: [react()],
@@ -15,8 +15,19 @@ export default defineConfig({
     },
   },
   resolve: {
-    alias: { "@": path.resolve(__dirname, "src") },
+    alias: [
+      // Dados reais da planilha só em builds privados (arquivo local, fora do Git)
+      ...(process.env.CAPACITY_DATA === "real"
+        ? [{ find: /^\.\/capacityBaseline$/, replacement: path.resolve(__dirname, "src/features/capacity/capacityBaseline.local.ts") }]
+        : []),
+      { find: "@", replacement: path.resolve(__dirname, "src") },
+    ],
   },
   server: { port: 8090, strictPort: true },
-  build: { outDir: path.resolve(__dirname, "dist"), emptyOutDir: true },
-});
+  build: {
+    outDir: path.resolve(__dirname, "dist"),
+    emptyOutDir: true,
+    // HTML único (proto:html): tudo num arquivo só, inclusive o ECharts carregado sob demanda
+    rollupOptions: mode === "single" ? { output: { inlineDynamicImports: true } } : {},
+  },
+}));

@@ -13,6 +13,7 @@ import {
   type Shift,
 } from "@/data/machines";
 import { cn, formatNumber, readToken, type Notify } from "@/lib/utils";
+import { useOps } from "@/features/ops/OpsStore";
 import { PageBody, PageHeader } from "@/components/layout/PageHeader";
 import { SegmentedBar } from "@/components/data/SegmentedBar";
 import { Button, IconButton } from "@/components/ui/Button";
@@ -23,6 +24,7 @@ import { Modal } from "@/components/ui/Modal";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { TagGroup } from "@/components/ui/Tag";
 import { TextArea, TextField } from "@/components/ui/TextField";
+import { DateField } from "@/components/ui/DateField";
 
 /* ---------- Modelo do formulário ---------- */
 interface OpRow {
@@ -52,7 +54,7 @@ function loadForm(date: string, shift: Shift): Form {
     const orders = sameMonth ? m.orders.filter((o) => o.date.getDate() === day && o.shift === shift) : [];
     form[m.id] = {
       rows: orders.length
-        ? orders.map((o) => newRow(o.id.replace("OP ", ""), String(o.quantity), o.rework))
+        ? orders.map((o) => newRow(o.opId.replace("OP ", ""), String(o.quantity), o.rework))
         : [newRow()],
       note: orders.find((o) => o.note)?.note?.text ?? "",
       noteOpen: orders.some((o) => o.note),
@@ -196,28 +198,28 @@ export function EntryPage({ notify }: EntryPageProps) {
 
       <PageBody>
         {/* ---------- Contexto: data, turno, busca, progresso ---------- */}
-        <div className="flex flex-wrap items-end gap-200 rounded-large bg-surface-sunken p-200">
-          <TextField
+        <div className="flex flex-wrap items-start gap-x-300 gap-y-200 rounded-large bg-surface-sunken p-200">
+          <DateField
             label="Data"
-            type="date"
             value={date}
             min="2026-03-01"
             max="2026-03-31"
-            onChange={(e) => e.target.value && switchContext({ date: e.target.value, shift })}
+            today="2026-03-27"
+            onChange={(d) => switchContext({ date: d, shift })}
             className="w-1000 min-w-column-name"
           />
           <div className="flex flex-col gap-050">
             <span id="entry-shift" className="font-body-small font-semibold text-subtle">
-              Turno
+              Turno <span className="font-normal text-subtlest">· {SHIFT_META[shift].hours}</span>
             </span>
             <SegmentedControl
               label="Turno"
+              size="control"
               iconOnly={false}
               value={String(shift)}
               onChange={(v) => switchContext({ date, shift: Number(v) as Shift })}
               options={SHIFTS.map((s) => ({ value: String(s), label: SHIFT_META[s].label }))}
             />
-            <span className="font-body-small text-subtlest">{SHIFT_META[shift].hours}</span>
           </div>
           <TextField
             label="Filtrar máquinas"
@@ -227,11 +229,12 @@ export function EntryPage({ notify }: EntryPageProps) {
             elemAfter={<Search aria-hidden className="size-icon-small" />}
             className="min-w-column-name flex-1"
           />
-          <div className="flex min-w-column-name flex-col gap-075" aria-live="polite">
-            <span className="font-body-small text-subtle">
-              <span className="font-semibold tabular-nums text-default">{filled}</span> de {MACHINES.length} máquinas com
-              produção
-            </span>
+          <div className="flex min-w-column-name flex-col gap-050" aria-live="polite">
+            <span className="font-body-small font-semibold text-subtle">Máquinas com produção</span>
+            <span className="flex h-control flex-col justify-center gap-050">
+              <span className="font-body-small text-subtle">
+                <span className="font-semibold tabular-nums text-default">{filled}</span> de {MACHINES.length}
+              </span>
             <span
               role="progressbar"
               aria-label="Máquinas com produção"
@@ -241,6 +244,7 @@ export function EntryPage({ notify }: EntryPageProps) {
               className="flex h-075 overflow-hidden rounded-full bg-neutral"
             >
               <span className="h-full rounded-full bg-brand-bold" style={{ width: `${(filled / MACHINES.length) * 100}%` }} />
+              </span>
             </span>
           </div>
         </div>
@@ -337,10 +341,14 @@ function MachineEntryRow({
   onChange: (fn: (e: MachineEntry) => MachineEntry) => void;
 }) {
   const m = machineById(machineId);
-  const meta = metaPerShift(m);
+  const { ops } = useOps();
+  // OPs liberadas para esta máquina: o campo sugere os números
+  const openOps = ops.filter((op) => op.machineId === m.id && (op.stage === "running" || op.stage === "paused"));
+  const listId = `ops-${m.id}`;
+  const meta = m.hasTarget ? metaPerShift(m) : 0;
   const percent = meta ? Math.round((total / meta) * 100) : 0;
   const status = statusFor(percent);
-  const tooHigh = total > meta * 2;
+  const tooHigh = m.hasTarget && total > meta * 2;
 
   const setRow = (key: string, patch: Partial<OpRow>) =>
     onChange((e) => ({ ...e, rows: e.rows.map((r) => (r.key === key ? { ...r, ...patch } : r)) }));
@@ -354,15 +362,44 @@ function MachineEntryRow({
           {entry.existing && <Lozenge appearance="information">Já apontado</Lozenge>}
         </div>
         <TagGroup items={m.lines} accentFor={(l) => LINE_ACCENT[l] ?? "gray"} />
-        <div className="mt-050 flex flex-wrap items-center gap-100">
-          <SegmentedBar percent={percent} status={status} label={`${m.name}: ${percent}% da meta do turno`} />
-          <span className="font-medium tabular-nums text-default">{percent}%</span>
-          {total > 0 && <Lozenge appearance={STATUS_META[status].appearance}>{STATUS_META[status].label}</Lozenge>}
-        </div>
-        <p className="font-body-small text-subtlest">
-          <span className="font-semibold tabular-nums text-default">{formatNumber(total)}</span> de{" "}
-          <span className="tabular-nums">{formatNumber(meta)}</span> (meta do turno)
-        </p>
+        {m.hasTarget ? (
+          <>
+            <div className="mt-050 flex flex-wrap items-center gap-100">
+              <SegmentedBar percent={percent} status={status} label={`${m.name}: ${percent}% da meta do turno`} />
+              <span className="font-medium tabular-nums text-default">{percent}%</span>
+              {total > 0 && <Lozenge appearance={STATUS_META[status].appearance}>{STATUS_META[status].label}</Lozenge>}
+            </div>
+            <p className="font-body-small text-subtlest">
+              <span className="font-semibold tabular-nums text-default">{formatNumber(total)}</span> de{" "}
+              <span className="tabular-nums">{formatNumber(meta)}</span> (meta do turno)
+            </p>
+          </>
+        ) : (
+          <p className="mt-050 font-body-small text-subtlest">
+            <span className="font-semibold tabular-nums text-default">{formatNumber(total)}</span> peças no turno · centro por
+            demanda, sem meta
+          </p>
+        )}
+        {openOps.length > 0 && (
+          <p className="font-body-small text-subtle">
+            {openOps.length === 1 ? "OP liberada: " : "OPs liberadas: "}
+            {openOps.map((op, i) => (
+              <span key={op.id}>
+                {i > 0 && ", "}
+                <a href={`#/feedbacks/${op.id.replace("OP ", "")}`} className="font-code text-link hover:underline">
+                  {op.id.replace("OP ", "")}
+                </a>
+              </span>
+            ))}
+          </p>
+        )}
+        <datalist id={listId}>
+          {openOps.map((op) => (
+            <option key={op.id} value={op.id.replace("OP ", "")}>
+              {op.product}
+            </option>
+          ))}
+        </datalist>
         {tooHigh && (
           <p className="font-body-small text-warning">Acima de 2× a meta do turno. Confira as quantidades.</p>
         )}
@@ -380,6 +417,7 @@ function MachineEntryRow({
                 aria-label={`Nº da OP, linha ${i + 1}, ${m.name}`}
                 inputMode="numeric"
                 placeholder="Ex.: 4501234"
+                list={listId}
                 value={r.op}
                 onChange={(e) => setRow(r.key, { op: e.target.value.replace(/\D/g, "").slice(0, 7) })}
                 error={showErrors || r.op.length >= 7 || (r.qty && !r.op) ? errors.op : null}

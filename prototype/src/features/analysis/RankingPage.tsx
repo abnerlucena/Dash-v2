@@ -1,7 +1,7 @@
 import { ArrowDown, ArrowUp, Equal, Medal } from "lucide-react";
 import { useMemo, useState } from "react";
 import {
-  MACHINES,
+  TARGET_MACHINES,
   SHIFTS,
   SHIFT_META,
   STATUS_META,
@@ -66,7 +66,7 @@ export function RankingPage() {
   const meta = METRICS[metric];
 
   const ranked = useMemo<Ranked[]>(() => {
-    const scoped = MACHINES.map((m) => scopeToShift(m, shift));
+    const scoped = TARGET_MACHINES.map((m) => scopeToShift(m, shift));
     const order = (cutoff?: number) =>
       [...scoped]
         .map((m) => ({ m, v: valueOf(m, metric, cutoff) }))

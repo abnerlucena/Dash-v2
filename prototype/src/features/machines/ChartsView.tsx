@@ -1,10 +1,8 @@
 import type { ReactNode } from "react";
 import { STATUS_META, plantSeries, type Machine } from "@/data/machines";
 import { formatNumber, formatShortDate } from "@/lib/utils";
-import { AttainmentBars } from "@/components/data/AttainmentBars";
-import { BURNUP_LEGEND, BurnupChart } from "@/components/data/BurnupChart";
 import { ChartCard, MiniTable } from "@/components/data/Chart";
-import { DAILY_LEGEND, DailyColumns } from "@/components/data/DailyColumns";
+import { AttainmentBars, BURNUP_LEGEND, BurnupChart, DAILY_LEGEND, DailyColumns } from "@/components/echarts";
 
 interface ChartsViewProps {
   rows: Machine[];

@@ -14,6 +14,11 @@
     font-feature-settings: "cv11", "ss03";
   }
 
+  /* Todos os ícones lucide com o mesmo traço (vence o atributo stroke-width) */
+  .lucide {
+    stroke-width: var(--dash-icon-stroke);
+  }
+
   body {
     font: var(--ds-font-body);
     color: var(--ds-text);

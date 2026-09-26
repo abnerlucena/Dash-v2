@@ -2,7 +2,7 @@ import { CircleAlert, TriangleAlert } from "lucide-react";
 import { forwardRef, useId, type InputHTMLAttributes, type ReactNode, type TextareaHTMLAttributes } from "react";
 import { cn } from "@/lib/utils";
 
-interface FieldProps {
+export interface FieldProps {
   label: string;
   /** Esconde o rótulo visualmente (continua acessível) — ex.: campos dentro de tabela */
   hideLabel?: boolean;
@@ -13,10 +13,10 @@ interface FieldProps {
   className?: string;
 }
 
-const inputBase =
+export const inputBase =
   "w-full min-w-0 rounded-medium border bg-input font-body text-default transition-colors duration-hover ease-out placeholder:text-subtlest hover:bg-input-hovered focus:border-focused disabled:cursor-not-allowed disabled:border-disabled disabled:bg-disabled disabled:text-disabled";
 
-function FieldShell({
+export function FieldShell({
   id,
   label,
   hideLabel,
@@ -62,11 +62,13 @@ type TextFieldProps = FieldProps &
   Omit<InputHTMLAttributes<HTMLInputElement>, "className"> & {
     elemAfter?: ReactNode;
     inputClassName?: string;
+    /** "compact" (24px) para campos dentro de tabelas densas */
+    spacing?: "default" | "compact";
   };
 
 /** Campo de texto ADS: rótulo acima, ajuda/erro abaixo, borda de input e foco com border.focused. */
 export const TextField = forwardRef<HTMLInputElement, TextFieldProps>(function TextField(
-  { label, hideLabel, helper, error, warning, isRequired, className, elemAfter, inputClassName, id: idProp, ...rest },
+  { label, hideLabel, helper, error, warning, isRequired, className, elemAfter, inputClassName, spacing = "default", id: idProp, ...rest },
   ref,
 ) {
   const autoId = useId();
@@ -83,14 +85,18 @@ export const TextField = forwardRef<HTMLInputElement, TextFieldProps>(function T
           aria-required={isRequired || undefined}
           className={cn(
             inputBase,
-            "h-control px-100",
+            spacing === "compact" ? "h-control-compact px-075" : "h-control px-100",
             error ? "border-danger" : warning ? "border-warning" : "border-input",
             elemAfter && "pr-500",
             inputClassName,
           )}
           {...rest}
         />
-        {elemAfter && <span className="pointer-events-none absolute right-100 font-body-small text-subtlest">{elemAfter}</span>}
+        {elemAfter && (
+          <span className={cn("pointer-events-none absolute font-body-small text-subtlest", spacing === "compact" ? "right-075" : "right-100")}>
+            {elemAfter}
+          </span>
+        )}
       </span>
     </FieldShell>
   );

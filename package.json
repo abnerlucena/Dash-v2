@@ -15,7 +15,7 @@
     "proto:dev": "vite --config prototype/vite.config.ts",
     "proto:build": "tsc -p prototype && vite build --config prototype/vite.config.ts",
     "proto:typecheck": "tsc -p prototype",
-    "proto:html": "npm run proto:build && node prototype/scripts/single-file.mjs"
+    "proto:html": "tsc -p prototype && vite build --config prototype/vite.config.ts --mode single && node prototype/scripts/single-file.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
@@ -52,7 +52,7 @@
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
     "date-fns": "^3.6.0",
-    "echarts": "^6.0.0",
+    "echarts": "^5.6.0",
     "echarts-for-react": "^3.0.6",
     "embla-carousel-react": "^8.6.0",
     "framer-motion": "^12.38.0",

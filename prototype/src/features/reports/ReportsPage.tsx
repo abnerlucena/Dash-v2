@@ -16,7 +16,7 @@ import { Checkbox } from "@/components/ui/Checkbox";
 import { Lozenge } from "@/components/ui/Lozenge";
 import { WegMark } from "@/components/ui/Misc";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
-import { TextField } from "@/components/ui/TextField";
+import { DateField } from "@/components/ui/DateField";
 
 type ReportType = "production" | "entries" | "rework" | "metas";
 const TYPES: Record<ReportType, { title: string; description: string; icon: LucideIcon }> = {
@@ -49,7 +49,7 @@ function toCsv(orders: ProductionOrder[]) {
     o.date.toLocaleDateString("pt-BR"),
     machineById(o.machineId).name,
     SHIFT_META[o.shift].label,
-    o.id.replace("OP ", ""),
+    o.opId.replace("OP ", ""),
     o.product,
     String(o.quantity),
     o.rework ? "Sim" : "Não",
@@ -212,14 +212,14 @@ export function ReportsPage({ notify }: { notify: Notify }) {
 
             <fieldset className="flex flex-wrap gap-200">
               <legend className="pb-100 font-heading-small text-default">Período</legend>
-              <TextField label="De" type="date" min="2026-03-01" max="2026-03-27" value={from} onChange={(e) => setFrom(e.target.value)} className="w-column-name" />
-              <TextField
+              <DateField label="De" min="2026-03-01" max="2026-03-27" today="2026-03-27" value={from} onChange={setFrom} className="w-column-name" />
+              <DateField
                 label="Até"
-                type="date"
                 min="2026-03-01"
                 max="2026-03-27"
+                today="2026-03-27"
                 value={to}
-                onChange={(e) => setTo(e.target.value)}
+                onChange={setTo}
                 error={periodError}
                 className="w-column-name"
               />
@@ -307,7 +307,7 @@ export function ReportsPage({ notify }: { notify: Notify }) {
                   <div>
                     <p className="font-heading-small text-default">{TYPES[type].title}</p>
                     <p className="mt-025 font-body-small text-subtle">
-                      {br(from)} a {br(to)} · Fábrica Jaraguá do Sul
+                      {br(from)} a {br(to)} · Tomadas &amp; Interruptores · Itajaí
                     </p>
                   </div>
                   <WegMark className="w-500 text-brand" />
@@ -384,7 +384,7 @@ export function ReportsPage({ notify }: { notify: Notify }) {
                           <tr key={o.id} className="border-t text-default">
                             <td className="py-050 pr-150">{o.date.toLocaleDateString("pt-BR").slice(0, 5)}</td>
                             <td className="max-w-1000 truncate py-050 pr-150">{machineById(o.machineId).name}</td>
-                            <td className="py-050 pr-150">{o.id.replace("OP ", "")}</td>
+                            <td className="py-050 pr-150">{o.opId.replace("OP ", "")}</td>
                             <td className="py-050 text-right">{o.quantity}</td>
                           </tr>
                         ))}

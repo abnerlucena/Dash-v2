@@ -16,13 +16,15 @@ interface SegmentedControlProps {
   onChange: (value: string) => void;
   /** Só ícones (rótulo vira tooltip e nome acessível) */
   iconOnly?: boolean;
+  /** "control": mesma altura dos campos (32px), para ficar alinhado em formulários */
+  size?: "compact" | "control";
 }
 
 /**
  * Controle segmentado: grupo de opções exclusivas (radiogroup).
  * Setas movem a seleção; o item selecionado usa o tratamento "selected".
  */
-export function SegmentedControl({ label, value, options, onChange, iconOnly = true }: SegmentedControlProps) {
+export function SegmentedControl({ label, value, options, onChange, iconOnly = true, size = "compact" }: SegmentedControlProps) {
   const refs = useRef<Array<HTMLButtonElement | null>>([]);
 
   const onKeyDown = (e: KeyboardEvent, index: number) => {
@@ -35,7 +37,7 @@ export function SegmentedControl({ label, value, options, onChange, iconOnly = t
   };
 
   return (
-    <div role="radiogroup" aria-label={label} className="inline-flex w-fit shrink-0 gap-025 rounded-medium bg-neutral p-025">
+    <div role="radiogroup" aria-label={label} className={cn("inline-flex w-fit shrink-0 gap-025 rounded-medium bg-neutral", size === "control" ? "p-050" : "p-025")}>
       {options.map((o, i) => {
         const selected = o.value === value;
         const Icon = o.icon;
@@ -54,7 +56,8 @@ export function SegmentedControl({ label, value, options, onChange, iconOnly = t
               "ds-pressable inline-flex h-control-compact items-center justify-center gap-050 rounded-small font-body-small font-medium",
               iconOnly ? "w-control-compact" : "px-100",
               selected
-                ? "bg-surface-raised text-default shadow-raised"
+                ? // tratamento "selecionado" do sistema: legível no claro e no escuro
+                  "bg-selected text-selected hover:bg-selected-hovered"
                 : "text-subtle hover:bg-neutral-subtle-hovered hover:text-default",
             )}
           >

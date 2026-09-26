@@ -38,8 +38,8 @@ const demoState = (label) => async (page) => {
 
 await shot("01-maquinas-claro", {});
 await shot("02-maquinas-escuro", { scheme: "dark" });
-await shot("03-painel-claro", { act: openRow("A GRANEL") });
-await shot("04-painel-escuro", { scheme: "dark", act: openRow("HORIZONTAL 1") });
+await shot("03-painel-claro", { act: openRow("Bancada de embalagem a granel") });
+await shot("04-painel-escuro", { scheme: "dark", act: openRow("Embaladora horizontal nº 1") });
 await shot("05-nav-recolhida", { storage: { "dash-proto.sidenav.expanded": false } });
 await shot("06-nav-flyout", {
   storage: { "dash-proto.sidenav.expanded": false },
@@ -70,8 +70,8 @@ await shot("13-filtro-sem-resultado", {
 await shot("14-menu-filtro-escuro", {
   scheme: "dark",
   act: async (page) => {
-    await page.locator('tbody tr[aria-label^="TESTE"] input[type=checkbox]').check();
-    await page.locator('tbody tr[aria-label^="HORIZONTAL"] input[type=checkbox]').check();
+    await page.locator('tbody tr[aria-label^="Máquina de tomadas"] input[type=checkbox]').check();
+    await page.locator('tbody tr[aria-label^="Embaladora horizontal nº 1"] input[type=checkbox]').check();
     await page.getByRole("button", { name: /^Período:/ }).click();
   },
 });
@@ -84,9 +84,13 @@ await shot("15-mobile-busca", {
     await page.keyboard.type("placa");
   },
 });
-await shot("16-tablet-painel-overlay", { width: 900, height: 1000, act: openRow("VERTICAL") });
+await shot("16-tablet-painel-overlay", { width: 900, height: 1000, act: openRow("Embaladora vertical módulos nº 2") });
 
-const tab = (name) => (page) => page.getByRole("tab", { name }).click();
+// Gráficos carregam o ECharts sob demanda: a espera cobre o carregamento e a animação de entrada
+const tab = (name) => async (page) => {
+  await page.getByRole("tab", { name }).click();
+  await page.waitForTimeout(900);
+};
 const pick = async (page, filter, option) => {
   await page.getByRole("button", { name: new RegExp(`^${filter}:`) }).click();
   await page.getByRole("menuitemradio", { name: option }).click();
@@ -138,7 +142,11 @@ await shot("25-graficos-painel", {
   height: 1200,
   act: async (page) => {
     await tab("Gráficos")(page);
-    await page.getByRole("button", { name: /^HORIZONTAL 1: .*Abrir ordens/ }).click();
+    // teclado no gráfico de atingimento: 3ª máquina do ranking e Enter abre o painel
+    const chart = page.getByRole("group", { name: /^Atingimento da meta/ });
+    await chart.focus();
+    for (let i = 0; i < 3; i++) await page.keyboard.press("ArrowDown");
+    await page.keyboard.press("Enter");
   },
 });
 
@@ -149,7 +157,7 @@ await shot("27-apontamento-validacao-escuro", {
   height: 1100,
   scheme: "dark",
   act: async (page) => {
-    await page.getByRole("textbox", { name: /Quantidade, linha 1, HORIZONTAL 1/ }).fill("5200");
+    await page.getByRole("textbox", { name: /Quantidade, linha 1, Embaladora horizontal nº 1/ }).fill("5200");
     await page.getByRole("button", { name: "Salvar apontamento" }).click();
   },
 });
@@ -158,17 +166,55 @@ await shot("28-metas-edicao", {
   height: 1100,
   act: async (page) => {
     await page.getByRole("button", { name: "Editar metas" }).click();
-    await page.getByRole("textbox", { name: "Meta por turno de HORIZONTAL 1" }).fill("7500");
+    await page.getByRole("textbox", { name: "Meta por turno de Embaladora horizontal nº 1" }).fill("9800");
+  },
+});
+await shot("28b-metas-simulador", {
+  route: "metas",
+  height: 1100,
+  act: async (page) => {
+    await page.getByRole("tab", { name: "Simulador de capacidade" }).click();
+    await page.getByRole("radio", { name: "Montagem" }).click();
+    await page.getByRole("textbox", { name: "Eficiência de Prensa Tox" }).fill("75");
   },
 });
 await shot("29-historico", { route: "historico" });
 await shot("30-ranking", { route: "ranking" });
 await shot("31-retrabalho", { route: "retrabalho", height: 1300 });
-await shot("32-feedbacks", { route: "feedbacks", height: 1000 });
+await shot("32-feedbacks", {
+  route: "feedbacks",
+  height: 1000,
+  act: async (page) => {
+    await page.locator("aside li button").first().click();
+    await page.waitForTimeout(400);
+  },
+});
+await shot("32b-ops", { route: "ops", height: 1000 });
+await shot("32c-mobile-conversa", {
+  route: "feedbacks",
+  width: 390,
+  height: 844,
+  act: async (page) => {
+    await page.locator("aside li button").first().click();
+    await page.waitForTimeout(400);
+  },
+});
 await shot("33-relatorios", { route: "relatorios", height: 1250 });
+// Modo TV: placar dos turnos (fábrica) e máquina a máquina da montagem
 await shot("34-modo-tv", { route: "tv", width: 1920, height: 1080, act: async (page) => page.keyboard.press(" ") });
+await shot("34b-modo-tv-montagem", {
+  route: "tv/montagem",
+  width: 1920,
+  height: 1080,
+  act: async (page) => {
+    await page.keyboard.press(" ");
+    await page.keyboard.press("ArrowRight");
+    await page.keyboard.press("ArrowRight");
+    await page.waitForTimeout(600);
+  },
+});
 await shot("35-ajuda", { route: "ajuda", height: 1300 });
-await shot("36-linha-granel", { route: "linha-granel" });
+await shot("36-linha-embalagem", { route: "linha-embalagem" });
 await shot("37-turno-3-escuro", { route: "turno-3", scheme: "dark" });
 await shot("38-mobile-apontamento", { route: "apontamento", width: 390, height: 1200 });
 

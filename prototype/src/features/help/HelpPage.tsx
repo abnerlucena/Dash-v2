@@ -51,7 +51,19 @@ const FAQ: Array<{ q: string; a: string }> = [
   },
   {
     q: "O que é o Modo TV?",
-    a: "Uma visão para telões no chão de fábrica: tela cheia, tema escuro, números grandes e troca automática de slides. Pause com a barra de espaço e saia com Esc.",
+    a: "Um telão para o meio da fábrica. Cada TV mostra uma área (fábrica inteira, Montagem, Embalagem ou Granel) e compara turnos e máquinas: placar dos turnos, ranking, peças por minuto, OPs concluídas e destaques do mês. Nunca mostra nomes de operadores. Pause com a barra de espaço e saia com Esc.",
+  },
+  {
+    q: "O que é uma OP e como ela anda?",
+    a: "Cada ordem de produção entra em OPs como Aguardando liberação. Quando vai para a máquina, é liberada (Em produção) e recebe os apontamentos dos turnos. Pode ser pausada com um motivo. Ao atingir a quantidade pedida, aparece como Pronta para concluir: um líder ou gestor confirma, e ela fica Concluída.",
+  },
+  {
+    q: "Como funcionam os Feedbacks?",
+    a: "Cada OP tem uma conversa. A observação que o operador escreve no apontamento vira uma mensagem ali; líderes e gestor respondem, e liberar, pausar e concluir aparecem como avisos do sistema. Quando a OP é concluída, a conversa se encerra e fica guardada para consulta.",
+  },
+  {
+    q: "Por que algumas máquinas não aparecem no atingimento?",
+    a: "Kit parafusos, bancadas e prensas trabalham por demanda e não têm meta. Elas aparecem no Apontamento, nas OPs, nos Feedbacks e nas linhas, mas ficam fora do atingimento e dos gráficos de meta.",
   },
 ];
 
