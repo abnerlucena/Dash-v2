@@ -382,19 +382,18 @@ function MachineCards({ months }: { months: ReturnType<typeof machineMonths> }) 
               <span className="font-body-large text-subtle">peças</span>
             </span>
           )}
-          <dl className="grid grid-cols-3 gap-100 font-tv-body">
-            <div>
-              <dt className="text-subtlest">Peças/min</dt>
-              <dd className="font-semibold tabular-nums text-default">{perMin(perMinute)}</dd>
-            </div>
-            <div>
-              <dt className="text-subtlest">OPs feitas</dt>
-              <dd className="font-semibold tabular-nums text-default">{opsDone}</dd>
-            </div>
-            <div>
-              <dt className="text-subtlest">{m.hasTarget ? "Dias na meta" : "Dias"}</dt>
-              <dd className="font-semibold tabular-nums text-default">{m.hasTarget ? daysOnTarget : m.days}</dd>
-            </div>
+          {/* Valor grande em cima, rótulo curto embaixo: três colunas sem atropelar */}
+          <dl className="grid grid-cols-3 items-start gap-150">
+            {[
+              ["peças/min", perMin(perMinute)],
+              ["OPs feitas", opsDone],
+              [m.hasTarget ? "dias na meta" : "dias", m.hasTarget ? daysOnTarget : m.days],
+            ].map(([label, value]) => (
+              <div key={String(label)} className="flex min-w-0 flex-col-reverse justify-end">
+                <dt className="font-body-large text-subtlest">{label}</dt>
+                <dd className="font-tv-body font-semibold tabular-nums text-default">{value}</dd>
+              </div>
+            ))}
           </dl>
           {streak >= 2 && (
             <span className="flex items-center gap-075 font-tv-body font-semibold text-warning">
