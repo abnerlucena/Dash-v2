@@ -1,15 +1,8 @@
-import { useState, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import { STATUS_META, plantSeries, type Machine } from "@/data/machines";
-import { formatNumber, formatShortDate, storageGet, storageSet } from "@/lib/utils";
-import { EAttainmentBars, EBurnupChart, EDailyColumns } from "@/components/echarts/Charts";
-import { SegmentedControl } from "@/components/ui/SegmentedControl";
-import { AttainmentBars } from "@/components/data/AttainmentBars";
-import { BURNUP_LEGEND, BurnupChart } from "@/components/data/BurnupChart";
+import { formatNumber, formatShortDate } from "@/lib/utils";
 import { ChartCard, MiniTable } from "@/components/data/Chart";
-import { DAILY_LEGEND, DailyColumns } from "@/components/data/DailyColumns";
-
-type Engine = "svg" | "echarts";
-const ENGINE_KEY = "dash-proto.chart-engine";
+import { AttainmentBars, BURNUP_LEGEND, BurnupChart, DAILY_LEGEND, DailyColumns } from "@/components/echarts";
 
 interface ChartsViewProps {
   rows: Machine[];
@@ -28,36 +21,13 @@ interface ChartsViewProps {
  * o skeleton aparece só no carregamento inicial.
  */
 export function ChartsView({ rows, isLoading, isRefetching, activeId, onSelect, replacement, scopeLabel }: ChartsViewProps) {
-  // Teste de biblioteca: os mesmos gráficos em SVG próprio ou em Apache ECharts
-  const [engine, setEngineState] = useState<Engine>(() => storageGet<Engine>(ENGINE_KEY, "svg"));
-  const setEngine = (e: Engine) => {
-    setEngineState(e);
-    storageSet(ENGINE_KEY, e);
-  };
   if (replacement) return <>{replacement}</>;
   const series = plantSeries(rows);
-  const isEcharts = engine === "echarts";
   const elapsed = series.filter((p) => p.value != null);
 
   return (
     // flex-wrap pela largura real (painel aberto, nav redimensionada), não pela viewport
     <div className="flex flex-wrap gap-300">
-      <div className="flex basis-full flex-wrap items-center gap-150">
-        <span id="chart-engine" className="font-body-small font-semibold text-subtle">
-          Biblioteca de gráficos
-        </span>
-        <SegmentedControl
-          label="Biblioteca de gráficos"
-          iconOnly={false}
-          value={engine}
-          onChange={(v) => setEngine(v as Engine)}
-          options={[
-            { value: "svg", label: "SVG próprio" },
-            { value: "echarts", label: "Apache ECharts" },
-          ]}
-        />
-        <span className="font-body-small text-subtlest">Teste do protótipo: mesmos dados e cores nos dois.</span>
-      </div>
       <ChartCard
         className="basis-full"
         title="Produção acumulada vs meta"
@@ -83,11 +53,7 @@ export function ChartsView({ rows, isLoading, isRefetching, activeId, onSelect, 
           />
         }
       >
-        {isEcharts ? (
-          <EBurnupChart series={series} label="Produção acumulada vs meta" />
-        ) : (
-          <BurnupChart series={series} label="Produção acumulada vs meta" />
-        )}
+        <BurnupChart series={series} label="Produção acumulada vs meta" />
       </ChartCard>
 
       <ChartCard
@@ -109,7 +75,7 @@ export function ChartsView({ rows, isLoading, isRefetching, activeId, onSelect, 
           />
         }
       >
-        {isEcharts ? <EDailyColumns series={series} label="Produção diária" /> : <DailyColumns series={series} label="Produção diária" />}
+        <DailyColumns series={series} label="Produção diária" />
       </ChartCard>
 
       <ChartCard
@@ -138,11 +104,7 @@ export function ChartsView({ rows, isLoading, isRefetching, activeId, onSelect, 
           />
         }
       >
-        {isEcharts ? (
-          <EAttainmentBars machines={rows} activeId={activeId} onSelect={onSelect} />
-        ) : (
-          <AttainmentBars machines={rows} activeId={activeId} onSelect={onSelect} />
-        )}
+        <AttainmentBars machines={rows} activeId={activeId} onSelect={onSelect} />
       </ChartCard>
     </div>
   );

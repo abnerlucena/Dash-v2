@@ -5,7 +5,7 @@ import tailwindcss from "tailwindcss";
 import autoprefixer from "autoprefixer";
 
 // Protótipo isolado do app de produção: config, Tailwind e tokens próprios.
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
   root: __dirname,
   base: "./",
   plugins: [react()],
@@ -24,5 +24,10 @@ export default defineConfig({
     ],
   },
   server: { port: 8090, strictPort: true },
-  build: { outDir: path.resolve(__dirname, "dist"), emptyOutDir: true },
-});
+  build: {
+    outDir: path.resolve(__dirname, "dist"),
+    emptyOutDir: true,
+    // HTML único (proto:html): tudo num arquivo só, inclusive o ECharts carregado sob demanda
+    rollupOptions: mode === "single" ? { output: { inlineDynamicImports: true } } : {},
+  },
+}));

@@ -14,7 +14,7 @@
     "proto:dev": "vite --config prototype/vite.config.ts",
     "proto:build": "tsc -p prototype && vite build --config prototype/vite.config.ts",
     "proto:typecheck": "tsc -p prototype",
-    "proto:html": "npm run proto:build && node prototype/scripts/single-file.mjs"
+    "proto:html": "tsc -p prototype && vite build --config prototype/vite.config.ts --mode single && node prototype/scripts/single-file.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",

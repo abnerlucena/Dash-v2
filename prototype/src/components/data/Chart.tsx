@@ -1,53 +1,8 @@
 import { BarChart3, Table2 } from "lucide-react";
-import { useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { useId, useState, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/Feedback";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
-
-/* ---------- Medição do container (gráficos SVG em px reais) ---------- */
-export function useElementSize<T extends HTMLElement>() {
-  const ref = useRef<T>(null);
-  const [size, setSize] = useState({ width: 0, height: 0 });
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const ro = new ResizeObserver(([entry]) => {
-      const { width, height } = entry.contentRect;
-      setSize({ width: Math.round(width), height: Math.round(height) });
-    });
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, []);
-  return [ref, size] as const;
-}
-
-/** Escala "limpa" para eixos: 0, 500 mil, 1 mi, 1,5 mi… */
-export function niceScale(max: number, count = 4) {
-  if (max <= 0) return { max: 1, ticks: [0, 1] };
-  const raw = max / count;
-  const magnitude = 10 ** Math.floor(Math.log10(raw));
-  const step = [1, 2, 2.5, 5, 10].map((m) => m * magnitude).find((s) => s >= raw)!;
-  const top = Math.ceil(max / step) * step;
-  return { max: top, ticks: Array.from({ length: Math.round(top / step) + 1 }, (_, i) => i * step) };
-}
-
-/**
- * Índices do eixo X que recebem rótulo: o primeiro, o último e os do meio
- * espaçados pelo menos --dash-chart-label-gap (nunca se sobrepõem).
- */
-export function tickIndices(count: number, pxPerIndex: number, minGap: number) {
-  if (count <= 1 || pxPerIndex <= 0) return new Set([0]);
-  const stride = Math.max(1, Math.ceil(minGap / pxPerIndex));
-  const out = new Set<number>([0, count - 1]);
-  for (let i = stride; i < count - 1; i += stride) if ((count - 1 - i) * pxPerIndex >= minGap) out.add(i);
-  return out;
-}
-
-/** Retângulo com cantos arredondados só no topo (ponta de dado 4px, base reta) */
-export function topRoundedRect(x: number, y: number, w: number, h: number, r: number) {
-  const rr = Math.min(r, w / 2, h);
-  return `M${x},${y + h}V${y + rr}Q${x},${y} ${x + rr},${y}H${x + w - rr}Q${x + w},${y} ${x + w},${y + rr}V${y + h}Z`;
-}
 
 /* ---------- Legenda: o formato espelha a marca (barra = bloco, linha = traço) ---------- */
 export interface LegendItem {
@@ -69,58 +24,6 @@ export function Legend({ items, className }: { items: LegendItem[]; className?: 
         </li>
       ))}
     </ul>
-  );
-}
-
-/* ---------- Tooltip de gráfico: valor em destaque, rótulo depois ---------- */
-export interface TooltipRow {
-  key: string;
-  value: ReactNode;
-  label: string;
-  swatch?: LegendItem;
-}
-
-export function ChartTooltip({
-  x,
-  y,
-  containerWidth,
-  title,
-  rows,
-}: {
-  x: number;
-  y: number;
-  containerWidth: number;
-  title: ReactNode;
-  rows: TooltipRow[];
-}) {
-  // Vira para a esquerda na metade direita do gráfico, para não sair da área
-  const flip = x > containerWidth / 2;
-  return (
-    <div
-      role="presentation"
-      className="pointer-events-none absolute z-tooltip w-chart-tooltip rounded-medium bg-surface-overlay p-150 shadow-overlay"
-      style={{ left: x, top: y, transform: `translate(${flip ? "calc(-100% - var(--ds-space-150))" : "var(--ds-space-150)"}, -50%)` }}
-    >
-      <p className="pb-075 font-body-small text-subtlest">{title}</p>
-      <ul className="flex flex-col gap-050">
-        {rows.map((r) => (
-          <li key={r.key} className="flex items-center gap-100">
-            {r.swatch && (
-              <span
-                aria-hidden
-                className={cn(
-                  "w-150 shrink-0",
-                  r.swatch.shape === "dashed" ? "border-t-thick border-dashed" : "h-splitter-line rounded-full",
-                  r.swatch.colorClass,
-                )}
-              />
-            )}
-            <span className="font-semibold tabular-nums text-default">{r.value}</span>
-            <span className="truncate font-body-small text-subtle">{r.label}</span>
-          </li>
-        ))}
-      </ul>
-    </div>
   );
 }
 

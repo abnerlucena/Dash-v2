@@ -86,7 +86,11 @@ await shot("15-mobile-busca", {
 });
 await shot("16-tablet-painel-overlay", { width: 900, height: 1000, act: openRow("VERTICAL") });
 
-const tab = (name) => (page) => page.getByRole("tab", { name }).click();
+// Gráficos carregam o ECharts sob demanda: a espera cobre o carregamento e a animação de entrada
+const tab = (name) => async (page) => {
+  await page.getByRole("tab", { name }).click();
+  await page.waitForTimeout(900);
+};
 const pick = async (page, filter, option) => {
   await page.getByRole("button", { name: new RegExp(`^${filter}:`) }).click();
   await page.getByRole("menuitemradio", { name: option }).click();
@@ -125,14 +129,6 @@ await shot("22-graficos-escuro", {
     await page.mouse.move(box.x + box.width * 0.4, box.y + box.height / 2);
   },
 });
-await shot("22b-graficos-echarts", {
-  height: 1200,
-  act: async (page) => {
-    await tab("Gráficos")(page);
-    await page.getByRole("radio", { name: "Apache ECharts" }).click();
-    await page.waitForTimeout(600);
-  },
-});
 await shot("23-graficos-turno2-tabela", {
   height: 1200,
   act: async (page) => {
@@ -146,7 +142,11 @@ await shot("25-graficos-painel", {
   height: 1200,
   act: async (page) => {
     await tab("Gráficos")(page);
-    await page.getByRole("button", { name: /^HORIZONTAL 1: .*Abrir ordens/ }).click();
+    // teclado no gráfico de atingimento: 3ª máquina (HORIZONTAL 1) e Enter abre o painel
+    const chart = page.getByRole("group", { name: /^Atingimento da meta/ });
+    await chart.focus();
+    for (let i = 0; i < 3; i++) await page.keyboard.press("ArrowDown");
+    await page.keyboard.press("Enter");
   },
 });
 

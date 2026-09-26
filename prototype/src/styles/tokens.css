@@ -188,7 +188,6 @@
   --dash-size-chart: 15rem; /* 240px: altura de gráfico */
   --dash-size-chart-large: 17.5rem; /* 280px */
   --dash-size-chart-axis: 3.5rem; /* 56px: calha do eixo Y */
-  --dash-chart-label-gap: 3.5rem; /* 56px: distância mínima entre rótulos do eixo X */
   --dash-size-attainment-value: 8.5rem; /* 136px: coluna de valor + status */
   --dash-size-bar-label-wide: 20rem; /* 320px: rótulos longos (nomes de processos) */
   --dash-size-chart-card-min: 26rem; /* 416px: largura mínima de um card de gráfico lado a lado */

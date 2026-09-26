@@ -14,7 +14,7 @@ import {
   type Status,
 } from "@/data/machines";
 import { cn, formatNumber, readToken } from "@/lib/utils";
-import { BURNUP_LEGEND, BurnupChart } from "@/components/data/BurnupChart";
+import { BURNUP_LEGEND, BurnupChart } from "@/components/echarts";
 import { Legend } from "@/components/data/Chart";
 import { SHIFT_FILL } from "@/components/data/StackedBar";
 import { IconButton } from "@/components/ui/Button";
@@ -106,9 +106,9 @@ export function TvMode({ onExit }: { onExit: () => void }) {
       title: "Produção acumulada vs meta",
       body: (
         <div className="flex h-full flex-col gap-200">
-          <Legend items={BURNUP_LEGEND} className="font-tv-body" />
+          <Legend items={BURNUP_LEGEND} className="[&>li]:font-tv-body" />
           <div className="min-h-0 flex-1">
-            <BurnupChart series={plantSeries(MACHINES)} label="Produção acumulada vs meta" heightClass="h-full" />
+            <BurnupChart series={plantSeries(MACHINES)} label="Produção acumulada vs meta" heightClass="h-full" variant="tv" />
           </div>
         </div>
       ),
