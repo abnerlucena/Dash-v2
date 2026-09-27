@@ -8,6 +8,7 @@ import TargetHistory from "@/components/TargetHistory";
 import { toast } from "sonner";
 import { DatePickerInput } from "@/components/DatePickerInput";
 import { rotuloDaBase } from "@/lib/metas";
+import { mensagemDeErro } from "@/lib/erros";
 
 const DIAS_UTEIS_MES = 22;
 
@@ -51,8 +52,8 @@ const MetasTab = () => {
       setEditing(false);
       setEditValues({});
       toast.success("Metas salvas com sucesso!");
-    } catch (e: any) {
-      toast.error(e.message || "Erro ao salvar metas");
+    } catch (e) {
+      toast.error(mensagemDeErro(e, "Erro ao salvar metas"));
     } finally {
       setSaving(false);
     }

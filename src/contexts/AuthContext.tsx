@@ -49,13 +49,19 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
+// O que chega do backend (Apps Script ou Supabase) antes de ser normalizado:
+// chaves conhecidas só pelo uso, valores que podem vir como texto, número ou
+// nulo. `unknown` obriga a converter antes de usar — é o que estas funções fazem.
+type RegistroBruto = Record<string, unknown>;
+
 // Normalize holiday dates: Google Sheets converts date strings to Date objects internally.
 // When read back via getValues(), the date comes as a verbose string like
 // "Thu Apr 03 2026 00:00:00 GMT-0300" instead of "2026-04-03".
 // This function ensures dates are always in YYYY-MM-DD format.
-function normalizeHolidays(raw: any[]): Holiday[] {
-  return (raw || []).map((h: any) => {
-    let date = h.date ?? "";
+function normalizeHolidays(raw: unknown[]): Holiday[] {
+  return (raw || []).map(bruto => {
+    const h = bruto as RegistroBruto;
+    let date = h.date == null ? "" : String(h.date);
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
       // Google Sheets stores date strings as Date objects. When read back via getValues()
       // and serialized to JSON, they arrive as verbose strings like:
@@ -78,14 +84,15 @@ function normalizeHolidays(raw: any[]): Holiday[] {
         }
       }
     }
-    return { ...h, date } as Holiday;
+    return { ...h, date } as unknown as Holiday;
   });
 }
 
 // Normalize numeric fields — backend returns everything as strings
-function normalizeRecords(raw: any[]): ProdRecord[] {
+function normalizeRecords(raw: unknown[]): ProdRecord[] {
   return (raw || [])
-    .map((rec: any) => {
+    .map(bruto => {
+      const rec = bruto as RegistroBruto;
       // Parse ordensProducao — backend stores as JSON string
       let ordensProducao: OrdemProducao[] = [];
       if (rec.ordensProducao) {
@@ -94,17 +101,19 @@ function normalizeRecords(raw: any[]): ProdRecord[] {
             ? JSON.parse(rec.ordensProducao)
             : rec.ordensProducao;
           if (Array.isArray(parsed)) ordensProducao = parsed;
-        } catch {}
+        } catch { /* JSON inválido no campo: fica sem ordens */ }
       }
+      // O resto das chaves passa como veio; o `as` é o ponto único em que o
+      // dado cru vira ProdRecord, e o filtro abaixo descarta o que não serve.
       return {
         ...rec,
         machineId: Number(rec.machineId) || 0,
         meta:      Number(rec.meta)      || 0,
         producao:  Number(rec.producao)  || 0,
         ordensProducao,
-      };
+      } as unknown as ProdRecord;
     })
-    .filter((rec: ProdRecord) => rec.machineId > 0 && rec.date);
+    .filter(rec => rec.machineId > 0 && rec.date);
 }
 
 // Sessão salva só vale para a fonte de dados em uso (uma sessão do GAS não
@@ -148,7 +157,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const r = await dataSource.machines.getMachines(user);
       const list = (r.machines || r.allMachines || MACHINES_DEFAULT) as Machine[];
       setMachines(list.filter(m => m.status !== "inativo"));
-    } catch {}
+    } catch { /* sem rede: mantém a lista anterior; o polling tenta de novo */ }
   }, [user]);
 
   const refreshMetas = useCallback(async () => {
@@ -161,7 +170,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         saveCachedMetas(newMetas);
       }
       if (r.metasInfo) setMetasInfo(r.metasInfo as Record<number, MetaInfo>);
-    } catch {}
+    } catch { /* sem rede: mantém as metas em cache */ }
   }, [user]);
 
   const refreshHolidays = useCallback(async () => {
@@ -173,7 +182,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setHolidays(normalized);
         saveCachedHolidays(normalized);
       }
-    } catch {}
+    } catch { /* sem rede: mantém o calendário em cache */ }
   }, [user]);
 
   // Full refresh — shows loading skeleton (use only when cache is empty)
@@ -185,7 +194,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const data = normalizeRecords(r.data);
       setRecords(data);
       saveCachedRecords(data);
-    } catch {}
+    } catch { /* sem rede: mantém os apontamentos em cache */ }
     try {
       const rh = await dataSource.calendar.getHolidays(user);
       if (rh.holidays) {
@@ -193,7 +202,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setHolidays(normalized);
         saveCachedHolidays(normalized);
       }
-    } catch {}
+    } catch { /* sem rede: mantém o calendário em cache */ }
     setLoading(false);
   }, [user]);
 
@@ -205,7 +214,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const data = normalizeRecords(r.data);
       setRecords(data);
       saveCachedRecords(data);
-    } catch {}
+    } catch { /* sem rede: mantém os apontamentos em cache */ }
     try {
       const rh = await dataSource.calendar.getHolidays(user);
       if (rh.holidays) {
@@ -213,7 +222,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setHolidays(normalized);
         saveCachedHolidays(normalized);
       }
-    } catch {}
+    } catch { /* sem rede: mantém o calendário em cache */ }
   }, [user]);
 
   // ── Initial load ──────────────────────────────────────────────
@@ -288,7 +297,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!user) return;
     try {
       await dataSource.auth.completeOnboarding(user);
-    } catch {}
+    } catch { /* registrar o fim do tour não é crítico */ }
     setNeedsOnboarding(false);
   };
 

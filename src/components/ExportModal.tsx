@@ -6,6 +6,7 @@ import type { ProdRecord, Holiday } from "@/lib/api";
 import { dispD } from "@/lib/api";
 import { exportToCSV, type CSVExportConfig } from "@/utils/exportCSV";
 import { exportToPDF, type PDFExportConfig } from "@/utils/exportPDF";
+import { mensagemDeErro } from "@/lib/erros";
 
 interface ExportSection {
   id: string;
@@ -84,8 +85,8 @@ const ExportModal = ({ open, onClose, format, records, filters, holidays }: Expo
         toast.success("PDF exportado com sucesso!");
         onClose();
       }
-    } catch (e: any) {
-      toast.error(e.message || "Erro ao exportar. Tente novamente.");
+    } catch (e) {
+      toast.error(mensagemDeErro(e, "Erro ao exportar. Tente novamente."));
     } finally {
       setExporting(false);
     }

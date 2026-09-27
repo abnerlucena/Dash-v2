@@ -8,6 +8,7 @@ import { SelectDropdown } from "@/components/SelectDropdown";
 import { DatePickerInput } from "@/components/DatePickerInput";
 import AlertConfigPanel from "@/components/AlertConfigPanel";
 import type { Holiday } from "@/lib/api";
+import { mensagemDeErro } from "@/lib/erros";
 
 interface AdminPanelProps {
   onClose: () => void;
@@ -93,7 +94,7 @@ const AdminPanel = ({ onClose }: AdminPanelProps) => {
       const r = await data.users.toggleUser(target, user);
       setUsers(u => u.map(x => x.nome === nome ? { ...x, status: r.newStatus } : x));
       toast.success(`${nome} ${r.newStatus === "ativo" ? "ativado" : "bloqueado"}.`);
-    } catch (e: any) { toast.error(e.message); }
+    } catch (e) { toast.error(mensagemDeErro(e)); }
   }
 
   async function createUser() {
@@ -105,7 +106,7 @@ const AdminPanel = ({ onClose }: AdminPanelProps) => {
       setCNome(""); setCSenha("");
       const r = await data.users.listUsers(user);
       setUsers(r.users || []);
-    } catch (e: any) { toast.error(e.message); }
+    } catch (e) { toast.error(mensagemDeErro(e)); }
     setCreating(false);
   }
 
@@ -115,7 +116,7 @@ const AdminPanel = ({ onClose }: AdminPanelProps) => {
       await data.users.resetPassword(rTarget, newPw, user);
       toast.success(`Senha de "${rTarget}" redefinida.`);
       setRTarget(""); setNewPw("");
-    } catch (e: any) { toast.error(e.message); }
+    } catch (e) { toast.error(mensagemDeErro(e)); }
   }
 
   async function addMachine() {
@@ -128,7 +129,7 @@ const AdminPanel = ({ onClose }: AdminPanelProps) => {
       const r = await data.machines.getMachines(user);
       setAllMachines((r.allMachines || r.machines || []) as AdminMachine[]);
       refreshMachines();
-    } catch (e: any) { toast.error(e.message); }
+    } catch (e) { toast.error(mensagemDeErro(e)); }
     setMAdding(false);
   }
 
@@ -138,7 +139,7 @@ const AdminPanel = ({ onClose }: AdminPanelProps) => {
       setAllMachines(prev => prev.map(m => m.id === mId ? { ...m, status: r.newStatus } : m));
       toast.success(`Máquina ${r.newStatus === "ativo" ? "ativada" : "desativada"}.`);
       refreshMachines();
-    } catch (e: any) { toast.error(e.message); }
+    } catch (e) { toast.error(mensagemDeErro(e)); }
   }
 
   async function generateInvite() {
@@ -147,7 +148,7 @@ const AdminPanel = ({ onClose }: AdminPanelProps) => {
       const r = await data.users.generateInviteCode(user);
       setInviteCode(r.code);
       toast.success("Código de convite gerado!");
-    } catch (e: any) { toast.error(e.message); }
+    } catch (e) { toast.error(mensagemDeErro(e)); }
     setInviteLoading(false);
   }
 
@@ -162,7 +163,7 @@ const AdminPanel = ({ onClose }: AdminPanelProps) => {
       const r = await data.calendar.getHolidays(user);
       setHolidaysList((r.holidays || []) as Holiday[]);
       refreshHolidays();
-    } catch (e: any) { toast.error(e.message); }
+    } catch (e) { toast.error(mensagemDeErro(e)); }
     setHAdding(false);
   }
 
@@ -172,7 +173,7 @@ const AdminPanel = ({ onClose }: AdminPanelProps) => {
       toast.success("Feriado removido.");
       setHolidaysList(prev => prev.filter(h => h.id !== id));
       refreshHolidays();
-    } catch (e: any) { toast.error(e.message); }
+    } catch (e) { toast.error(mensagemDeErro(e)); }
   }
 
   const tabCls = (key: string) =>
@@ -353,7 +354,7 @@ const AdminPanel = ({ onClose }: AdminPanelProps) => {
                       </tr>
                     </thead>
                     <tbody>
-                      {allMachines.map((m: any, i: number) => (
+                      {allMachines.map((m, i) => (
                         <tr key={m.id} className="border-b border-border/50" style={{ background: i % 2 === 0 ? '#F8FAFC' : '#fff', opacity: m.status === "inativo" ? 0.5 : 1 }}>
                           <td className="px-3 py-2 text-muted-foreground text-xs">{m.id}</td>
                           <td className="px-3 py-2 font-semibold text-foreground text-xs">{m.name}</td>

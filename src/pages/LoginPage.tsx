@@ -6,6 +6,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { data, isSupabase } from "@/lib/repositories";
 import { recuperacaoEmAndamento } from "@/lib/recovery";
+import { codigoDoErro, mensagemDeErro } from "@/lib/erros";
 
 // Quatro telas no mesmo cartão. As duas últimas só existem no modo Supabase,
 // porque o Apps Script não envia e-mail.
@@ -101,8 +102,8 @@ const LoginPage = () => {
       }
       setAlert({ type: "success", msg: isLogin ? "Bem-vindo!" : "Conta criada com sucesso!" });
       setTimeout(() => navigate("/dashboard"), 600);
-    } catch (e: any) {
-      setAlert({ type: "error", msg: e.message || "Erro de conexão" });
+    } catch (e) {
+      setAlert({ type: "error", msg: mensagemDeErro(e, "Erro de conexão") });
     }
     setLoading(false);
   }
@@ -133,9 +134,9 @@ const LoginPage = () => {
           setAlert({ type: "success", msg: r.message || "Cadastro enviado!" });
         }
       }
-    } catch (e: unknown) {
-      if ((e as { code?: string })?.code === "BADGE_REQUIRED") setNeedsBadge(true);
-      setAlert({ type: "error", msg: (e as Error)?.message || "Erro de conexão" });
+    } catch (e) {
+      if (codigoDoErro(e) === "BADGE_REQUIRED") setNeedsBadge(true);
+      setAlert({ type: "error", msg: mensagemDeErro(e, "Erro de conexão") });
     }
     setLoading(false);
   }

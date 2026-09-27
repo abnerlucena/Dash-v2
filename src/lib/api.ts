@@ -80,7 +80,7 @@ export const loadSession = (): Session | null => {
   catch { return null; }
 };
 export const saveSession = (u: Session) => {
-  try { localStorage.setItem(SESSION_KEY, JSON.stringify(u)); } catch {}
+  try { localStorage.setItem(SESSION_KEY, JSON.stringify(u)); } catch { /* sem localStorage: a sessão vale só nesta aba */ }
 };
 export const clearSession = () => {
   try {
@@ -88,7 +88,7 @@ export const clearSession = () => {
     localStorage.removeItem(CACHE_KEY);
     localStorage.removeItem(CACHE_METAS_KEY);
     localStorage.removeItem(CACHE_HOLIDAYS_KEY);
-  } catch {}
+  } catch { /* sem localStorage: não havia o que limpar */ }
 };
 
 // ─── Cache helpers ────────────────────────────────────────────
@@ -97,21 +97,21 @@ export const loadCachedRecords = (): ProdRecord[] => {
   catch { return []; }
 };
 export const saveCachedRecords = (data: ProdRecord[]) => {
-  try { localStorage.setItem(CACHE_KEY, JSON.stringify(data)); } catch {}
+  try { localStorage.setItem(CACHE_KEY, JSON.stringify(data)); } catch { /* cota cheia ou aba privada: segue sem cache */ }
 };
 export const loadCachedMetas = (): Record<number, number> | null => {
   try { return JSON.parse(localStorage.getItem(CACHE_METAS_KEY) || "null"); }
   catch { return null; }
 };
 export const saveCachedMetas = (m: Record<number, number>) => {
-  try { localStorage.setItem(CACHE_METAS_KEY, JSON.stringify(m)); } catch {}
+  try { localStorage.setItem(CACHE_METAS_KEY, JSON.stringify(m)); } catch { /* cota cheia ou aba privada: segue sem cache */ }
 };
 export const loadCachedHolidays = (): Holiday[] => {
   try { return JSON.parse(localStorage.getItem(CACHE_HOLIDAYS_KEY) || "[]"); }
   catch { return []; }
 };
 export const saveCachedHolidays = (h: Holiday[]) => {
-  try { localStorage.setItem(CACHE_HOLIDAYS_KEY, JSON.stringify(h)); } catch {}
+  try { localStorage.setItem(CACHE_HOLIDAYS_KEY, JSON.stringify(h)); } catch { /* cota cheia ou aba privada: segue sem cache */ }
 };
 
 // ─── cellKey ──────────────────────────────────────────────────
@@ -132,7 +132,7 @@ export const parseAny = (s: string | Date | undefined): Date => {
       if (parts.length === 3) { const [d, m, y] = parts; return new Date(`${y}-${m}-${d}T00:00:00`); }
     }
   }
-  try { const d = new Date(s as string); if (!isNaN(d.getTime())) return d; } catch {}
+  try { const d = new Date(s as string); if (!isNaN(d.getTime())) return d; } catch { /* data impossível: cai no new Date(0) abaixo */ }
   return new Date(0);
 };
 
@@ -151,7 +151,15 @@ export const dispDH = (s: string | undefined) => {
 };
 
 // ─── API call ─────────────────────────────────────────────────
-export async function api(action: string, body: Record<string, unknown> = {}, userSession?: Session | null): Promise<any> {
+/** Resposta crua do Apps Script: sempre um objeto, com `ok` e, quando falha, `error`. */
+export type RespostaGas = { ok?: boolean; error?: string } & Record<string, unknown>;
+
+/**
+ * Chama o Apps Script. `T` é a forma esperada da resposta: quem chama declara o
+ * que espera (ver `src/lib/repositories/gas.ts`), em vez de receber `any` e
+ * descobrir na tela quando o backend muda de formato.
+ */
+export async function api<T = RespostaGas>(action: string, body: Record<string, unknown> = {}, userSession?: Session | null): Promise<T> {
   const payload: Record<string, unknown> = { action, ...body };
   if (userSession?.token) payload.token = userSession.token;
   const obj = JSON.stringify(payload);
@@ -162,14 +170,14 @@ export async function api(action: string, body: Record<string, unknown> = {}, us
   let res: Response;
   try {
     res = await fetch(url, { signal: controller.signal });
-  } catch (e: any) {
-    if (e.name === "AbortError") throw new Error("Tempo de resposta excedido. Tente novamente.");
+  } catch (e: unknown) {
+    if ((e as Error)?.name === "AbortError") throw new Error("Tempo de resposta excedido. Tente novamente.");
     throw new Error("Não foi possível conectar ao servidor. Verifique sua internet.");
   } finally {
     clearTimeout(timer);
   }
   if (!res.ok) throw new Error("Erro no servidor (HTTP " + res.status + ")");
-  let j: any;
+  let j: RespostaGas;
   try { j = await res.json(); }
   catch { throw new Error("Resposta inválida do servidor. Tente novamente."); }
   if (!j.ok && j.error && j.error.includes("Sessão")) {
@@ -178,7 +186,7 @@ export async function api(action: string, body: Record<string, unknown> = {}, us
     throw new Error("Sessão expirada. Reconectando...");
   }
   if (!j.ok) throw new Error(j.error || "Erro no servidor");
-  return j;
+  return j as T;
 }
 
 // ─── Default machines (fallback) ──────────────────────────────

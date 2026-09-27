@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import { DatePickerInput } from "@/components/DatePickerInput";
 import { SelectDropdown } from "@/components/SelectDropdown";
 import OrdemProducaoInput from "@/components/OrdemProducaoInput";
+import { mensagemDeErro } from "@/lib/erros";
 
 // operadores: só no modo Supabase, e só nos postos onde a lotação muda a meta
 // (D47: A Granél e as horizontais). Vazio = lotação padrão da máquina (D12).
@@ -176,8 +177,8 @@ const ProductionEntry = () => {
       await data.production.saveEntries(records, isSupabase ? { workMode } : {}, user);
       saveOk = true;
       toast.success("Apontamento salvo com sucesso!");
-    } catch (e: any) {
-      toast.error(e.message || "Erro ao salvar");
+    } catch (e) {
+      toast.error(mensagemDeErro(e, "Erro ao salvar"));
     } finally {
       // Encerra o spinner imediatamente após o api() retornar — antes do silentRefresh
       setSaving(false); // P5: always reset, even on session expiry
@@ -202,7 +203,7 @@ const ProductionEntry = () => {
   function toggleGroup(groupId: string) {
     setCollapsedGroups(prev => {
       const next = new Set(prev);
-      next.has(groupId) ? next.delete(groupId) : next.add(groupId);
+      if (next.has(groupId)) next.delete(groupId); else next.add(groupId);
       return next;
     });
   }

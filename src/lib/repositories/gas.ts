@@ -4,6 +4,18 @@
 import { api, type Session } from "@/lib/api";
 import type { DataSource } from "./types";
 
+/**
+ * A sessão como o Apps Script devolve. `onboardingDone` chega como booleano ou
+ * como o texto "false" — a planilha não distingue os dois.
+ */
+type SessaoBrutaGas = {
+  token: string;
+  nome: string;
+  role: Session["role"];
+  expiresAt?: string;
+  onboardingDone?: boolean | string;
+};
+
 const toSession = (raw: { token: string; nome: string; role: Session["role"]; expiresAt?: string }): Session => ({
   token:     raw.token,
   nome:      raw.nome,
@@ -16,12 +28,12 @@ export const gasDataSource: DataSource = {
 
   auth: {
     async login(nome, senha) {
-      const r = await api("login", { nome, senha });
+      const r = await api<{ session: SessaoBrutaGas }>("login", { nome, senha });
       const onboardingPending = r.session.onboardingDone === false || r.session.onboardingDone === "false";
       return { session: toSession(r.session), onboardingDone: !onboardingPending };
     },
     async register({ nome, senha, inviteCode }) {
-      const r = await api("register", { nome, senha, inviteCode });
+      const r = await api<{ session: SessaoBrutaGas }>("register", { nome, senha, inviteCode });
       return { loggedIn: true, session: toSession(r.session), onboardingDone: true };
     },
     async logout() { /* sessão do GAS é só local: nada a fazer no servidor */ },
