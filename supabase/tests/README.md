@@ -12,6 +12,7 @@ cada execução acontece dentro de uma transação que termina em `rollback`
 | `03_capacidade.sql` | Campos de processo, capacidade, tempo de turno e base da meta (migration 0013) |
 | `04_importacao.sql` | Área de preparo da importação (migration 0016): coerência das linhas e quem enxerga |
 | `05_carga_importacao.sql` | Carga e reversão do lote (migration 0019): exige um lote na área de preparo |
+| `06_meta_por_lotacao.sql` | Meta que depende da lotação (migrations 0021 e 0022): as três bases, a conta na leitura, e `save_machine_targets` preservando a base |
 
 ## Como rodar (SQL Editor do Supabase)
 

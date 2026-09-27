@@ -21,6 +21,7 @@ Formato de cada entrada:
 - Status: **Desenhado** — migration escrita e revisada, **ainda não aplicada** (o contêiner desta sessão não alcança o banco: a política de rede do ambiente nega o host do projeto). Aplicar pelo SQL Editor, junto com a 0021, na ordem.
 - Commit/PR: branch `claude/ui-oficial-transicao`
 - Migration: `supabase/migrations/20260927110000_meta_depende_da_lotacao.sql`
+- Testes: `supabase/tests/06_meta_por_lotacao.sql` (12 casos, cobre também a 0021) — **escrita e com a sintaxe validada pelo parser do PostgreSQL, mas ainda não executada**: rode no SQL Editor junto com as migrations, como as suítes anteriores.
 - Decisões: D47 (nova), D39, D46, D12
 
 ### O que o gestor esclareceu
@@ -122,7 +123,7 @@ função ou coluna nova**.
 - `src/lib/recovery.ts` (novo) + `src/main.tsx` — tratam a chegada pelo link antes de a tela montar. O app usa `HashRouter`, e o token do Supabase vem no hash, que é onde mora a rota: sem isso o link cairia na página "não encontrada". Testes em `src/test/recovery.test.ts`.
 
 ### O que ainda falta (painel do Supabase, não versionável)
-1. **Authentication → URL Configuration:** incluir em *Site URL* e *Redirect URLs* os endereços do app (`http://localhost:8080/Dash-v2/*` e a URL publicada). Fora da lista, o Supabase devolve o link **sem** token e a tela mostra "o link expirou ou já foi usado".
+1. **Authentication → URL Configuration:** incluir em *Site URL* e *Redirect URLs* os endereços do app (`http://localhost:<porta>/Dash-v2/*` (8080 é o padrão do projeto; no computador do dono roda em 8081 — libere a que for usada) e a URL publicada). Fora da lista, o Supabase devolve o link **sem** token e a tela mostra "o link expirou ou já foi usado".
 2. **Authentication → Emails → SMTP próprio:** o e-mail embutido do Supabase é de teste — poucos envios por hora e, em projetos novos, entrega só para os endereços da equipe do projeto. **Enquanto não houver SMTP, a recuperação não serve para a fábrica.**
 3. Opcional: traduzir o template *Reset Password* para português.
 

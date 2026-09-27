@@ -467,7 +467,7 @@ acrescenta. Testes da leitura desse endereço: `src/test/recovery.test.ts`.
 **Configuração obrigatória no painel** (nenhuma delas é versionável):
 
 1. **Authentication → URL Configuration** — *Site URL* e *Redirect URLs* com os
-   endereços do app (`http://localhost:8080/Dash-v2/*` e a URL publicada).
+   endereços do app (`http://localhost:<porta>/Dash-v2/*` (8080 é o padrão do projeto; no computador do dono roda em 8081 — libere a que for usada) e a URL publicada).
    Endereço fora da lista = link devolvido sem token.
 2. **Authentication → Emails → SMTP** — o e-mail embutido do Supabase é de teste
    (poucos envios por hora; em projetos novos, só para a equipe do projeto).
