@@ -16,6 +16,8 @@ export interface MetaInfo {
   updatedBy: string;
   updatedAt: string;
   vigenciaInicio: string;
+  /** `per_operator` = o número é a meta de cada pessoa (A Granél, D39). */
+  basis?: "per_shift" | "per_operator";
 }
 
 export type { Holiday };

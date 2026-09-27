@@ -1,7 +1,7 @@
 # Visão Geral do Banco de Dados
 
 > Versão do schema: `v0.10.3` · Última atualização: 21/09/2026 · Documento em linguagem simples, para apresentação.
-> Seção 8 revisada em 26/09/2026 (recuperação de senha, `v0.17.1`); as demais seções ainda descrevem o schema até a `v0.10.3`.
+> Seções 6 e 8 revisadas em 26–27/09/2026 (meta por pessoa e recuperação de senha, `v0.18.0`); as demais seções ainda descrevem o schema até a `v0.10.3`.
 > Detalhes técnicos: [02-referencia-tecnica.md](02-referencia-tecnica.md)
 
 ## 1. Por que um banco novo
@@ -104,6 +104,29 @@ timeline
 - A meta é a mesma para todos os turnos.
 - Uma meta nova **não pode começar no passado**. Correções em apontamentos antigos são feitas pelo gestor, um a um.
 - Cada apontamento guarda uma "foto" da meta do dia, para o passado nunca mudar sozinho.
+
+### Uma exceção: a meta por pessoa
+
+A **Bancada Embalagem A Granél** não tem meta de turno: são **25.000 peças por
+pessoa**. A meta do turno depende de quantas pessoas trabalharam nele.
+
+| Pessoas na bancada | Meta do turno |
+|---|---|
+| 1 | 25.000 |
+| 3 | 75.000 |
+| 5 | 125.000 |
+
+Por isso a tela de apontamento pede o **nº de operadores** dessa bancada e mostra
+a conta acontecendo. Sem esse número, o sistema não tem como saber a meta do
+turno — e prefere pedir o dado a mostrar um número errado.
+
+Na tela de metas, a bancada aparece com a etiqueta **por pessoa**, para ninguém
+ler 25.000 como se fosse a meta do turno inteiro.
+
+> **Sobre o histórico:** os apontamentos anteriores a 27/09/2026 continuam
+> medidos como meta de turno. A planilha antiga nunca distinguiu as duas coisas,
+> e recalcular seria adivinhar. O atingimento histórico dessa bancada está,
+> portanto, mais alto do que foi na realidade (decisão **D46**).
 
 ## 7. Calendário: feriados, eventos e dias anulados
 

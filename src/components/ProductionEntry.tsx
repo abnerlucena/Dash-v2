@@ -23,7 +23,7 @@ const MACHINE_GROUPS: { id: string; label: string; names: string[] }[] = [
 
 const ProductionEntry = () => {
   const isMobile = useIsMobile();
-  const { user, machines, metas, silentRefresh } = useAuth();
+  const { user, machines, metas, metasInfo, silentRefresh } = useAuth();
 
   const [selectedDate, setSelectedDate]     = useState(today());
   const [selectedTurno, setSelectedTurno]   = useState(TURNOS[0]);
@@ -91,7 +91,11 @@ const ProductionEntry = () => {
   }
 
   function updateOperadores(machineId: number, value: string) {
-    const clean = value.replace(/D/g, "").slice(0, 3);
+    // `\D` = tudo que não é dígito. Antes estava `/D/`, que apagava só a letra
+    // "D" maiúscula e deixava passar o resto — o campo aceitava "abc" e o
+    // Number() virava NaN. Passou a importar de verdade quando a meta de A
+    // Granél começou a ser multiplicada por este número (D39).
+    const clean = value.replace(/\D/g, "").slice(0, 3);
     setEntries(prev => ({ ...prev, [machineId]: { ...prev[machineId], operadores: clean } }));
     setSaved(false);
   }
@@ -105,9 +109,27 @@ const ProductionEntry = () => {
     return (entries[machineId]?.ordens || []).reduce((s, o) => s + (o.quantidade || 0), 0);
   }
 
+  /**
+   * A meta do turno desta máquina (D39/D46).
+   *
+   * Em quase todas, é o número cadastrado. Na Bancada A Granél o número é a
+   * meta de CADA pessoa: a do turno é ele × quantas pessoas trabalharam. Sem o
+   * nº de operadores informado a meta do turno é desconhecida — só o banco sabe
+   * a lotação padrão —, e `valor` vem nulo, para a tela não mostrar um número
+   * errado nem um atingimento inflado.
+   */
+  function metaDoTurno(machineId: number) {
+    const machine = machines.find(m => m.id === machineId);
+    const cadastrada = metas[machineId] ?? machine?.defaultMeta ?? 0;
+    const porPessoa = metasInfo[machineId]?.basis === "per_operator";
+    const pessoas = Number(entries[machineId]?.operadores) || 0;
+    if (!porPessoa) return { valor: cadastrada, cadastrada, porPessoa, pessoas };
+    return { valor: pessoas > 0 ? cadastrada * pessoas : null, cadastrada, porPessoa, pessoas };
+  }
+
   function getPct(machineId: number): number | null {
     const prod = getOrdemTotal(machineId);
-    const metaVal = metas[machineId] || 0;
+    const metaVal = metaDoTurno(machineId).valor || 0;
     if (!prod || !metaVal) return null;
     return Math.round((prod / metaVal) * 100);
   }
@@ -300,8 +322,28 @@ const ProductionEntry = () => {
                     const entry    = entries[machine.id];
                     if (!entry) return null;
                     const hasObs   = entry.obs.trim() !== "";
-                    const metaVal  = metas[machine.id] || machine.defaultMeta;
+                    const meta     = metaDoTurno(machine.id);
                     const isFilled = entry.ordens.some(o => o.quantidade > 0);
+
+                    // A Granél mostra a conta acontecendo: 25.000 × 3 = 75.000.
+                    // Sem o nº de operadores, diz o que falta em vez de mentir.
+                    const metaLabel = meta.porPessoa ? (
+                      meta.valor !== null ? (
+                        <>
+                          Meta: <strong>{meta.valor.toLocaleString("pt-BR")}</strong>{" "}
+                          <span className="text-muted-foreground/80">
+                            ({meta.cadastrada.toLocaleString("pt-BR")} × {meta.pessoas} {meta.pessoas === 1 ? "pessoa" : "pessoas"})
+                          </span>
+                        </>
+                      ) : (
+                        <>
+                          Meta: <strong>{meta.cadastrada.toLocaleString("pt-BR")}</strong> por pessoa
+                          {" — informe o nº de operadores"}
+                        </>
+                      )
+                    ) : (
+                      <>Meta: <strong>{meta.valor && meta.valor > 0 ? meta.valor.toLocaleString("pt-BR") : "—"}</strong></>
+                    );
 
                     const addOrdemBtn = (
                       <button
@@ -360,7 +402,7 @@ const ProductionEntry = () => {
                                 )}
                               </div>
                               <p className="text-[10px] text-muted-foreground mb-2.5">
-                                Meta: <strong>{metaVal > 0 ? metaVal.toLocaleString("pt-BR") : "—"}</strong>
+                                {metaLabel}
                               </p>
 
                               <OrdemProducaoInput ordens={entry.ordens} onChange={o => updateOrdens(machine.id, o)} />
@@ -378,7 +420,7 @@ const ProductionEntry = () => {
                               <div className="flex flex-col justify-center" style={{ flex: "0 0 55%", minWidth: 0 }}>
                                 <h4 className="text-xs font-bold text-foreground leading-tight truncate">{machine.name}</h4>
                                 <p className="text-[10px] text-muted-foreground mt-0.5">
-                                  Meta: <strong>{metaVal > 0 ? metaVal.toLocaleString("pt-BR") : "—"}</strong>
+                                  {metaLabel}
                                 </p>
                                 {pct !== null && (
                                   <span className="mt-1.5 self-start text-xs font-extrabold px-2.5 py-0.5 rounded-full"

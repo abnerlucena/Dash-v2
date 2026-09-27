@@ -1,6 +1,6 @@
 # Referência Técnica do Schema
 
-> Versão do schema: `v0.17.1` · Última atualização: 26/09/2026 · Status: **implementado no Supabase** (projeto de testes), com o histórico da planilha já carregado. O sistema em produção continua sendo o Google Sheets.
+> Versão do schema: `v0.18.0` · Última atualização: 27/09/2026 · Status: **implementado no Supabase** (projeto de testes), com o histórico da planilha já carregado. O sistema em produção continua sendo o Google Sheets.
 > SGBD: PostgreSQL (Supabase) · Schema: `public` (+ `auth`, gerenciado pelo Supabase)
 > Decisões citadas como `[Dxx]` estão em [03-decisoes.md](03-decisoes.md).
 
@@ -84,6 +84,7 @@ Exclusão física bloqueada por FK quando houver produção; desativar via `stat
 | `shift_id` | `smallint` | NN, FK `shifts` | |
 | `machine_id` | `integer` | NN, FK `machines` | |
 | `target_quantity` | `integer` | NN, CHECK `>= 0` | Snapshot da meta vigente [D08] |
+| `target_basis` | `text` | NN, default `'per_shift'`, CHECK `per_shift`/`per_operator` | Snapshot da **base** da meta: como ler `target_quantity`. `per_operator` = meta de cada pessoa [D39, D46] |
 | `operator_count` | `smallint` | CHECK `>= 0` | [D12] |
 | `work_mode` | `text` | NN, default `'regular'`, CHECK `regular`/`overtime` | Hora extra não entra no cálculo de meta [D27] |
 | `notes` | `text` | CHECK até 500 caracteres | |
@@ -284,12 +285,20 @@ PK `(user_id, permission_code)` · Índice `(permission_code)`. Permissões efet
 
 | View | Retorna |
 |---|---|
-| `production_summary` | Colunas de `production_records` + `shift_name`, `machine_name`, `good_quantity` (ordens sem retrabalho), `rework_quantity`, `total_quantity`, `order_count`, `staffing_ratio` (= `operator_count / standard_operator_count`), `adjusted_target` (= meta × lotação), `is_excluded_day` (existe `excluded_day` na data, para o dia inteiro ou para o turno) e `counts_toward_target` (= `work_mode = 'regular'` **e** não anulado) [D11, D12, D16, D27] |
+| `production_summary` | Colunas de `production_records` + `shift_name`, `machine_name`, `good_quantity` (ordens sem retrabalho), `rework_quantity`, `total_quantity`, `order_count`, `staffing_ratio` (= `operator_count / standard_operator_count`), `adjusted_target` (meta corrigida pela lotação; para máquina por operador, igual à meta efetiva), **`effective_target`** (a meta com que comparar a produção — ver abaixo), `target_basis`, `is_excluded_day` (existe `excluded_day` na data, para o dia inteiro ou para o turno) e `counts_toward_target` (= `work_mode = 'regular'` **e** não anulado) [D11, D12, D16, D27, D39, D46] |
 | `current_machine_targets` | `machine_id`, `target_id`, `quantity_per_shift`, `valid_from`, `created_by`, `created_at`, `basis` — meta vigente hoje (SP) por máquina: maior `valid_from <= hoje` |
 
 Ambas criadas com `security_invoker = true`: respeitam o RLS de quem consulta.
 
-> **Regra de leitura para gráficos:** atingimento de meta = `sum(good_quantity) / sum(target_quantity)` filtrando `counts_toward_target`. Produção total soma todas as linhas (inclusive hora extra).
+> **Regra de leitura para gráficos:** atingimento de meta = `sum(good_quantity) / sum(effective_target)` filtrando `counts_toward_target`. Produção total soma todas as linhas (inclusive hora extra).
+>
+> **Por que `effective_target` e não `target_quantity`** [D39, D46]: em quase toda
+> máquina os dois são o mesmo número. Na Bancada A Granél, `target_quantity`
+> guarda 25.000 — a meta de **cada pessoa** —, e `effective_target` faz a conta
+> que interessa: 25.000 × pessoas do apontamento. Sem operadores informados, cai
+> na lotação padrão da máquina; sem lotação cadastrada, multiplica por 1. Quem
+> somar `target_quantity` numa máquina por operador vai medir atingimento de 300%
+> onde o certo é 100%.
 
 ## 5. Triggers
 
@@ -314,7 +323,8 @@ Ambas criadas com `security_invoker = true`: respeitam o RLS de quem consulta.
 | `has_permission(p_code text)` | `boolean` | `status = 'active'` + `user_permissions`; em conta `shared`, só com identificação na sessão atual [D22, D23] |
 | `my_permissions()` | `text[]` | Permissões efetivas (mesmas regras); o app usa para mostrar/esconder botões |
 | `current_identified_user_id()` | `uuid` | Pessoa identificada por crachá na sessão (claim `session_id` do JWT) [D23] |
-| `machine_target_on(p_machine_id, p_date)` | `integer` | Meta vigente na data; antes do início do histórico, a mais antiga [D32] |
+| `machine_target_on(p_machine_id, p_date)` | `integer` | Meta vigente na data, número **cru**; antes do início do histórico, a mais antiga [D32]. Leia junto com a base |
+| `machine_target_basis_on(p_machine_id, p_date)` | `text` | Base da meta vigente na data (`per_shift` \| `per_operator`), mesma regra da anterior. O número sem a base é ambíguo [D39, D46] |
 | `list_profile_names()` | `table(id, full_name)` | Só id + nome, só para usuários ativos (exibir "quem apontou" sem expor crachá) |
 | `can_edit_production_record(created_by, created_at)` / `can_delete_production_record(...)` | `boolean` | Regra D24. Nunca devolve `NULL`: apontamento **sem autor** só é editável/apagável com `production.edit` / `production.delete` (correção 0.10.3) |
 | `insert_production_orders(record_id, orders jsonb)` | `integer` | Interna (sem permissão de execução para o app) |

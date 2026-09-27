@@ -52,6 +52,7 @@ Status possíveis: `Aprovada` · `Assumida` (sem confirmação explícita) · `S
 | D43 | Destino do histórico das máquinas renomeadas e divididas | Aprovada | 25/09/2026 |
 | D44 | A UI de `prototype/` é a interface oficial | Aprovada | 26/09/2026 |
 | D45 | Recuperação de senha pelo e-mail do Supabase Auth | Aprovada | 26/09/2026 |
+| D46 | Onde a meta por operador é resolvida (base congelada, conta na leitura) | Aprovada | 27/09/2026 |
 
 ---
 
@@ -582,3 +583,47 @@ script de extração e carga em lote reversível.
     de uma pessoa estar disponível.
 - **Custo assumido:** o e-mail não é do sistema, é do Supabase. Entrega, spam e
   limite de envio passam a depender do SMTP configurado.
+
+### D46 — Onde a meta por operador é resolvida
+- **Status:** Aprovada (27/09/2026). Implementa no cálculo a **D39**, que só havia
+  criado o campo.
+- **Contexto:** desde 25/09 a meta da Bancada Embalagem A Granél está gravada
+  como `basis = 'per_operator'` — 25.000 peças **por pessoa** no turno. Nenhuma
+  parte do sistema lia esse campo: o apontamento copiava 25.000 e o dashboard
+  comparava a produção do turno inteiro com esse número. Três pessoas na bancada
+  produzindo 75.000 peças apareciam como **300% de atingimento**.
+- **Decisão:** duas partes.
+  1. **A base fica congelada no apontamento** (`production_records.target_basis`),
+     ao lado da meta que já era congelada (D08). Apontamento antigo continua
+     sendo lido como era, mesmo que a meta mude de base depois.
+  2. **A multiplicação acontece na leitura**, na view `production_summary`
+     (coluna nova `effective_target`). Se alguém corrigir o nº de operadores
+     depois, a meta efetiva se corrige sozinha.
+- **Quando o nº de operadores não foi informado:** cai na lotação padrão da
+  máquina (D39); sem lotação padrão cadastrada, multiplica por 1 — o número cru,
+  que é o menor palpite possível. Nunca por zero: meta zero significa "não conta
+  para meta" no resto do sistema, e seria uma mentira diferente.
+- **O histórico não foi recalculado.** Os 2.507 apontamentos importados (D35) e
+  qualquer apontamento anterior a esta migration ficaram `per_shift`, que é o
+  default da coluna nova. A planilha nunca distinguiu meta por turno de meta por
+  pessoa, e inventar a distinção agora mudaria a história com base num palpite.
+  **Custo assumido:** o atingimento histórico de A Granél continua inflado. É
+  reversível — um `update` futuro corrige, se o gestor decidir qual era a
+  intenção de cada mês.
+- **Consequência que é dado, não código:** a lotação padrão de A Granél está
+  cadastrada como **1 pessoa**. Enquanto for assim, o apontamento que não
+  informar operadores continuará valendo 25.000. Ou a equipe informa quantas
+  pessoas trabalharam — a tela de apontamento agora mostra a conta acontecendo
+  (`25.000 × 3 = 75.000`) e cobra o campo quando está vazio —, ou o gestor
+  corrige a lotação padrão da bancada.
+- **Alternativas rejeitadas:**
+  - **multiplicar na hora de salvar** (gravar 75.000 no apontamento): a conta
+    fica velha assim que alguém corrige o nº de operadores, e a meta gravada
+    deixa de ser comparável com a meta cadastrada;
+  - **multiplicar em cada tela:** é exatamente o que a D39 rejeitou — cada
+    leitor precisaria lembrar da exceção, e quem esquecesse mostraria 300% de
+    novo;
+  - **descobrir a base pela máquina, sem congelar:** um apontamento de março
+    passaria a ser lido com a base de hoje;
+  - **recalcular o histórico:** mudaria números já apresentados, sem ter como
+    saber o que a planilha queria dizer.

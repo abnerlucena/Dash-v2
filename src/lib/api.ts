@@ -62,6 +62,9 @@ export interface ProdRecord {
   workMode?: "regular" | "overtime";
   goodQuantity?: number;
   reworkQuantity?: number;
+  /** Meta efetiva do turno: já multiplicada pelas pessoas quando a meta da
+   *  máquina é por operador (A Granél, D39/D46). Diferente de `meta`, que vai a
+   *  zero quando o apontamento não conta para meta (hora extra, dia anulado). */
   targetQuantity?: number;
   countsTowardTarget?: boolean;
   isExcludedDay?: boolean;

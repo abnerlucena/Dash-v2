@@ -1,6 +1,12 @@
 // Tipos do banco Supabase (schema public), no formato de `supabase gen types typescript`.
 // Gerado por introspecção do catálogo em 20/09/2026 (a CLI exige Docker para --db-url).
 // NÃO editar à mão: regenerar após cada migration (ver docs/database/README.md).
+//
+// EXCEÇÃO registrada em 27/09/2026: as adições da migration 0021 (meta por
+// operador — `production_records.target_basis`, `production_summary.
+// effective_target` e `target_basis`, função `machine_target_basis_on`) foram
+// escritas à mão, porque a sessão que fez a migration não tinha acesso ao banco
+// para regenerar. Confira este arquivo na próxima regeneração com acesso.
 
 export type Json =
   | string
@@ -416,6 +422,7 @@ export type Database = {
           operator_count: number | null
           production_date: string
           shift_id: number
+          target_basis: string
           target_quantity: number
           updated_at: string
           updated_by: string | null
@@ -430,6 +437,7 @@ export type Database = {
           operator_count?: number | null
           production_date: string
           shift_id: number
+          target_basis?: string
           target_quantity: number
           updated_at?: string
           updated_by?: string | null
@@ -444,6 +452,7 @@ export type Database = {
           operator_count?: number | null
           production_date?: string
           shift_id?: number
+          target_basis?: string
           target_quantity?: number
           updated_at?: string
           updated_by?: string | null
@@ -717,6 +726,7 @@ export type Database = {
           counts_toward_target: boolean | null
           created_at: string | null
           created_by: string | null
+          effective_target: number | null
           good_quantity: number | null
           id: string | null
           is_excluded_day: boolean | null
@@ -730,6 +740,7 @@ export type Database = {
           shift_id: number | null
           shift_name: string | null
           staffing_ratio: number | null
+          target_basis: string | null
           target_quantity: number | null
           total_quantity: number | null
           updated_at: string | null
@@ -831,6 +842,13 @@ export type Database = {
           id: string
           full_name: string
         }[]
+      }
+      machine_target_basis_on: {
+        Args: {
+          p_machine_id: number
+          p_date: string
+        }
+        Returns: string
       }
       machine_target_on: {
         Args: {

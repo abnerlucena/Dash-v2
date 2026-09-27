@@ -17,6 +17,48 @@ Formato de cada entrada:
 
 ---
 
+## [0.18.0] — 27/09/2026 — A meta por operador entra no cálculo
+- Status: **Desenhado** — a migration está escrita e revisada, mas **ainda não foi aplicada** no Supabase: a sessão que a escreveu não tinha acesso ao banco. Aplicar `supabase/migrations/20260927100000_meta_por_operador.sql` pelo SQL Editor e conferir com a consulta que está no fim do arquivo.
+- Commit/PR: branch `claude/ui-oficial-transicao`
+- Migration: `supabase/migrations/20260927100000_meta_por_operador.sql`
+- Decisões: D46 (nova), D39 (implementada agora no cálculo), D08, D12
+
+### O problema
+A Bancada Embalagem A Granél é medida em **25.000 peças por pessoa** no turno, e
+a meta dela já estava gravada assim desde 25/09 (`machine_targets.basis =
+'per_operator'`, 0.11.0). Só que **nada lia esse campo**: o apontamento copiava
+25.000 e o dashboard comparava a produção do turno inteiro com esse número. Três
+pessoas na bancada, 75.000 peças, apareciam como **300% de atingimento**.
+
+### Adicionado
+- `production_records.target_basis` — a base da meta **congelada no apontamento**, ao lado da meta que já era congelada (D08). Default `per_shift`, então nenhum apontamento que já existe mudou de comportamento.
+- `machine_target_basis_on(máquina, data)` — a base vigente numa data, com a mesma regra da `machine_target_on` (inclusive o caso D32, de datas anteriores ao histórico).
+- `production_summary.effective_target` — **a meta com que comparar a produção**: `per_shift` → a própria meta; `per_operator` → meta × pessoas do apontamento. É a coluna que as telas passaram a usar.
+- `production_summary.target_basis` — para quem lê a view saber como o número foi formado.
+
+### Alterado
+- `save_production_record` congela a base junto com a meta, na criação do apontamento.
+- `production_summary.adjusted_target` (a meta corrigida pela lotação, D12) estava errada para máquina por operador: a conta antiga — meta × pessoas ÷ lotação padrão — devolvia 25.000 de novo, porque a lotação real já está embutida na multiplicação. Agora repete a meta efetiva nesse caso.
+- Comentário da `machine_target_on` avisa que o número dela é cru e precisa ser lido junto com a base.
+
+### Não alterado, de propósito
+- **Nenhum apontamento existente.** Os 2.507 do histórico importado (D35) ficaram `per_shift`: a planilha nunca distinguiu meta por turno de meta por pessoa, e inventar a distinção mudaria a história com base num palpite. O atingimento histórico de A Granél segue inflado, e é reversível por `update` quando o gestor decidir. Ver D46.
+
+### Impacto no frontend
+- `src/lib/repositories/supabase/adapters.ts` — a meta do apontamento passa a vir de `effective_target`, com queda para `target_quantity` em banco que ainda não recebeu esta migration.
+- `src/lib/repositories/supabase/catalog.ts` + `types.ts` + `AuthContext.tsx` — `metasInfo` ganha `basis`, para as telas saberem quando o número é por pessoa.
+- `src/components/MetasTab.tsx` — as linhas por operador ganham a etiqueta **por pessoa**, e o rodapé explica o que isso muda.
+- `src/components/ProductionEntry.tsx` — a meta aparece com a conta acontecendo (`25.000 × 3 pessoas = 75.000`); sem o nº de operadores informado a tela pede o campo em vez de mostrar um número errado, e o % do turno não é calculado. Corrigido também um `replace(/D/g, ...)` que deveria ser `/\D/g`: o campo de operadores aceitava letras, e o valor virava `NaN` — passou a importar de verdade agora que a meta depende dele.
+- `src/lib/database.types.ts` — as três adições foram escritas **à mão** (sem acesso ao banco para regenerar); conferir na próxima regeneração.
+
+### Pendência que é dado, não código
+A lotação padrão de A Granél está cadastrada como **1 pessoa**. Enquanto for
+assim, apontamento sem operadores informados continua valendo 25.000. Ou a equipe
+informa as pessoas do turno, ou o gestor corrige a lotação padrão
+(`update machines set standard_operator_count = <n> where id = 7;`).
+
+---
+
 ## [0.17.1] — 26/09/2026 — Recuperação de senha por e-mail
 - Status: **Implementado** no app. **Falta a configuração no painel do Supabase** (só o dono do projeto pode fazer) — ver "O que ainda falta" abaixo.
 - Commit/PR: branch `claude/ui-oficial-transicao`

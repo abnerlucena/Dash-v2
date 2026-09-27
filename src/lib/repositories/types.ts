@@ -14,6 +14,13 @@ export interface MetaInfoRaw {
   updatedBy: string;
   updatedAt: string;
   vigenciaInicio: string;
+  /**
+   * Como ler o número da meta (D39). `per_operator` é a Bancada A Granél:
+   * 25.000 é a meta de CADA pessoa, e a meta do turno é isso × lotação. Só o
+   * modo Supabase informa; vazio se comporta como `per_shift`, que é a regra
+   * de todas as outras máquinas.
+   */
+  basis?: "per_shift" | "per_operator";
 }
 
 export interface LoginResponse {

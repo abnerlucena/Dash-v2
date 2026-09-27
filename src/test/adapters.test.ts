@@ -11,6 +11,7 @@ const baseRow: SummaryRow = {
   created_at: "2026-09-19T12:00:00Z", updated_at: "2026-09-19T12:00:00Z",
   good_quantity: 400, rework_quantity: 100, total_quantity: 500, order_count: 2,
   staffing_ratio: 1, adjusted_target: 500, is_excluded_day: false, counts_toward_target: true,
+  effective_target: 500, target_basis: "per_shift",
 };
 const orders: OrderRow[] = [
   { production_record_id: "r1", order_number: "000001004521", quantity: 400, is_rework: false, notes: null },
@@ -42,6 +43,26 @@ describe("adaptadores Supabase → formato das telas", () => {
     expect(extra.targetQuantity).toBe(500);
     expect(anulado.meta).toBe(0);
     expect(anulado.isExcludedDay).toBe(true);
+  });
+
+  it("meta por operador: usa a meta efetiva do turno, não a de cada pessoa (D39, D46)", () => {
+    // A Granél: 25.000 por pessoa, três pessoas na bancada. A view entrega a
+    // conta feita em effective_target; produção de 60.000 é 80% de 75.000 —
+    // antes daqui era comparada com 25.000 e dava 240%.
+    const [r] = buildProdRecords([{
+      ...baseRow, id: "r4", machine_id: 7, machine_name: "BANCADA EMBALAGEM A GRANÉL",
+      target_quantity: 25000, target_basis: "per_operator", operator_count: 3,
+      effective_target: 75000, good_quantity: 60000, rework_quantity: 0, total_quantity: 60000,
+    }], [], names);
+    expect(r.meta).toBe(75000);
+    expect(r.targetQuantity).toBe(75000);
+    expect(r.operatorCount).toBe(3);
+  });
+
+  it("banco sem a migration 0021: cai na meta crua, como era antes", () => {
+    // effective_target nulo = coluna que ainda não existe naquele banco.
+    const [r] = buildProdRecords([{ ...baseRow, id: "r5", effective_target: null }], [], names);
+    expect(r.meta).toBe(500);
   });
 
   it("converte turno em id e recusa texto inválido", () => {

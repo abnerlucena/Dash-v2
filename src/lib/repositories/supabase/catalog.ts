@@ -7,7 +7,7 @@ import { loadProfileNames, toError } from "./helpers";
 async function currentTargets() {
   const { data, error } = await getSupabase()
     .from("current_machine_targets")
-    .select("machine_id, quantity_per_shift, valid_from, created_by, created_at");
+    .select("machine_id, quantity_per_shift, valid_from, created_by, created_at, basis");
   if (error) throw toError(error);
   return data || [];
 }
@@ -56,6 +56,8 @@ export const supabaseTargets: DataSource["targets"] = {
         updatedBy: (t.created_by && names.get(t.created_by)) || "carga inicial",
         updatedAt: t.created_at ?? "",
         vigenciaInicio: t.valid_from ?? "",
+        // D39: em A Granél o número é a meta de cada pessoa, não do turno.
+        basis: t.basis === "per_operator" ? "per_operator" : "per_shift",
       };
     }
     return { metas, metasInfo };
