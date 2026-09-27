@@ -21,7 +21,7 @@ Formato de cada entrada:
 - Status: **Implementado** — aplicada no Supabase (projeto de testes) em 27/09/2026, pela sessão local (pooler IPv4 + `pg`; a Management API não está disponível nela, e o contêiner que escreveu a migration não alcançava o banco).
 - Commit/PR: branch `claude/ui-oficial-transicao`
 - Migration: `supabase/migrations/20260927110000_meta_depende_da_lotacao.sql`
-- Testes: `supabase/tests/06_meta_por_lotacao.sql` — **12 casos, 12 passando** contra o banco real, em transação desfeita. Suítes anteriores depois de aplicar: 01 (24/24), 02 (23/23), 03 (9/9), 04 (12/12). A 05 não roda mais — ver a nota no fim desta entrada.
+- Testes: `supabase/tests/06_meta_por_lotacao.sql` — **12 casos, 12 passando** contra o banco real, em transação desfeita. Suítes anteriores depois de aplicar: 01 (24/24), 02 (23/23), 03 (9/9), 04 (12/12). A 05 foi reescrita para montar o próprio lote (13/13) — ver a nota no fim desta entrada.
 - Decisões: D47 (nova), D39, D46, D12
 
 ### O que o gestor esclareceu
@@ -90,9 +90,15 @@ o lote real foi carregado em 26/09 e está com estado `loaded`, e a suíte preci
 de um lote em `draft`. **O teste não roda mais porque o trabalho que ele testa já
 foi feito.** Nada a ver com a 0.18.0 ou a 0.19.0.
 
-A correção é a suíte montar o próprio lote de rascunho em vez de usar o real —
-a mesma fraqueza já corrigida em outros três testes. Custo honesto: ela deixaria
-de exercitar a carga das 2.507 linhas e passaria a testar só a mecânica.
+**Corrigido em 27/09/2026:** a suíte passou a montar o próprio lote de rascunho,
+com cinco linhas escolhidas para cobrir o que a carga precisa saber fazer (duas
+chaves diferentes, uma produção e um retrabalho na mesma chave, uma parada e um
+descarte), em datas de 2027 para nunca esbarrar no histórico real. São **13
+casos, 13 passando**, e ela roda duas vezes seguidas dando o mesmo resultado.
+
+Custo assumido: ela não exercita mais a carga das 2.507 linhas reais, só a
+mecânica. A conferência do volume real é outra coisa — é o passo 4 da
+importação, o relatório para o gestor.
 
 ### `database.types.ts` estava incompleto
 
