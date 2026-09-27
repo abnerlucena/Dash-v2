@@ -12,6 +12,7 @@ import {
   DATA_END,
   DATA_START,
   MONTH_RANGE,
+  PERIOD_LABEL,
   WORKING_DATES,
   aggregate,
   isMonthRange,
@@ -119,7 +120,7 @@ export function MachinesPage({
   // Período livre: qualquer intervalo de dias (padrão: o mês inteiro)
   const [range, setRange] = useState<DateRange>(MONTH_RANGE);
   const monthView = isMonthRange(range);
-  const periodText = monthView ? "março de 2026" : rangeLabel(range);
+  const periodText = monthView ? PERIOD_LABEL : rangeLabel(range);
   /** dias úteis do período que já aconteceram (base da taxa de apontamento) */
   const elapsedDays = useMemo(() => workingDatesIn(range).filter((d) => d <= DATA_END), [range]);
   const [sort, setSort] = useState<SortState | null>({ columnId: "produced", direction: "descending" });

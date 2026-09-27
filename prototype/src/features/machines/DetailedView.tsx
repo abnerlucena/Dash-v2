@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react";
-import { STATUS_META, dayKey, type Machine, type Status } from "@/data/machines";
+import { PERIOD_LABEL, STATUS_META, dayKey, type Machine, type Status } from "@/data/machines";
 import { formatCompact, formatNumber } from "@/lib/utils";
 import { DataTable, type Column, type TableState } from "@/components/data/DataTable";
 import { HeatCell, type HeatMode } from "@/components/data/HeatCell";
@@ -95,7 +95,7 @@ export function DetailedView({ rows, dates, state, activeId, onRowActivate, empt
       </div>
 
       <DataTable
-        caption="Produção diária por máquina em março de 2026"
+        caption={`Produção diária por máquina em ${PERIOD_LABEL}`}
         columns={columns}
         rows={rows}
         getRowId={(m) => m.id}

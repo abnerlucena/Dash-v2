@@ -115,6 +115,7 @@ const sizeKeys = [
   "flag",
   "tooltip-max",
   "column-name",
+  "column-text",
   "content-max",
   "kbd",
   "modal",

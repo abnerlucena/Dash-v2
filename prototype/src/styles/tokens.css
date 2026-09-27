@@ -179,6 +179,7 @@
   --dash-size-flag: 22.5rem; /* 360px */
   --dash-size-tooltip-max: 15rem; /* 240px */
   --dash-size-column-name: 12.5rem; /* 200px */
+  --dash-size-column-text: 10rem; /* 160px: texto secundário truncado em tabelas (material, observação) */
   --dash-size-content-max: 125rem; /* 2000px */
   --dash-size-kbd: 1.25rem; /* 20px */
   --dash-size-modal: 30rem; /* 480px */

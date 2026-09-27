@@ -1,15 +1,19 @@
 import { ChevronDown, MessageSquarePlus, Plus, RotateCcw, Save, Search, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  DATA_END,
+  DATA_START,
   LINE_ACCENT,
   MACHINE_GROUPS,
   MACHINES,
   SHIFTS,
   SHIFT_META,
   STATUS_META,
+  endOfMonth,
   machineById,
   metaPerShift,
   statusFor,
+  toIsoDate,
   type Shift,
 } from "@/data/machines";
 import { cn, formatNumber, readToken, type Notify } from "@/lib/utils";
@@ -47,11 +51,9 @@ const newRow = (op = "", qty = "", rework = false): OpRow => ({ key: `r${rowSeq+
 
 /** Carrega o que já foi apontado para a data/turno (edição) ou um formulário vazio */
 function loadForm(date: string, shift: Shift): Form {
-  const day = Number(date.slice(8, 10));
-  const sameMonth = date.startsWith("2026-03");
   const form: Form = {};
   for (const m of MACHINES) {
-    const orders = sameMonth ? m.orders.filter((o) => o.date.getDate() === day && o.shift === shift) : [];
+    const orders = m.orders.filter((o) => toIsoDate(o.date) === date && o.shift === shift);
     form[m.id] = {
       rows: orders.length
         ? orders.map((o) => newRow(o.opId.replace("OP ", ""), String(o.quantity), o.rework))
@@ -81,9 +83,9 @@ interface EntryPageProps {
 }
 
 export function EntryPage({ notify }: EntryPageProps) {
-  const [date, setDate] = useState("2026-03-27");
+  const [date, setDate] = useState(toIsoDate(DATA_END));
   const [shift, setShift] = useState<Shift>(1);
-  const [form, setForm] = useState<Form>(() => loadForm("2026-03-27", 1));
+  const [form, setForm] = useState<Form>(() => loadForm(toIsoDate(DATA_END), 1));
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
   const [savedAt, setSavedAt] = useState<Date | null>(null);
@@ -202,9 +204,9 @@ export function EntryPage({ notify }: EntryPageProps) {
           <DateField
             label="Data"
             value={date}
-            min="2026-03-01"
-            max="2026-03-31"
-            today="2026-03-27"
+            min={toIsoDate(DATA_START)}
+            max={toIsoDate(endOfMonth(DATA_END))}
+            today={toIsoDate(DATA_END)}
             onChange={(d) => switchContext({ date: d, shift })}
             className="w-1000 min-w-column-name"
           />

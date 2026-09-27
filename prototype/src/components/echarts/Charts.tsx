@@ -721,6 +721,8 @@ export function ComboChart({
         ...baseOption(t),
         grid: {
           ...grid("--ds-space-300", hasRight ? "--dash-size-chart-axis" : "--ds-space-100"),
+          // rótulos que quebram linha (motivos, faixas) precisam de até três linhas embaixo
+          ...(categories.length <= 6 ? { bottom: t.fontSize * 4.5 } : {}),
         },
         xAxis: {
           type: "category",
@@ -734,7 +736,10 @@ export function ComboChart({
                   interval: 0,
                   alignMinLabel: "center",
                   alignMaxLabel: "center",
-                  width: (width - readToken("--dash-size-chart-axis") * 2) / categories.length,
+                  // largura real da área de plotagem (eixos esquerdo e direito) menos um respiro entre rótulos
+                width:
+                  (width - readToken("--dash-size-chart-axis") - readToken(hasRight ? "--dash-size-chart-axis" : "--ds-space-100")) / categories.length -
+                  readToken("--ds-space-100"),
                   overflow: "break",
                 },
               }

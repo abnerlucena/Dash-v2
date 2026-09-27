@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { SHIFTS, SHIFT_META, STATUS_META, shiftTotals, statusFor, type Machine, type Shift } from "@/data/machines";
+import { PERIOD_LABEL, SHIFTS, SHIFT_META, STATUS_META, shiftTotals, statusFor, type Machine, type Shift } from "@/data/machines";
 import { cn, formatNumber, plural } from "@/lib/utils";
 import { Legend } from "@/components/data/Chart";
 import { DataTable, type Column, type TableState } from "@/components/data/DataTable";
@@ -127,7 +127,7 @@ export function ShiftsView({ machines, state, focus, activeId, onRowActivate, em
           <Legend items={SHIFT_LEGEND} />
         </div>
         <DataTable
-          caption="Produção por turno em cada máquina, março de 2026"
+          caption={`Produção por turno em cada máquina, ${PERIOD_LABEL}`}
           columns={columns}
           rows={machines}
           getRowId={(m) => m.id}

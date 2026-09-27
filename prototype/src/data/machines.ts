@@ -606,8 +606,25 @@ export interface DateRange {
 }
 /** Mês inteiro (dias futuros contam só na meta) — é o recorte padrão */
 export const MONTH_RANGE: DateRange = { from: new Date(YEAR, MONTH, 1), to: new Date(YEAR, MONTH, 31) };
+/*
+ * Janela de dados: primeiro e último dia com apontamentos. É a ÚNICA fonte
+ * dos limites de data da interface (calendários, seletores de período,
+ * navegação entre meses). Com o backend, estes dois valores passam a vir do
+ * banco (menor e maior data de apontamento) e a navegação libera sozinha.
+ */
 export const DATA_START = new Date(YEAR, MONTH, 1);
 export const DATA_END = REFERENCE_DATE;
+
+/** "2026-03-27" ↔ Date local (meia-noite do próprio dia, sem fuso) */
+export const toIsoDate = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+export const fromIsoDate = (iso: string) => {
+  const [y, m, d] = iso.split("-").map(Number);
+  return new Date(y, m - 1, d);
+};
+export const isWeekendDate = (d: Date) => d.getDay() === 0 || d.getDay() === 6;
+export const sameDay = (a: Date, b: Date) => toIsoDate(a) === toIsoDate(b);
+/** Último dia do mês de uma data */
+export const endOfMonth = (d: Date) => new Date(d.getFullYear(), d.getMonth() + 1, 0);
 
 const inRange = (d: Date, r: DateRange) => d >= r.from && d <= r.to;
 export const workingDatesIn = (r: DateRange) => WORKING_DATES.filter((d) => inRange(d, r));
