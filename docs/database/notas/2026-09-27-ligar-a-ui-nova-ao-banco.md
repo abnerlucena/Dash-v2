@@ -94,8 +94,26 @@ A tela de **metas** precisa dizer como o número é lido: as etiquetas em uso s�
 | 3 | OP como entidade + conversa | **Correto.** Não existe nenhuma tabela de OP nem de mensagens |
 | 4 | Minutos produtivos | **Parcial.** `shifts.useful_minutes`/`gross_minutes` (D42) e `machine_downtimes` já existem. Falta só o minuto **por OP** — decisão: gravar por OP, ou derivar do turno menos paradas |
 | 5 | `line` e `regime` | **Parcial.** `machines.process` só tem `assembly`/`packaging`, e A Granél está como `packaging` — "Granel" pode ser agrupamento de tela, sem coluna nova. Já o **regime de turnos por centro** (2 ou 3) não existe mesmo |
-| 6 | Retrabalho conta como produção? | **Correto, e é o mais perigoso.** A UI soma retrabalho na produção; a D11 diz que produção é só a boa. Decisão do gestor **antes** de ligar, senão os números divergem da planilha |
+| 6 | Retrabalho conta como produção? | **Decidido em 27/09 pelo gestor: produção é produção, retrabalho é retrabalho** — a D11 continua valendo. Falta consertar a UI nova, ver abaixo |
 | 7 | Hora extra | **Não bate.** No banco `overtime` é `work_mode` do apontamento, independente do turno; o T3 pode ser turno normal (D42). Amarrar "T3 = hora extra" na tela vai divergir |
+
+## 4.1 Retrabalho: onde cada camada conta (e onde a UI nova conta duas vezes)
+
+Decidido pelo gestor em 27/09: **produção é produção, retrabalho é retrabalho** —
+a própria UI nova já tem aba de retrabalho, e o número de produção não deve
+incluí-lo. Confere com a D11. Como está hoje:
+
+| Camada | Onde | Comportamento |
+|---|---|---|
+| Banco | `production_summary` | `good_quantity` = ordens **sem** retrabalho; `rework_quantity` = as marcadas; `total_quantity` = a soma das duas. ✅ |
+| UI de `src/` | `adapters.ts` → `producao: row.good_quantity` | produção = só a boa. ✅ |
+| UI de `prototype/` | `scopeMachine` em `data/machines.ts` | `produced`, `daily` e `byShift` somam **todas** as ordens, inclusive `rework: true`. ❌ |
+
+A mesma peça entra duas vezes: no atingimento e na aba de retrabalho. O conserto
+é local — em `scopeMachine` (e no `produced` gerado por `buildMachine`), somar só
+`!o.rework` na produção e manter o retrabalho num total próprio. Quando o
+adaptador entrar, isso vem de graça: a view já entrega `good_quantity` e
+`rework_quantity` separados; é só não somar os dois.
 
 ## 5. O que o resumo não menciona
 
