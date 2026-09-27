@@ -9,7 +9,7 @@
 import type { Session, Machine, Holiday, ProdRecord, OrdemProducao } from "../api";
 import type { BaseDaMeta } from "../metas";
 
-export type DataSourceKind = "gas" | "supabase";
+export type DataSourceKind = "gas" | "supabase" | "mock";
 
 export interface MetaInfoRaw {
   updatedBy: string;

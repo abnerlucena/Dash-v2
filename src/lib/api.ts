@@ -11,7 +11,7 @@ export interface Session {
   role: "admin" | "user";
   expiresAt?: string;
   // Campos só do modo Supabase (VITE_DATA_SOURCE=supabase); ausentes no modo GAS.
-  source?: "gas" | "supabase";
+  source?: "gas" | "supabase" | "mock";
   userId?: string;
   permissions?: string[];
   accountType?: "personal" | "shared" | "display";

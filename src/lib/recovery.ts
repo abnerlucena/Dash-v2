@@ -22,7 +22,7 @@
 //
 // Por isso `prepararRecuperacaoDeSenha()` roda em main.tsx, antes do render.
 import { clearSession } from "@/lib/api";
-import { isSupabase } from "@/lib/repositories";
+import { isMock, isSupabase } from "@/lib/repositories";
 import { getSupabase } from "@/lib/supabase";
 
 const LINK_INVALIDO =
@@ -100,7 +100,7 @@ export function recuperacaoEmAndamento(): EstadoRecuperacao | null {
 export async function prepararRecuperacaoDeSenha(): Promise<void> {
   // No modo Apps Script não existe recuperação por e-mail, e criar o cliente do
   // Supabase ali não faria sentido nenhum.
-  if (!isSupabase) return;
+  if (!isSupabase && !isMock) return;
 
   let pedido: PedidoDeRecuperacao | null = null;
   try {
@@ -117,6 +117,15 @@ export async function prepararRecuperacaoDeSenha(): Promise<void> {
 
   if (pedido.tipo === "erro") {
     estado = { tela: "recuperar", erro: pedido.mensagem };
+    normalizarEndereco();
+    return;
+  }
+
+  // Modo de demonstração: não há token de verdade. O link que o mock escreve no
+  // console (`?recuperar=1&code=mock`) vale como link válido; a senha nova só é
+  // aceita se um pedido de recuperação foi feito antes (ver mock/acesso.ts).
+  if (isMock) {
+    estado = { tela: "novaSenha" };
     normalizarEndereco();
     return;
   }
