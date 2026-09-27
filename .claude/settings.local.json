@@ -40,7 +40,8 @@
       "Bash(git ls-remote *)",
       "Bash(git add *)",
       "Bash(git commit -m ' *)",
-      "Bash(git push *)"
+      "Bash(git push *)",
+      "mcp__Claude_Code_Remote__read_documentation"
     ]
   }
 }

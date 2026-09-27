@@ -3,6 +3,7 @@ import { Bell, BellOff, Send, Loader2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { data, isSupabase } from "@/lib/repositories";
 import { toast } from "sonner";
+import { mensagemDeErro } from "@/lib/erros";
 
 interface AlertConfig {
   active: boolean;
@@ -67,8 +68,8 @@ const AlertConfigPanel = () => {
     try {
       await data.alerts.saveAlertConfig(config, user);
       toast.success("Configuração salva!");
-    } catch (e: any) {
-      toast.error(e.message || "Erro ao salvar.");
+    } catch (e) {
+      toast.error(mensagemDeErro(e, "Erro ao salvar."));
     }
     setSaving(false);
   }
@@ -82,8 +83,8 @@ const AlertConfigPanel = () => {
     try {
       await data.alerts.testAlertEmail(user);
       toast.success("E-mail de teste enviado!");
-    } catch (e: any) {
-      toast.error(e.message || "Erro ao enviar e-mail de teste.");
+    } catch (e) {
+      toast.error(mensagemDeErro(e, "Erro ao enviar e-mail de teste."));
     }
     setTesting(false);
   }

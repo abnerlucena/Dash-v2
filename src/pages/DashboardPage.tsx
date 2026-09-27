@@ -1,6 +1,7 @@
 import { useState, useMemo, Fragment } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import type { EChartsOption } from "echarts";
+import { numeroDoItem, primeiroItem, tuplaNumerica } from "@/lib/chart-params";
 import { BarChart3, TrendingUp, Factory, Activity, ClipboardEdit, FileText, ChevronDown, ChevronUp } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -275,8 +276,8 @@ const DashboardPage = () => {
         trigger: "item",
         backgroundColor: "#fff", borderColor: "#D0DEE8", borderWidth: 1, borderRadius: 8,
         textStyle: { color: "#2D3E4E", fontSize: 12 }, confine: true,
-        formatter: (params: any) => {
-          const [dIdx, mIdx, pct] = params.data as number[];
+        formatter: (params: unknown) => {
+          const [dIdx, mIdx, pct] = tuplaNumerica(primeiroItem(params).data);
           return `<strong>${heatmapMachines[mIdx]}</strong><br/>${WDAYS[dIdx]}: <strong>${pct}%</strong> da meta`;
         },
       },
@@ -290,7 +291,7 @@ const DashboardPage = () => {
       series: [{
         type: "heatmap",
         data: heatmapData.map(d => [d.dayIdx, d.machIdx, d.pct]),
-        label: { show: true, fontSize: 10, formatter: (p: any) => p.value[2] > 0 ? `${p.value[2]}%` : "" },
+        label: { show: true, fontSize: 10, formatter: (p: unknown) => numeroDoItem(primeiroItem(p).value, 2) > 0 ? `${numeroDoItem(primeiroItem(p).value, 2)}%` : "" },
         emphasis: { itemStyle: { shadowBlur: 10, shadowColor: "rgba(0,0,0,0.2)" } },
       }],
     };

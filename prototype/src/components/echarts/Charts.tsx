@@ -1,7 +1,8 @@
 import { useCallback, useMemo } from "react";
 import { STATUS_META, type Machine, type plantSeries } from "@/data/machines";
 import { formatCompact, formatLongDate, formatNumber, formatShortDate, readToken } from "@/lib/utils";
-import { axisStyle, baseOption, EChart, tooltipBase, tooltipHtml, tooltipText, useChartTheme, type TooltipRow } from "./EChart";
+import { EChart } from "./EChart";
+import { axisStyle, baseOption, tooltipBase, tooltipHtml, tooltipText, useChartTheme, type TooltipRow } from "./chartTheme";
 
 /*
  * Gráficos do Dash em Apache ECharts. Este módulo é carregado sob demanda

@@ -6,7 +6,8 @@
 //
 // As respostas mantêm o formato das respostas do Apps Script, para que as
 // telas não precisem ser reescritas agora.
-import type { Session, Machine, Holiday, ProdRecord, OrdemProducao } from "@/lib/api";
+import type { Session, Machine, Holiday, ProdRecord, OrdemProducao } from "../api";
+import type { BaseDaMeta } from "../metas";
 
 export type DataSourceKind = "gas" | "supabase";
 
@@ -14,6 +15,11 @@ export interface MetaInfoRaw {
   updatedBy: string;
   updatedAt: string;
   vigenciaInicio: string;
+  /**
+   * Como ler o número da meta (D39, D47). Só o modo Supabase informa; vazio se
+   * comporta como `per_shift`. As três regras estão em `src/lib/metas.ts`.
+   */
+  basis?: BaseDaMeta;
 }
 
 export interface LoginResponse {
@@ -105,6 +111,18 @@ export interface DataSource {
      * válido. Devolve a função que para de vigiar. No GAS não faz nada.
      */
     watchSession(onChange: (session: Session | null) => void): () => void;
+    /**
+     * Pede o e-mail de recuperação de senha. Não diz se o e-mail existe ou
+     * não: responder "essa conta não existe" contaria a estranhos quem tem
+     * conta no sistema. A mensagem é sempre a mesma.
+     * No GAS não existe recuperação — avisa para procurar o administrador.
+     */
+    requestPasswordReset(email: string): Promise<void>;
+    /**
+     * Define a senha nova. Só funciona logo depois de abrir o link do e-mail,
+     * porque é o link que cria a sessão temporária de recuperação.
+     */
+    setNewPassword(newPassword: string): Promise<void>;
   };
 
   production: {

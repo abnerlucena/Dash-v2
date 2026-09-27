@@ -4,6 +4,7 @@ import { X, ChevronLeft, ChevronRight, TrendingUp, TrendingDown, Minus, AlertTri
 import WEGLogo from "./WEGLogo";
 import { pctColor } from "@/lib/api";
 import type { EChartsOption } from "echarts";
+import { itemDaSerie, numeroDoItem, primeiroItem, tuplaNumerica } from "@/lib/chart-params";
 
 // ─── Constants ─────────────────────────────────────────────────────────────────
 const SLIDE_DURATION_MS = 8000;
@@ -42,6 +43,20 @@ export interface TVModeProps {
 }
 
 // ─── Dark ECharts theme helpers ─────────────────────────────────────────────────
+// As APIs de tela cheia com prefixo de fabricante não existem no DOM tipado:
+// Safari usa `webkit`, Firefox antigo `moz`, IE `ms`. Declarar como opcional é o
+// que permite testar a existência antes de chamar, sem `any`.
+type ElementoTelaCheia = HTMLElement & {
+  webkitRequestFullscreen?: () => void;
+  mozRequestFullScreen?: () => void;
+  msRequestFullscreen?: () => void;
+};
+type DocumentoTelaCheia = Document & {
+  webkitExitFullscreen?: () => void;
+  mozCancelFullScreen?: () => void;
+  msExitFullscreen?: () => void;
+};
+
 const darkTooltip = {
   backgroundColor: "rgba(0,15,40,0.95)",
   borderColor: "#0066B3",
@@ -60,7 +75,10 @@ function tvHBarOption(data: HBarPoint[]): EChartsOption {
     backgroundColor: "transparent",
     tooltip: {
       ...darkTooltip, trigger: "axis", axisPointer: { type: "shadow" },
-      formatter: (params: any) => `<strong>${params[0].name}</strong><br/>${params[0].value}% da meta`,
+      formatter: (params: unknown) => {
+        const d = primeiroItem(params);
+        return `<strong>${d.name}</strong><br/>${numeroDoItem(d.value)}% da meta`;
+      },
     },
     grid: { top: 12, right: 90, bottom: 12, left: 12, containLabel: true },
     xAxis: {
@@ -68,7 +86,7 @@ function tvHBarOption(data: HBarPoint[]): EChartsOption {
       axisLabel: { ...darkAxisLabel, formatter: "{value}%" },
       splitLine: darkSplitLine,
       axisLine: darkAxisLine,
-      max: (v: any) => Math.max(v.max * 1.1, 115),
+      max: (v: { max: number }) => Math.max(v.max * 1.1, 115),
     },
     yAxis: {
       type: "category",
@@ -88,7 +106,7 @@ function tvHBarOption(data: HBarPoint[]): EChartsOption {
       })),
       label: {
         show: true, position: "right",
-        formatter: (p: any) => `${p.value}%`,
+        formatter: (p: unknown) => `${numeroDoItem(primeiroItem(p).value)}%`,
         fontSize: 14, color: "#fff", fontWeight: "bold",
       },
     }],
@@ -216,8 +234,8 @@ function tvHeatmapOption(data: HeatmapPoint[], machineNames: string[]): EChartsO
     backgroundColor: "transparent",
     tooltip: {
       ...darkTooltip, trigger: "item",
-      formatter: (params: any) => {
-        const [dIdx, mIdx, pct] = params.data as number[];
+      formatter: (params: unknown) => {
+        const [dIdx, mIdx, pct] = tuplaNumerica(primeiroItem(params).data);
         return `<strong>${machineNames[mIdx]}</strong><br/>${WDAYS[dIdx]}: <strong style="color:#4DB8FF">${pct}%</strong> da meta`;
       },
     },
@@ -231,7 +249,7 @@ function tvHeatmapOption(data: HeatmapPoint[], machineNames: string[]): EChartsO
     series: [{
       type: "heatmap",
       data: data.map(d => [d.dayIdx, d.machIdx, d.pct]),
-      label: { show: true, fontSize: 12, fontWeight: "bold", formatter: (p: any) => p.value[2] > 0 ? `${p.value[2]}%` : "" },
+      label: { show: true, fontSize: 12, fontWeight: "bold", formatter: (p: unknown) => numeroDoItem(primeiroItem(p).value, 2) > 0 ? `${numeroDoItem(primeiroItem(p).value, 2)}%` : "" },
       emphasis: { itemStyle: { shadowBlur: 12, shadowColor: "rgba(0,0,0,0.4)" } },
     }],
   };
@@ -243,11 +261,11 @@ function tvParetoOption(data: ParetoPoint[]): EChartsOption {
     backgroundColor: "transparent",
     tooltip: {
       ...darkTooltip, trigger: "axis", axisPointer: { type: "cross" },
-      formatter: (params: any) => {
-        const bar = params.find((p: any) => p.seriesName === "Gap");
-        const line = params.find((p: any) => p.seriesName === "% Acum");
+      formatter: (params: unknown) => {
+        const bar = itemDaSerie(params, "Gap");
+        const line = itemDaSerie(params, "% Acum");
         if (!bar) return "";
-        return `<strong>${bar.name}</strong><br/>Gap: ${bar.value.toLocaleString("pt-BR")} pç<br/>Acumulado: ${line?.value ?? 0}%`;
+        return `<strong>${bar.name}</strong><br/>Gap: ${numeroDoItem(bar.value).toLocaleString("pt-BR")} pç<br/>Acumulado: ${numeroDoItem(line?.value)}%`;
       },
     },
     legend: { data: ["Gap", "% Acum"], top: 4, textStyle: { color: "rgba(255,255,255,0.8)", fontSize: 13 } },
@@ -272,7 +290,7 @@ function tvParetoOption(data: ParetoPoint[]): EChartsOption {
         data: data.map(d => d.cumPct),
         lineStyle: { color: "#4DB8FF", width: 3 }, itemStyle: { color: "#4DB8FF" },
         symbol: "circle", symbolSize: 8,
-        label: { show: true, position: "top", color: "#4DB8FF", fontSize: 12, fontWeight: "bold", formatter: (p: any) => `${p.value}%` },
+        label: { show: true, position: "top", color: "#4DB8FF", fontSize: 12, fontWeight: "bold", formatter: (p: unknown) => `${numeroDoItem(primeiroItem(p).value)}%` },
       },
     ],
   };
@@ -656,10 +674,11 @@ const TVMode = ({
     const el = containerRef.current;
     if (el) {
       try {
-        if      (el.requestFullscreen)              el.requestFullscreen();
-        else if ((el as any).webkitRequestFullscreen) (el as any).webkitRequestFullscreen();
-        else if ((el as any).mozRequestFullScreen)    (el as any).mozRequestFullScreen();
-        else if ((el as any).msRequestFullscreen)     (el as any).msRequestFullscreen();
+        const alvo = el as ElementoTelaCheia;
+        if      (alvo.requestFullscreen)          alvo.requestFullscreen();
+        else if (alvo.webkitRequestFullscreen)    alvo.webkitRequestFullscreen();
+        else if (alvo.mozRequestFullScreen)       alvo.mozRequestFullScreen();
+        else if (alvo.msRequestFullscreen)        alvo.msRequestFullscreen();
       } catch { /* browser may deny — silently ignore */ }
     }
 
@@ -704,10 +723,11 @@ const TVMode = ({
   // ── Close: exit native fullscreen, then notify parent ───────────────────────
   function handleClose() {
     try {
-      if      (document.exitFullscreen)               document.exitFullscreen();
-      else if ((document as any).webkitExitFullscreen)  (document as any).webkitExitFullscreen();
-      else if ((document as any).mozCancelFullScreen)   (document as any).mozCancelFullScreen();
-      else if ((document as any).msExitFullscreen)      (document as any).msExitFullscreen();
+      const doc = document as DocumentoTelaCheia;
+      if      (doc.exitFullscreen)        doc.exitFullscreen();
+      else if (doc.webkitExitFullscreen)  doc.webkitExitFullscreen();
+      else if (doc.mozCancelFullScreen)   doc.mozCancelFullScreen();
+      else if (doc.msExitFullscreen)      doc.msExitFullscreen();
     } catch { /* ignore */ }
     onClose();
   }

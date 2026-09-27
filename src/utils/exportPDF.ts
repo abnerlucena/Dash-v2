@@ -1,5 +1,15 @@
+import type { jsPDF } from "jspdf";
 import type { ProdRecord, Holiday } from "@/lib/api";
 import { dispD, pctColor } from "@/lib/api";
+
+// O jsPDF-autotable acrescenta `lastAutoTable` ao documento em tempo de
+// execução, e o `internal` do jsPDF não é tipado por completo. Declarar só o que
+// se usa evita o `any` e documenta a dependência.
+type DocumentoComTabela = jsPDF & {
+  lastAutoTable?: { finalY: number };
+  internal: jsPDF["internal"] & { getNumberOfPages: () => number };
+};
+
 
 export interface PDFFilters {
   dateFrom: string;
@@ -256,7 +266,7 @@ export async function exportToPDF(
         }
       },
     });
-    cursorY = (doc as any).lastAutoTable?.finalY ?? cursorY;
+    cursorY = (doc as DocumentoComTabela).lastAutoTable?.finalY ?? cursorY;
   }
 
   // ── Turnos breakdown table ────────────────────────────────────
@@ -297,7 +307,7 @@ export async function exportToPDF(
   }
 
   // ── Footer on each page ──────────────────────────────────────
-  const totalPages = (doc as any).internal.getNumberOfPages();
+  const totalPages = (doc as DocumentoComTabela).internal.getNumberOfPages();
   for (let p = 1; p <= totalPages; p++) {
     doc.setPage(p);
     doc.setFontSize(7);

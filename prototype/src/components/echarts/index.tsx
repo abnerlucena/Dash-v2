@@ -1,7 +1,6 @@
 import { lazy, Suspense, type ComponentProps } from "react";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/Feedback";
-import type { LegendItem } from "@/components/data/Chart";
 
 /*
  * Porta de entrada dos gráficos. O ECharts (~180 KB comprimido) fica num
@@ -76,15 +75,3 @@ export function HBars(props: ComponentProps<typeof LazyHBars>) {
 }
 
 export type { ComboSeries, HBarItem } from "./Charts";
-
-/* Legendas em HTML (acima do gráfico): o formato espelha a marca */
-export const BURNUP_LEGEND: LegendItem[] = [
-  { label: "Realizado acumulado", shape: "line", colorClass: "bg-chart-brand" },
-  { label: "Meta acumulada", shape: "dashed", colorClass: "border-chart-target" },
-];
-
-export const DAILY_LEGEND: LegendItem[] = [
-  { label: "Acima da meta diária", shape: "rect", colorClass: "bg-chart-brand" },
-  { label: "Abaixo da meta diária", shape: "rect", colorClass: "bg-chart-neutral" },
-  { label: "Meta diária", shape: "dashed", colorClass: "border-chart-target" },
-];

@@ -4,12 +4,15 @@ import { useAuth, type OrdemProducao } from "@/contexts/AuthContext";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { TURNOS, today, pctColor } from "@/lib/api";
 import { data, isSupabase } from "@/lib/repositories";
+import { metaDoTurno as calcularMeta, rotuloDaBase } from "@/lib/metas";
 import { toast } from "sonner";
 import { DatePickerInput } from "@/components/DatePickerInput";
 import { SelectDropdown } from "@/components/SelectDropdown";
 import OrdemProducaoInput from "@/components/OrdemProducaoInput";
+import { mensagemDeErro } from "@/lib/erros";
 
-// operadores: só no modo Supabase (D12); vazio = lotação padrão da máquina.
+// operadores: só no modo Supabase, e só nos postos onde a lotação muda a meta
+// (D47: A Granél e as horizontais). Vazio = lotação padrão da máquina (D12).
 interface EntryData { machineId: number; ordens: OrdemProducao[]; obs: string; operadores?: string; }
 
 // Static machine grouping — matched case-insensitively against backend names
@@ -23,7 +26,7 @@ const MACHINE_GROUPS: { id: string; label: string; names: string[] }[] = [
 
 const ProductionEntry = () => {
   const isMobile = useIsMobile();
-  const { user, machines, metas, silentRefresh } = useAuth();
+  const { user, machines, metas, metasInfo, silentRefresh } = useAuth();
 
   const [selectedDate, setSelectedDate]     = useState(today());
   const [selectedTurno, setSelectedTurno]   = useState(TURNOS[0]);
@@ -91,7 +94,11 @@ const ProductionEntry = () => {
   }
 
   function updateOperadores(machineId: number, value: string) {
-    const clean = value.replace(/D/g, "").slice(0, 3);
+    // `\D` = tudo que não é dígito. Antes estava `/D/`, que apagava só a letra
+    // "D" maiúscula e deixava passar o resto — o campo aceitava "abc" e o
+    // Number() virava NaN. Passou a importar de verdade quando a meta de A
+    // Granél começou a ser multiplicada por este número (D39).
+    const clean = value.replace(/\D/g, "").slice(0, 3);
     setEntries(prev => ({ ...prev, [machineId]: { ...prev[machineId], operadores: clean } }));
     setSaved(false);
   }
@@ -105,9 +112,25 @@ const ProductionEntry = () => {
     return (entries[machineId]?.ordens || []).reduce((s, o) => s + (o.quantidade || 0), 0);
   }
 
+  /**
+   * A meta do turno desta máquina. As três regras — fixa, rateada pela lotação
+   * e por pessoa — moram em src/lib/metas.ts, com teste. Aqui só se junta o que
+   * a tela sabe: a meta cadastrada, a base, as pessoas digitadas e a lotação
+   * padrão do posto.
+   */
+  function metaDoTurno(machineId: number) {
+    const machine = machines.find(m => m.id === machineId);
+    return calcularMeta({
+      cadastrada: metas[machineId] ?? machine?.defaultMeta ?? 0,
+      base: metasInfo[machineId]?.basis,
+      pessoas: entries[machineId]?.operadores,
+      lotacaoPadrao: machine?.standardOperatorCount ?? null,
+    });
+  }
+
   function getPct(machineId: number): number | null {
     const prod = getOrdemTotal(machineId);
-    const metaVal = metas[machineId] || 0;
+    const metaVal = metaDoTurno(machineId).valor || 0;
     if (!prod || !metaVal) return null;
     return Math.round((prod / metaVal) * 100);
   }
@@ -154,8 +177,8 @@ const ProductionEntry = () => {
       await data.production.saveEntries(records, isSupabase ? { workMode } : {}, user);
       saveOk = true;
       toast.success("Apontamento salvo com sucesso!");
-    } catch (e: any) {
-      toast.error(e.message || "Erro ao salvar");
+    } catch (e) {
+      toast.error(mensagemDeErro(e, "Erro ao salvar"));
     } finally {
       // Encerra o spinner imediatamente após o api() retornar — antes do silentRefresh
       setSaving(false); // P5: always reset, even on session expiry
@@ -180,7 +203,7 @@ const ProductionEntry = () => {
   function toggleGroup(groupId: string) {
     setCollapsedGroups(prev => {
       const next = new Set(prev);
-      next.has(groupId) ? next.delete(groupId) : next.add(groupId);
+      if (next.has(groupId)) next.delete(groupId); else next.add(groupId);
       return next;
     });
   }
@@ -300,8 +323,35 @@ const ProductionEntry = () => {
                     const entry    = entries[machine.id];
                     if (!entry) return null;
                     const hasObs   = entry.obs.trim() !== "";
-                    const metaVal  = metas[machine.id] || machine.defaultMeta;
+                    const meta     = metaDoTurno(machine.id);
                     const isFilled = entry.ordens.some(o => o.quantidade > 0);
+
+                    // Onde a lotação muda a meta, a conta aparece acontecendo:
+                    // A Granél "25.000 × 3 pessoas", horizontal "10.000 × 3 de 4".
+                    // Sem saber as pessoas, diz o que falta em vez de mentir.
+                    const pessoasTxt = `${meta.pessoas} ${meta.pessoas === 1 ? "pessoa" : "pessoas"}`;
+                    const contaTxt = meta.base === "per_operator"
+                      ? `${meta.cadastrada.toLocaleString("pt-BR")} × ${pessoasTxt}`
+                      // Sem lotação padrão cadastrada não há do que ratear: a meta
+                      // cheia é o melhor que se pode dizer, e a conta não aparece.
+                      : meta.lotacaoPadrao
+                        ? `${meta.cadastrada.toLocaleString("pt-BR")} com ${meta.lotacaoPadrao} · ${pessoasTxt} no turno`
+                        : `${pessoasTxt} no turno · lotação padrão não cadastrada`;
+                    const metaLabel = meta.dependeDaLotacao ? (
+                      meta.valor !== null ? (
+                        <>
+                          Meta: <strong>{meta.valor.toLocaleString("pt-BR")}</strong>{" "}
+                          <span className="text-muted-foreground/80">({contaTxt})</span>
+                        </>
+                      ) : (
+                        <>
+                          Meta: <strong>{meta.cadastrada.toLocaleString("pt-BR")}</strong>{" "}
+                          {rotuloDaBase(meta.base)} — informe o nº de operadores
+                        </>
+                      )
+                    ) : (
+                      <>Meta: <strong>{meta.valor && meta.valor > 0 ? meta.valor.toLocaleString("pt-BR") : "—"}</strong></>
+                    );
 
                     const addOrdemBtn = (
                       <button
@@ -316,13 +366,15 @@ const ProductionEntry = () => {
                       </button>
                     );
 
-                    const operadoresInput = isSupabase ? (
+                    // D47: nas outras máquinas quem dita o ritmo é a máquina, e
+                    // perguntar o nº de pessoas só ocuparia a tela do operador.
+                    const operadoresInput = isSupabase && meta.dependeDaLotacao ? (
                       <input
                         value={entry.operadores ?? ""}
                         onChange={e => updateOperadores(machine.id, e.target.value)}
                         inputMode="numeric"
                         placeholder="Nº oper."
-                        title="Nº de operadores no turno (vazio = lotação padrão)"
+                        title={`Nº de operadores neste posto no turno — muda a meta${meta.lotacaoPadrao ? ` (vazio = lotação padrão, ${meta.lotacaoPadrao})` : ""}`}
                         className="h-9 w-24 px-2 text-xs font-semibold rounded-md border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/30 placeholder:text-muted-foreground/50"
                         style={{ borderRadius: 6 }}
                       />
@@ -360,7 +412,7 @@ const ProductionEntry = () => {
                                 )}
                               </div>
                               <p className="text-[10px] text-muted-foreground mb-2.5">
-                                Meta: <strong>{metaVal > 0 ? metaVal.toLocaleString("pt-BR") : "—"}</strong>
+                                {metaLabel}
                               </p>
 
                               <OrdemProducaoInput ordens={entry.ordens} onChange={o => updateOrdens(machine.id, o)} />
@@ -378,7 +430,7 @@ const ProductionEntry = () => {
                               <div className="flex flex-col justify-center" style={{ flex: "0 0 55%", minWidth: 0 }}>
                                 <h4 className="text-xs font-bold text-foreground leading-tight truncate">{machine.name}</h4>
                                 <p className="text-[10px] text-muted-foreground mt-0.5">
-                                  Meta: <strong>{metaVal > 0 ? metaVal.toLocaleString("pt-BR") : "—"}</strong>
+                                  {metaLabel}
                                 </p>
                                 {pct !== null && (
                                   <span className="mt-1.5 self-start text-xs font-extrabold px-2.5 py-0.5 rounded-full"

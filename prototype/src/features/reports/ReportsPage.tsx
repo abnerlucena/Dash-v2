@@ -138,7 +138,9 @@ export function ReportsPage({ notify }: { notify: Notify }) {
   const setLine = (line: Line, on: boolean) =>
     setMachines((set) => {
       const next = new Set(set);
-      for (const m of lineMachines(line)) on ? next.add(m.id) : next.delete(m.id);
+      for (const m of lineMachines(line)) {
+        if (on) next.add(m.id); else next.delete(m.id);
+      }
       return next;
     });
 

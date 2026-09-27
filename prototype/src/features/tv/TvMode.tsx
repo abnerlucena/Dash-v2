@@ -21,9 +21,10 @@ import {
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { LINE_ACCENT, REFERENCE_DATE, SHIFTS, SHIFT_META, STATUS_META, plantSeries, statusFor, type Status } from "@/data/machines";
 import { cn, formatDecimal, formatNumber, formatShortDate, plural, readToken } from "@/lib/utils";
-import { BURNUP_LEGEND, BurnupChart, ShiftStackBars } from "@/components/echarts";
+import { BurnupChart, ShiftStackBars } from "@/components/echarts";
+import { BURNUP_LEGEND } from "@/components/echarts/legends";
 import { Legend, type LegendItem } from "@/components/data/Chart";
-import { SHIFT_FILL } from "@/components/data/StackedBar";
+import { SHIFT_FILL } from "@/components/data/shiftColors";
 import { IconButton } from "@/components/ui/Button";
 import { Lozenge } from "@/components/ui/Lozenge";
 import { Menu, MenuContent, MenuLabel, MenuRadioGroup, MenuRadioItem, MenuTrigger } from "@/components/ui/Menu";

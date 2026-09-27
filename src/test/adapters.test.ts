@@ -11,6 +11,7 @@ const baseRow: SummaryRow = {
   created_at: "2026-09-19T12:00:00Z", updated_at: "2026-09-19T12:00:00Z",
   good_quantity: 400, rework_quantity: 100, total_quantity: 500, order_count: 2,
   staffing_ratio: 1, adjusted_target: 500, is_excluded_day: false, counts_toward_target: true,
+  effective_target: 500, target_basis: "per_shift",
 };
 const orders: OrderRow[] = [
   { production_record_id: "r1", order_number: "000001004521", quantity: 400, is_rework: false, notes: null },
@@ -44,6 +45,37 @@ describe("adaptadores Supabase → formato das telas", () => {
     expect(anulado.isExcludedDay).toBe(true);
   });
 
+  it("meta por operador: usa a meta efetiva do turno, não a de cada pessoa (D39, D46)", () => {
+    // A Granél: 25.000 por pessoa, três pessoas na bancada. A view entrega a
+    // conta feita em effective_target; produção de 60.000 é 80% de 75.000 —
+    // antes daqui era comparada com 25.000 e dava 240%.
+    const [r] = buildProdRecords([{
+      ...baseRow, id: "r4", machine_id: 7, machine_name: "BANCADA EMBALAGEM A GRANÉL",
+      target_quantity: 25000, target_basis: "per_operator", operator_count: 3,
+      effective_target: 75000, good_quantity: 60000, rework_quantity: 0, total_quantity: 60000,
+    }], [], names);
+    expect(r.meta).toBe(75000);
+    expect(r.targetQuantity).toBe(75000);
+    expect(r.operatorCount).toBe(3);
+  });
+
+  it("meta rateada pela lotação: horizontal com 3 das 4 pessoas (D47)", () => {
+    // A conta é do banco (effective_target); aqui se garante que o adaptador
+    // usa esse número e não o cadastrado.
+    const [r] = buildProdRecords([{
+      ...baseRow, id: "r6", machine_name: "EMBALADORA HORIZONTAL N°1",
+      target_quantity: 10000, target_basis: "per_shift_prorated", operator_count: 3,
+      effective_target: 7500, good_quantity: 7000, rework_quantity: 0, total_quantity: 7000,
+    }], [], names);
+    expect(r.meta).toBe(7500);
+  });
+
+  it("banco sem a migration 0021: cai na meta crua, como era antes", () => {
+    // effective_target nulo = coluna que ainda não existe naquele banco.
+    const [r] = buildProdRecords([{ ...baseRow, id: "r5", effective_target: null }], [], names);
+    expect(r.meta).toBe(500);
+  });
+
   it("converte turno em id e recusa texto inválido", () => {
     expect(shiftIdFromTurno("TURNO 3")).toBe(3);
     expect(() => shiftIdFromTurno("NOITE")).toThrow();
@@ -58,7 +90,11 @@ describe("adaptadores Supabase → formato das telas", () => {
 
   it("traduz status de máquina e tipo de evento para os valores do legado", () => {
     expect(toMachine({ id: 1, name: "X", has_target: true, status: "inactive" }, 300))
-      .toEqual({ id: 1, name: "X", hasMeta: true, defaultMeta: 300, status: "inativo" });
+      .toEqual({ id: 1, name: "X", hasMeta: true, defaultMeta: 300, status: "inativo", standardOperatorCount: null });
+    // A lotação padrão é o divisor da meta rateada (D47): quando o banco a
+    // conhece, ela precisa chegar à tela.
+    expect(toMachine({ id: 2, name: "HORIZONTAL", has_target: true, status: "active", standard_operator_count: 4 }, 10000))
+      .toMatchObject({ standardOperatorCount: 4 });
     expect(holidayTypeToEventType("dia_anulado")).toBe("excluded_day");
     const h = toHoliday({
       id: "e1", event_date: "2026-12-25", description: "Natal", event_type: "holiday",

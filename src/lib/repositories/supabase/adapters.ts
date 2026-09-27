@@ -8,12 +8,17 @@
 //   • meta = 0 quando o apontamento NÃO conta para meta — hora extra (D27)
 //     ou dia/turno anulado (D16). Os gráficos já ignoram meta 0 no cálculo
 //     de atingimento; a produção continua somando no total.
-import type { Tables } from "@/lib/database.types";
-import type { Holiday, Machine, OrdemProducao, ProdRecord } from "@/lib/api";
+//   • meta = a meta EFETIVA do turno (`effective_target`, D39/D46): em A Granél
+//     a meta é por pessoa, e a view já entrega 25.000 × pessoas. Antes daqui
+//     passava o número cru, e três pessoas na bancada davam 300% de
+//     atingimento.
+import type { Tables } from "../../database.types";
+import type { Holiday, Machine, OrdemProducao, ProdRecord } from "../../api";
 
 export type SummaryRow = Tables<"production_summary">;
 export type OrderRow = Pick<Tables<"production_orders">, "production_record_id" | "order_number" | "quantity" | "is_rework" | "notes">;
-export type MachineRow = Pick<Tables<"machines">, "id" | "name" | "has_target" | "status">;
+export type MachineRow = Pick<Tables<"machines">, "id" | "name" | "has_target" | "status"> &
+  Partial<Pick<Tables<"machines">, "standard_operator_count">>;
 export type CalendarRow = Pick<Tables<"calendar_events">, "id" | "event_date" | "description" | "event_type" | "created_by" | "created_at"> & {
   calendar_event_shifts?: { shift_id: number }[] | null;
 };
@@ -51,7 +56,10 @@ export function toOrdens(orders: OrderRow[]): OrdemProducao[] {
 
 export function toProdRecord(row: SummaryRow, orders: OrderRow[], names: Map<string, string>): ProdRecord {
   const counts = row.counts_toward_target === true;
-  const target = row.target_quantity ?? 0;
+  // A meta efetiva já vem multiplicada pelas pessoas quando a base é por
+  // operador. O `??` cobre o banco que ainda não recebeu a migration 0021:
+  // ali a coluna não existe e vale o número cru, como era antes.
+  const target = row.effective_target ?? row.target_quantity ?? 0;
   const rec: ProdRecord = {
     id: row.id ?? undefined,
     date: row.production_date ?? "",
@@ -108,6 +116,8 @@ export function toMachine(row: MachineRow, target: number | undefined): Machine 
     hasMeta: row.has_target,
     defaultMeta: target ?? 0,
     status: MACHINE_STATUS_TO_LEGACY[row.status] ?? row.status,
+    // Lotação padrão do posto: é o divisor da meta rateada (D47).
+    standardOperatorCount: row.standard_operator_count ?? null,
   };
 }
 

@@ -1,7 +1,7 @@
 // ─── Apontamentos de produção ─────────────────────────────────
 // Leitura: view production_summary + production_orders.
 // Escrita: somente pelas funções do banco (RPC), que conferem permissões.
-import { getSupabase } from "@/lib/supabase";
+import { getSupabase } from "../../supabase";
 import type { DataSource } from "../types";
 import { buildProdRecords, shiftIdFromTurno, toOrdersJson, type OrderRow, type SummaryRow } from "./adapters";
 import { fetchAll, loadProfileNames, toError } from "./helpers";

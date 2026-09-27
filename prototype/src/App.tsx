@@ -28,7 +28,7 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { SHIFTS, SHIFT_META, type Shift } from "@/data/machines";
-import { SHIFT_FILL } from "@/components/data/StackedBar";
+import { SHIFT_FILL } from "@/components/data/shiftColors";
 import { Lozenge } from "@/components/ui/Lozenge";
 import { AppRoot, Banner, Main } from "@/components/layout/AppRoot";
 import { useLayout } from "@/components/layout/LayoutContext";
@@ -64,7 +64,8 @@ import { RankingPage } from "@/features/analysis/RankingPage";
 import { ReworkPage } from "@/features/analysis/ReworkPage";
 import { FeedbacksPage } from "@/features/feedbacks/FeedbacksPage";
 import { OpsPage } from "@/features/ops/OpsPage";
-import { OpsProvider, useOps } from "@/features/ops/OpsStore";
+import { useOps } from "@/features/ops/OpsStore";
+import { OpsProvider } from "@/features/ops/OpsProvider";
 import { ReportsPage } from "@/features/reports/ReportsPage";
 import { TvMode } from "@/features/tv/TvMode";
 import { HelpPage } from "@/features/help/HelpPage";

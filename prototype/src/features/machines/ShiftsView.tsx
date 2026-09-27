@@ -4,7 +4,8 @@ import { cn, formatNumber, plural } from "@/lib/utils";
 import { Legend } from "@/components/data/Chart";
 import { DataTable, type Column, type TableState } from "@/components/data/DataTable";
 import { KpiStrip, type KpiItem } from "@/components/data/KpiStrip";
-import { SHIFT_FILL, SHIFT_LEGEND, StackedBar } from "@/components/data/StackedBar";
+import { StackedBar } from "@/components/data/StackedBar";
+import { SHIFT_FILL, SHIFT_LEGEND } from "@/components/data/shiftColors";
 import { Skeleton } from "@/components/ui/Feedback";
 import { Lozenge } from "@/components/ui/Lozenge";
 

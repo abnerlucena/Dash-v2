@@ -1,6 +1,7 @@
 import { Info, X } from "lucide-react";
 import type { CSSProperties, ReactNode } from "react";
-import { LayoutProvider, useLayout } from "./LayoutContext";
+import { useLayout } from "./LayoutContext";
+import { LayoutProvider } from "./LayoutProvider";
 import { PANEL_SLOT_ID } from "./Panel";
 import { SIDE_NAV_ID } from "./SideNav";
 

@@ -1,8 +1,20 @@
 // ─── Implementação GAS (Google Apps Script) ───────────────────
 // Repassa cada operação para o api() atual com EXATAMENTE o mesmo payload que
 // as telas enviavam antes da camada de dados existir. É o modo padrão.
-import { api, type Session } from "@/lib/api";
+import { api, type Session } from "../api";
 import type { DataSource } from "./types";
+
+/**
+ * A sessão como o Apps Script devolve. `onboardingDone` chega como booleano ou
+ * como o texto "false" — a planilha não distingue os dois.
+ */
+type SessaoBrutaGas = {
+  token: string;
+  nome: string;
+  role: Session["role"];
+  expiresAt?: string;
+  onboardingDone?: boolean | string;
+};
 
 const toSession = (raw: { token: string; nome: string; role: Session["role"]; expiresAt?: string }): Session => ({
   token:     raw.token,
@@ -16,18 +28,27 @@ export const gasDataSource: DataSource = {
 
   auth: {
     async login(nome, senha) {
-      const r = await api("login", { nome, senha });
+      const r = await api<{ session: SessaoBrutaGas }>("login", { nome, senha });
       const onboardingPending = r.session.onboardingDone === false || r.session.onboardingDone === "false";
       return { session: toSession(r.session), onboardingDone: !onboardingPending };
     },
     async register({ nome, senha, inviteCode }) {
-      const r = await api("register", { nome, senha, inviteCode });
+      const r = await api<{ session: SessaoBrutaGas }>("register", { nome, senha, inviteCode });
       return { loggedIn: true, session: toSession(r.session), onboardingDone: true };
     },
     async logout() { /* sessão do GAS é só local: nada a fazer no servidor */ },
     async completeOnboarding(session) { await api("completeOnboarding", {}, session); },
     async isSessionValid() { return true; },
     watchSession() { return () => {}; },
+    // O Apps Script guarda a senha na própria planilha e não envia e-mail.
+    // Recuperar por conta própria não existe nesse modo, e fingir que existe
+    // seria pior do que dizer a verdade.
+    async requestPasswordReset() {
+      throw new Error("A recuperação de senha por e-mail ainda não existe neste modo. Fale com o administrador.");
+    },
+    async setNewPassword() {
+      throw new Error("A recuperação de senha por e-mail ainda não existe neste modo. Fale com o administrador.");
+    },
   },
 
   production: {

@@ -17,6 +17,117 @@ Formato de cada entrada:
 
 ---
 
+## [0.19.0] — 27/09/2026 — Onde a lotação muda a meta: granel e horizontais
+- Status: **Desenhado** — migration escrita e revisada, **ainda não aplicada** (o contêiner desta sessão não alcança o banco: a política de rede do ambiente nega o host do projeto). Aplicar pelo SQL Editor, junto com a 0021, na ordem.
+- Commit/PR: branch `claude/ui-oficial-transicao`
+- Migration: `supabase/migrations/20260927110000_meta_depende_da_lotacao.sql`
+- Decisões: D47 (nova), D39, D46, D12
+
+### O que o gestor esclareceu
+O nº de operadores do posto só muda a meta em **dois** lugares, e por motivos
+diferentes:
+
+| Posto | Por quê | Base |
+|---|---|---|
+| Bancada Embalagem A Granél | trabalho manual: cada pessoa embala | `per_operator` — 25.000 **por pessoa** |
+| Embaladoras Horizontais N°1 e N°2 | a linha precisa de 4 pessoas para render 10.000 no turno | `per_shift_prorated` — 10.000 **com a lotação padrão**, rateado |
+| todas as outras | o ritmo é da máquina; mais gente não faz sair mais peça | `per_shift` — fixa |
+
+Com 3 das 4 pessoas, a meta da horizontal passa a ser 7.500 — render isso é o
+esperado, não um fracasso. A conta é a que a **D12** já calculava em
+`adjusted_target` desde 20/09 e ninguém usava; agora vale como meta, **só onde a
+base disser**.
+
+### Alterado
+- `machine_targets.basis` e `production_records.target_basis` aceitam um terceiro valor, `per_shift_prorated`. As restrições de CHECK foram recriadas (nenhuma linha alterada) e agora têm nome explícito.
+- `production_summary.effective_target` resolve as três bases.
+- **`save_machine_targets` preserva a base** — ver abaixo.
+- Horizontais N°1 e N°2 recebem um **degrau novo** de meta a partir de hoje: mesmo número (10.000), base `per_shift_prorated`. Os turnos anteriores continuam lidos com a régua antiga (mesmo princípio da D46).
+
+### Corrigido: a tela de metas apagava a base, sem avisar
+`save_machine_targets` gravava a meta nova **sem** `basis`, e a coluna tem default
+`per_shift`. Bastava o gestor corrigir o número de A Granél na tela para o "por
+pessoa" virar "por turno" e o atingimento voltar a mentir — sem erro, sem aviso.
+A função passa a carregar a base que a máquina já tinha naquela data: **mudar o
+número nunca muda a regra de leitura**.
+
+### Impacto no frontend
+- `src/lib/metas.ts` (novo) — as três regras num lugar só, com teste (`src/test/metas.test.ts`, 9 casos). A D39 rejeitou "cada tela lembra da exceção"; este arquivo é o outro caminho.
+- `src/components/ProductionEntry.tsx` — o campo *nº de operadores* passa a aparecer **só** nos postos onde a lotação muda a meta, com a conta à vista (`10.000 com 4 · 3 pessoas no turno`).
+- `src/components/MetasTab.tsx` — as etiquetas agora são duas: **por pessoa** e **conforme a lotação**, cada uma com a sua explicação.
+- `machines.standard_operator_count` passa a chegar às telas (`Machine.standardOperatorCount`): é o divisor da meta rateada.
+
+---
+
+## [0.18.0] — 27/09/2026 — A meta por operador entra no cálculo
+- Status: **Desenhado** — a migration está escrita e revisada, mas **ainda não foi aplicada** no Supabase: o contêiner da sessão que a escreveu não alcança o banco. Aplicar `supabase/migrations/20260927100000_meta_por_operador.sql` pelo SQL Editor, **antes da 0.19.0**, e conferir com a consulta que está no fim do arquivo.
+- Commit/PR: branch `claude/ui-oficial-transicao`
+- Migration: `supabase/migrations/20260927100000_meta_por_operador.sql`
+- Decisões: D46 (nova), D39 (implementada agora no cálculo), D08, D12
+
+### O problema
+A Bancada Embalagem A Granél é medida em **25.000 peças por pessoa** no turno, e
+a meta dela já estava gravada assim desde 25/09 (`machine_targets.basis =
+'per_operator'`, 0.11.0). Só que **nada lia esse campo**: o apontamento copiava
+25.000 e o dashboard comparava a produção do turno inteiro com esse número. Três
+pessoas na bancada, 75.000 peças, apareciam como **300% de atingimento**.
+
+### Adicionado
+- `production_records.target_basis` — a base da meta **congelada no apontamento**, ao lado da meta que já era congelada (D08). Default `per_shift`, então nenhum apontamento que já existe mudou de comportamento.
+- `machine_target_basis_on(máquina, data)` — a base vigente numa data, com a mesma regra da `machine_target_on` (inclusive o caso D32, de datas anteriores ao histórico).
+- `production_summary.effective_target` — **a meta com que comparar a produção**: `per_shift` → a própria meta; `per_operator` → meta × pessoas do apontamento. É a coluna que as telas passaram a usar.
+- `production_summary.target_basis` — para quem lê a view saber como o número foi formado.
+
+### Alterado
+- `save_production_record` congela a base junto com a meta, na criação do apontamento.
+- `production_summary.adjusted_target` (a meta corrigida pela lotação, D12) estava errada para máquina por operador: a conta antiga — meta × pessoas ÷ lotação padrão — devolvia 25.000 de novo, porque a lotação real já está embutida na multiplicação. Agora repete a meta efetiva nesse caso.
+- Comentário da `machine_target_on` avisa que o número dela é cru e precisa ser lido junto com a base.
+
+### Não alterado, de propósito
+- **Nenhum apontamento existente.** Os 2.507 do histórico importado (D35) ficaram `per_shift`: a planilha nunca distinguiu meta por turno de meta por pessoa, e inventar a distinção mudaria a história com base num palpite. O atingimento histórico de A Granél segue inflado, e é reversível por `update` quando o gestor decidir. Ver D46.
+
+### Impacto no frontend
+- `src/lib/repositories/supabase/adapters.ts` — a meta do apontamento passa a vir de `effective_target`, com queda para `target_quantity` em banco que ainda não recebeu esta migration.
+- `src/lib/repositories/supabase/catalog.ts` + `types.ts` + `AuthContext.tsx` — `metasInfo` ganha `basis`, para as telas saberem quando o número é por pessoa.
+- `src/components/MetasTab.tsx` — as linhas por operador ganham a etiqueta **por pessoa**, e o rodapé explica o que isso muda.
+- `src/components/ProductionEntry.tsx` — a meta aparece com a conta acontecendo (`25.000 × 3 pessoas = 75.000`); sem o nº de operadores informado a tela pede o campo em vez de mostrar um número errado, e o % do turno não é calculado. Corrigido também um `replace(/D/g, ...)` que deveria ser `/\D/g`: o campo de operadores aceitava letras, e o valor virava `NaN` — passou a importar de verdade agora que a meta depende dele.
+- `src/lib/database.types.ts` — as três adições foram escritas **à mão** (sem acesso ao banco para regenerar); conferir na próxima regeneração.
+
+### Pendência que é dado, não código
+A lotação padrão de A Granél está cadastrada como **1 pessoa**. Enquanto for
+assim, apontamento sem operadores informados continua valendo 25.000. Ou a equipe
+informa as pessoas do turno, ou o gestor corrige a lotação padrão
+(`update machines set standard_operator_count = <n> where id = 7;`).
+
+---
+
+## [0.17.1] — 26/09/2026 — Recuperação de senha por e-mail
+- Status: **Implementado** no app. **Falta a configuração no painel do Supabase** (só o dono do projeto pode fazer) — ver "O que ainda falta" abaixo.
+- Commit/PR: branch `claude/ui-oficial-transicao`
+- Migration: **nenhuma — o schema não mudou.** A versão sobe só para registrar a mudança de configuração do projeto; quem conferir o banco não vai achar diferença nenhuma em relação à 0.17.0.
+- Decisões: D45 (nova), D44.1 (item 4 — era o único bloqueio para usar o sistema)
+
+### O que mudou
+Quem esquecia a senha no modo Supabase não tinha saída: a tela dizia "fale com o
+administrador", e o administrador também não podia fazer nada — o Supabase Auth
+guarda só o hash da senha. Agora existe recuperação por e-mail, usando o que o
+Supabase Auth já oferece (`resetPasswordForEmail` + `updateUser`): **sem tabela,
+função ou coluna nova**.
+
+### Impacto no frontend
+- `src/lib/repositories/types.ts` — a interface de dados ganha `requestPasswordReset` e `setNewPassword`.
+- `src/lib/repositories/supabase/auth.ts` — implementa as duas.
+- `src/lib/repositories/gas.ts` — responde com "fale com o administrador": no Apps Script não há e-mail.
+- `src/pages/LoginPage.tsx` — o cartão passa a ter quatro telas (entrar, criar conta, pedir o e-mail, definir a senha nova) e um link "Recuperar por e-mail" que só aparece no modo Supabase.
+- `src/lib/recovery.ts` (novo) + `src/main.tsx` — tratam a chegada pelo link antes de a tela montar. O app usa `HashRouter`, e o token do Supabase vem no hash, que é onde mora a rota: sem isso o link cairia na página "não encontrada". Testes em `src/test/recovery.test.ts`.
+
+### O que ainda falta (painel do Supabase, não versionável)
+1. **Authentication → URL Configuration:** incluir em *Site URL* e *Redirect URLs* os endereços do app (`http://localhost:8080/Dash-v2/*` e a URL publicada). Fora da lista, o Supabase devolve o link **sem** token e a tela mostra "o link expirou ou já foi usado".
+2. **Authentication → Emails → SMTP próprio:** o e-mail embutido do Supabase é de teste — poucos envios por hora e, em projetos novos, entrega só para os endereços da equipe do projeto. **Enquanto não houver SMTP, a recuperação não serve para a fábrica.**
+3. Opcional: traduzir o template *Reset Password* para português.
+
+---
+
 ## [0.17.0] — 26/09/2026 — Histórico carregado
 - Status: **Implementado** — aplicado no Supabase (projeto de testes) em 26/09/2026. O histórico real está no banco.
 - Commit/PR: PR #15

@@ -1,5 +1,5 @@
 // ─── Máquinas, metas e calendário ─────────────────────────────
-import { getSupabase } from "@/lib/supabase";
+import { getSupabase } from "../../supabase";
 import type { DataSource, MetaInfoRaw } from "../types";
 import { MACHINE_STATUS_TO_LEGACY, holidayTypeToEventType, toHoliday, toMachine, type CalendarRow } from "./adapters";
 import { loadProfileNames, toError } from "./helpers";
@@ -7,7 +7,7 @@ import { loadProfileNames, toError } from "./helpers";
 async function currentTargets() {
   const { data, error } = await getSupabase()
     .from("current_machine_targets")
-    .select("machine_id, quantity_per_shift, valid_from, created_by, created_at");
+    .select("machine_id, quantity_per_shift, valid_from, created_by, created_at, basis");
   if (error) throw toError(error);
   return data || [];
 }
@@ -16,7 +16,7 @@ export const supabaseMachines: DataSource["machines"] = {
   async getMachines() {
     const sb = getSupabase();
     const [{ data, error }, targets] = await Promise.all([
-      sb.from("machines").select("id, name, has_target, status").order("id"),
+      sb.from("machines").select("id, name, has_target, status, standard_operator_count").order("id"),
       currentTargets(),
     ]);
     if (error) throw toError(error);
@@ -56,6 +56,11 @@ export const supabaseTargets: DataSource["targets"] = {
         updatedBy: (t.created_by && names.get(t.created_by)) || "carga inicial",
         updatedAt: t.created_at ?? "",
         vigenciaInicio: t.valid_from ?? "",
+        // D39/D47: o número pode ser do turno, rateado pela lotação
+        // (horizontais) ou de cada pessoa (A Granél).
+        basis: t.basis === "per_operator" || t.basis === "per_shift_prorated"
+          ? t.basis
+          : "per_shift",
       };
     }
     return { metas, metasInfo };
