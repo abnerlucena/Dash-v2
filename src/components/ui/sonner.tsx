@@ -1,5 +1,5 @@
 import { useTheme } from "next-themes";
-import { Toaster as Sonner, toast } from "sonner";
+import { Toaster as Sonner } from "sonner";
 
 type ToasterProps = React.ComponentProps<typeof Sonner>;
 
@@ -24,4 +24,6 @@ const Toaster = ({ ...props }: ToasterProps) => {
   );
 };
 
-export { Toaster, toast };
+// Só o componente: quem precisa de `toast` importa de "sonner" direto, como
+// todas as telas já fazem. Reexportar aqui quebrava o recarregamento a quente.
+export { Toaster };

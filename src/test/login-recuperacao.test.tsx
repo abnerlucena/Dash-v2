@@ -31,7 +31,7 @@ vi.mock("@/lib/repositories", () => ({
 
 vi.mock("@/lib/recovery", () => ({ recuperacaoEmAndamento }));
 
-import { AuthProvider } from "@/contexts/AuthContext";
+import { AuthProvider } from "@/contexts/AuthProvider";
 import LoginPage from "@/pages/LoginPage";
 
 function montar() {

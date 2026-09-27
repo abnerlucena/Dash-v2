@@ -2,7 +2,6 @@ import { CircleCheck, Pause, Play, Send } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { isReadyToClose, type WorkOrder } from "@/data/machines";
 import { formatNumber, type Notify } from "@/lib/utils";
-import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
 import { TextArea } from "@/components/ui/TextField";
 import { useOps } from "./OpsStore";
@@ -154,20 +153,3 @@ export function useOpActions(notify: Notify) {
 }
 
 /** Botões das ações (a sugerida em destaque) */
-export function OpActionButtons({ actions, compact }: { actions: OpAction[]; compact?: boolean }) {
-  return (
-    <>
-      {actions.map((a) => (
-        <Button
-          key={a.id}
-          appearance={a.isPrimary ? "primary" : "default"}
-          spacing={compact ? "compact" : "default"}
-          iconBefore={a.icon}
-          onClick={a.run}
-        >
-          {a.label}
-        </Button>
-      ))}
-    </>
-  );
-}

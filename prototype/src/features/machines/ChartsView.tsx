@@ -3,17 +3,16 @@ import { DATA_END, SHIFTS, STATUS_META, plantSeries, workingDatesIn, type DateRa
 import { formatDecimal, formatLongDate, formatNumber, formatShortDate, plural } from "@/lib/utils";
 import { ChartCard, MiniTable, type LegendItem } from "@/components/data/Chart";
 import { KpiStrip, type KpiItem } from "@/components/data/KpiStrip";
-import { SHIFT_FILL } from "@/components/data/StackedBar";
+import { SHIFT_FILL } from "@/components/data/shiftColors";
 import {
   AttainmentBars,
-  BURNUP_LEGEND,
   BurnupChart,
   ComboChart,
-  DAILY_LEGEND,
   DailyColumns,
   HBars,
   type ComboSeries,
 } from "@/components/echarts";
+import { BURNUP_LEGEND, DAILY_LEGEND } from "@/components/echarts/legends";
 import { useOps } from "@/features/ops/OpsStore";
 import { REWORK_LIMIT, SHIFT_NAMES, insights } from "./insights";
 

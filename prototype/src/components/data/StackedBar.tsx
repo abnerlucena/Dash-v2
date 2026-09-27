@@ -1,20 +1,7 @@
 import { SHIFTS, SHIFT_META, type Shift } from "@/data/machines";
+import { SHIFT_FILL } from "./shiftColors";
 import { cn, formatNumber } from "@/lib/utils";
 import { Tooltip } from "@/components/ui/Tooltip";
-import type { LegendItem } from "./Chart";
-
-/** Cor fixa por turno (paleta categórica validada) — a cor segue a entidade, nunca a posição */
-export const SHIFT_FILL: Record<Shift, string> = {
-  1: "bg-chart-categorical-1",
-  2: "bg-chart-categorical-2",
-  3: "bg-chart-categorical-3",
-};
-
-export const SHIFT_LEGEND: LegendItem[] = SHIFTS.map((s) => ({
-  label: `${SHIFT_META[s].label} · ${SHIFT_META[s].hours}`,
-  shape: "rect",
-  colorClass: SHIFT_FILL[s],
-}));
 
 interface StackedBarProps {
   values: Record<Shift, number>;
