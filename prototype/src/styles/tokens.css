@@ -173,11 +173,13 @@
   --dash-size-menu-min: 12rem; /* 192px */
   --dash-size-popover: 22.5rem; /* 360px */
   --dash-size-inbox: 24rem; /* 384px: lista de conversas (Feedbacks) */
+  --dash-size-range-presets: 12rem; /* 192px: coluna de atalhos do seletor de período */
   --dash-size-chat: 40rem; /* 640px: altura da conversa no desktop */
   --dash-size-bubble: 36rem; /* 576px: largura máxima de uma mensagem */
   --dash-size-flag: 22.5rem; /* 360px */
   --dash-size-tooltip-max: 15rem; /* 240px */
   --dash-size-column-name: 12.5rem; /* 200px */
+  --dash-size-column-text: 10rem; /* 160px: texto secundário truncado em tabelas (material, observação) */
   --dash-size-content-max: 125rem; /* 2000px */
   --dash-size-kbd: 1.25rem; /* 20px */
   --dash-size-modal: 30rem; /* 480px */

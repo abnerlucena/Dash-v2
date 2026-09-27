@@ -1,14 +1,22 @@
-import { ClipboardList, Download, FileSpreadsheet, FileText, RotateCcw, Target, type LucideIcon } from "lucide-react";
-import { useMemo, useState } from "react";
+import { Check, ChevronDown, ClipboardList, Download, FileSpreadsheet, FileText, RotateCcw, Search, Target, type LucideIcon } from "lucide-react";
+import { useMemo, useState, type ReactNode } from "react";
 import {
   ALL_ORDERS,
+  DATA_END,
+  DATA_START,
+  LINES,
+  LINE_ACCENT,
   MACHINES,
+  MONTH_RANGE,
   SHIFTS,
   SHIFT_META,
   machineById,
+  workingDatesIn,
+  type DateRange,
+  type Line,
   type ProductionOrder,
 } from "@/data/machines";
-import { cn, formatNumber, readToken, saveFile, type Notify } from "@/lib/utils";
+import { cn, formatNumber, saveFile, type Notify } from "@/lib/utils";
 import { DataTable, type Column } from "@/components/data/DataTable";
 import { PageBody, PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/Button";
@@ -16,9 +24,11 @@ import { Checkbox } from "@/components/ui/Checkbox";
 import { Lozenge } from "@/components/ui/Lozenge";
 import { WegMark } from "@/components/ui/Misc";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
-import { DateField } from "@/components/ui/DateField";
+import { DateRangePicker } from "@/components/ui/DateRangePicker";
+import { Tag } from "@/components/ui/Tag";
+import { TextField } from "@/components/ui/TextField";
+import { buildReportPdf, scopedTarget, type ReportType } from "./reportPdf";
 
-type ReportType = "production" | "entries" | "rework" | "metas";
 const TYPES: Record<ReportType, { title: string; description: string; icon: LucideIcon }> = {
   production: { title: "Produção mensal", description: "Indicadores e resumo por máquina", icon: FileText },
   entries: { title: "Apontamentos detalhados", description: "Todas as OPs, com operador e observação", icon: ClipboardList },
@@ -34,22 +44,44 @@ interface Generated {
   format: "PDF" | "CSV";
   createdAt: Date;
   size: string;
+  /** arquivo gerado nesta sessão (os exemplos da lista não têm) */
+  file?: { blob: Blob; filename: string };
 }
+const sizeLabel = (b: Blob) => `${Math.max(1, Math.round(b.size / 1024))} KB`;
 const dateTime = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
-const br = (iso: string) => iso.split("-").reverse().join("/");
+const br = (d: Date) => d.toLocaleDateString("pt-BR");
+const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+const endOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1);
+
+/** Etapa numerada do formulário: cartão com título e conteúdo */
+function Step({ n, title, hint, children }: { n: number; title: string; hint?: string; children: ReactNode }) {
+  return (
+    <fieldset className="flex min-w-0 flex-col gap-200 rounded-large bg-surface-raised p-250 shadow-raised">
+      <legend className="float-left flex w-full items-start gap-150">
+        <span aria-hidden className="flex size-300 shrink-0 items-center justify-center rounded-full bg-brand-bold font-body-small font-semibold text-inverse">
+          {n}
+        </span>
+        <span className="flex min-w-0 flex-col">
+          <span className="font-heading-small text-default">{title}</span>
+          {hint && <span className="font-body-small text-subtlest">{hint}</span>}
+        </span>
+      </legend>
+      {children}
+    </fieldset>
+  );
+}
 
 /** CSV real: separador ";" e BOM, como o Excel em pt-BR espera */
-function downloadCsv(orders: ProductionOrder[], filename: string) {
-  return saveFile(filename, new Blob(["\uFEFF" + toCsv(orders)], { type: "text/csv;charset=utf-8" }));
-}
+const csvBlob = (orders: ProductionOrder[]) => new Blob(["\uFEFF" + toCsv(orders)], { type: "text/csv;charset=utf-8" });
 
 function toCsv(orders: ProductionOrder[]) {
-  const header = ["Data", "Máquina", "Turno", "OP", "Produto", "Quantidade", "Retrabalho", "Motivo", "Operador", "Observação"];
+  const header = ["Data", "Máquina", "Turno", "OP", "Material", "Descrição do material", "Quantidade", "Retrabalho", "Motivo", "Operador", "Observação"];
   const rows = orders.map((o) => [
     o.date.toLocaleDateString("pt-BR"),
     machineById(o.machineId).name,
     SHIFT_META[o.shift].label,
     o.opId.replace("OP ", ""),
+    o.material,
     o.product,
     String(o.quantity),
     o.rework ? "Sim" : "Não",
@@ -62,37 +94,38 @@ function toCsv(orders: ProductionOrder[]) {
 
 export function ReportsPage({ notify }: { notify: Notify }) {
   const [type, setType] = useState<ReportType>("production");
-  const [from, setFrom] = useState("2026-03-01");
-  const [to, setTo] = useState("2026-03-27");
+  const [range, setRange] = useState<DateRange>({ from: DATA_START, to: DATA_END });
   const [machines, setMachines] = useState<Set<string>>(new Set(MACHINES.map((m) => m.id)));
   const [shifts, setShifts] = useState<Set<number>>(new Set(SHIFTS));
   const [format, setFormat] = useState<"PDF" | "CSV">("PDF");
   const [sections, setSections] = useState<Set<string>>(new Set(SECTIONS.slice(0, 3)));
   const [generating, setGenerating] = useState(false);
   const [showErrors, setShowErrors] = useState(false);
+  // Máquinas: linhas abertas para escolher uma a uma, e busca por nome
+  const [openLines, setOpenLines] = useState<Set<Line>>(new Set());
+  const [query, setQuery] = useState("");
   const [generated, setGenerated] = useState<Generated[]>([
     { id: "g2", name: "Produção mensal · fevereiro", period: "01/02/2026 a 27/02/2026", format: "PDF", createdAt: new Date(2026, 2, 2, 8, 30), size: "412 KB" },
     { id: "g1", name: "Apontamentos detalhados · fevereiro", period: "01/02/2026 a 27/02/2026", format: "CSV", createdAt: new Date(2026, 2, 2, 8, 31), size: "38 KB" },
   ]);
 
-  const periodError = from > to ? "A data inicial precisa ser antes da final" : null;
   const machinesError = machines.size === 0 ? "Escolha pelo menos uma máquina" : null;
   const shiftsError = shifts.size === 0 ? "Escolha pelo menos um turno" : null;
-  const hasErrors = !!(periodError || machinesError || shiftsError);
+  const hasErrors = !!(machinesError || shiftsError);
 
   const orders = useMemo(
-    () =>
-      ALL_ORDERS.filter((o) => {
-        const iso = `2026-03-${String(o.date.getDate()).padStart(2, "0")}`;
-        return iso >= from && iso <= to && machines.has(o.machineId) && shifts.has(o.shift);
-      }),
-    [from, to, machines, shifts],
+    () => ALL_ORDERS.filter((o) => o.date >= range.from && o.date < endOfDay(range.to) && machines.has(o.machineId) && shifts.has(o.shift)),
+    [range, machines, shifts],
   );
   const produced = orders.reduce((s, o) => s + o.quantity, 0);
   const reworkQty = orders.filter((o) => o.rework).reduce((s, o) => s + o.quantity, 0);
   const chosen = MACHINES.filter((m) => machines.has(m.id));
-  const target = chosen.reduce((s, m) => s + m.target, 0) * (shifts.size / 3);
-  const name = `${TYPES[type].title} · ${br(from)} a ${br(to)}`;
+  const workingDays = workingDatesIn(range).length;
+  // Meta do recorte: só os turnos escolhidos em que cada máquina trabalha, proporcional aos dias úteis do período
+  const target = chosen.reduce((s, m) => s + scopedTarget(m, [...shifts], workingDays), 0);
+  const producedWithTarget = orders.filter((o) => machineById(o.machineId).hasTarget).reduce((s, o) => s + o.quantity, 0);
+  const period = `${br(range.from)} a ${br(range.to)}`;
+  const name = `${TYPES[type].title} · ${period}`;
 
   const toggle = <T,>(set: Set<T>, value: T) => {
     const next = new Set(set);
@@ -100,32 +133,49 @@ export function ReportsPage({ notify }: { notify: Notify }) {
     else next.add(value);
     return next;
   };
+  const q = query.trim().toLowerCase();
+  const lineMachines = (line: Line) => MACHINES.filter((m) => m.line === line);
+  const setLine = (line: Line, on: boolean) =>
+    setMachines((set) => {
+      const next = new Set(set);
+      for (const m of lineMachines(line)) on ? next.add(m.id) : next.delete(m.id);
+      return next;
+    });
 
-  const generate = () => {
+  const generate = async () => {
     if (hasErrors) {
       setShowErrors(true);
       notify("Revise as opções do relatório", "Há campos que precisam de ajuste.", "error");
       return;
     }
     setGenerating(true);
-    window.setTimeout(() => {
+    const filename = `dash-producao-${type}-${iso(range.from)}-a-${iso(range.to)}.${format === "PDF" ? "pdf" : "csv"}`;
+    try {
+      // PDF de verdade (jsPDF, carregado sob demanda) ou CSV; o arquivo fica na lista para baixar de novo
+      const blob =
+        format === "PDF"
+          ? await buildReportPdf({
+              type,
+              title: TYPES[type].title,
+              period,
+              scope: `${machinesSummary} · ${shiftsSummary}`,
+              site: "Tomadas & Interruptores · Itajaí",
+              orders,
+              machines: chosen,
+              shifts: [...shifts],
+              workingDays,
+              sections,
+            })
+          : csvBlob(orders);
+      setGenerated((g) => [{ id: `g${Date.now()}`, name, period, format, createdAt: new Date(), size: sizeLabel(blob), file: { blob, filename } }, ...g]);
+      const result = await saveFile(filename, blob);
+      if (result === "saved") notify(format === "PDF" ? "Relatório baixado" : "Planilha baixada", `${filename} · ${sizeLabel(blob)}`);
+      else notify("Download cancelado", "O relatório continua na lista abaixo.");
+    } catch {
+      notify("Não foi possível gerar o relatório", "Tente de novo. Se continuar, avise o suporte.", "error");
+    } finally {
       setGenerating(false);
-      const filename = `dash-producao-${type}-${from}-a-${to}.${format === "PDF" ? "pdf" : "csv"}`;
-      const kb = format === "CSV" ? Math.max(1, Math.round((orders.length * 120) / 1024)) : 180 + sections.size * 60;
-      setGenerated((g) => [
-        { id: `g${Date.now()}`, name, period: `${br(from)} a ${br(to)}`, format, createdAt: new Date(), size: `${kb} KB` },
-        ...g,
-      ]);
-      if (format === "CSV") {
-        downloadCsv(orders, filename).then((r) =>
-          r === "saved"
-            ? notify("Planilha baixada", `${filename} · ${orders.length} OPs`)
-            : notify("Download cancelado", "O relatório continua na lista abaixo."),
-        );
-      } else {
-        notify("Relatório pronto", `${filename} (PDF simulado no protótipo)`);
-      }
-    }, readToken("--ds-motion-duration-skeleton") / 2);
+    }
   };
 
   const columns: Column<Generated>[] = [
@@ -146,9 +196,9 @@ export function ReportsPage({ notify }: { notify: Notify }) {
           spacing="compact"
           iconBefore={Download}
           onClick={() =>
-            g.format === "CSV"
-              ? downloadCsv(ALL_ORDERS, `${g.name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}.csv`)
-              : notify("Download simulado", `${g.name} (PDF)`)
+            g.file
+              ? saveFile(g.file.filename, g.file.blob)
+              : notify("Relatório de exemplo", "Este item só ilustra a lista. Gere um relatório para baixar o arquivo.")
           }
         >
           Baixar
@@ -158,21 +208,23 @@ export function ReportsPage({ notify }: { notify: Notify }) {
   ];
 
   const allMachines = machines.size === MACHINES.length;
+  const machinesSummary = allMachines
+    ? "Todas as máquinas"
+    : LINES.every((l) => lineMachines(l).every((m) => machines.has(m.id)) || lineMachines(l).every((m) => !machines.has(m.id)))
+      ? `Linha ${LINES.filter((l) => lineMachines(l).every((m) => machines.has(m.id))).join(" e ")}`
+      : `${machines.size} de ${MACHINES.length} máquinas`;
+  const shiftsSummary = shifts.size === 3 ? "todos os turnos" : [...shifts].sort().map((s) => `Turno ${s}`).join(", ");
+  const GenerateIcon = format === "PDF" ? FileText : FileSpreadsheet;
 
   return (
     <>
       <PageHeader
         title="Relatórios"
-        description="Monte um relatório com o período, as máquinas e os turnos que precisar. A pré-visualização acompanha as escolhas."
-        actions={
-          <Button appearance="primary" iconBefore={format === "PDF" ? FileText : FileSpreadsheet} isLoading={generating} onClick={generate}>
-            {format === "PDF" ? "Gerar PDF" : "Baixar planilha"}
-          </Button>
-        }
+        description="Escolha o tipo, o recorte e o formato. A pré-visualização ao lado acompanha as escolhas."
       />
       <PageBody>
         <div className="flex flex-wrap items-start gap-300">
-          {/* ---------- Opções ---------- */}
+          {/* ---------- Opções, em etapas ---------- */}
           <form
             aria-label="Opções do relatório"
             onSubmit={(e) => {
@@ -181,8 +233,7 @@ export function ReportsPage({ notify }: { notify: Notify }) {
             }}
             className="flex min-w-0 flex-1 basis-chart-card-min flex-col gap-300"
           >
-            <fieldset className="flex flex-col gap-100">
-              <legend className="pb-100 font-heading-small text-default">Tipo de relatório</legend>
+            <Step n={1} title="Tipo de relatório">
               <div role="radiogroup" aria-label="Tipo de relatório" className="grid grid-cols-1 gap-100 xs:grid-cols-2">
                 {(Object.keys(TYPES) as ReportType[]).map((k) => {
                   const t = TYPES[k];
@@ -200,75 +251,145 @@ export function ReportsPage({ notify }: { notify: Notify }) {
                       )}
                     >
                       <t.icon aria-hidden className={cn("mt-025 size-icon-small shrink-0", selected ? "text-icon-selected" : "text-icon-subtle")} />
-                      <span>
+                      <span className="min-w-0 flex-1">
                         <span className={cn("block font-heading-xsmall", selected ? "text-selected" : "text-default")}>{t.title}</span>
                         <span className="mt-025 block font-body-small text-subtle">{t.description}</span>
                       </span>
+                      {selected && <Check aria-hidden className="size-icon-small shrink-0 text-icon-selected" />}
                     </button>
                   );
                 })}
               </div>
-            </fieldset>
+            </Step>
 
-            <fieldset className="flex flex-wrap gap-200">
-              <legend className="pb-100 font-heading-small text-default">Período</legend>
-              <DateField label="De" min="2026-03-01" max="2026-03-27" today="2026-03-27" value={from} onChange={setFrom} className="w-column-name" />
-              <DateField
-                label="Até"
-                min="2026-03-01"
-                max="2026-03-27"
-                today="2026-03-27"
-                value={to}
-                onChange={setTo}
-                error={periodError}
-                className="w-column-name"
+            <Step n={2} title="Recorte" hint="Período, máquinas e turnos que entram no relatório">
+              <DateRangePicker
+                label="Período"
+                variant="field"
+                value={range}
+                defaultValue={{ from: DATA_START, to: DATA_END }}
+                onChange={setRange}
+                min={DATA_START}
+                max={MONTH_RANGE.to}
+                dataEnd={DATA_END}
               />
-            </fieldset>
 
-            <fieldset className="flex flex-col gap-100">
-              <legend className="pb-100 font-heading-small text-default">Máquinas</legend>
-              <label className="flex items-center gap-100 font-medium text-default">
-                <Checkbox
-                  label="Todas as máquinas"
-                  checked={allMachines}
-                  isIndeterminate={!allMachines && machines.size > 0}
-                  onChange={() => setMachines(allMachines ? new Set() : new Set(MACHINES.map((m) => m.id)))}
+              {/* Máquinas por linha: marca a linha inteira ou abre para escolher uma a uma */}
+              <div role="group" aria-labelledby="machines-label" className="flex flex-col gap-100">
+                <div className="flex flex-wrap items-center justify-between gap-100">
+                  <span id="machines-label" className="font-body-small font-semibold text-subtle">
+                    Máquinas <span className="font-normal text-subtlest">· {machines.size} de {MACHINES.length}</span>
+                  </span>
+                  <span className="flex gap-050">
+                    <Button appearance="subtle" spacing="compact" isDisabled={allMachines} onClick={() => setMachines(new Set(MACHINES.map((m) => m.id)))}>
+                      Marcar todas
+                    </Button>
+                    <Button appearance="subtle" spacing="compact" isDisabled={machines.size === 0} onClick={() => setMachines(new Set())}>
+                      Limpar
+                    </Button>
+                  </span>
+                </div>
+                <TextField
+                  label="Buscar máquina"
+                  hideLabel
+                  placeholder="Buscar máquina pelo nome"
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  elemAfter={<Search aria-hidden className="size-icon-small text-icon-subtle" />}
                 />
-                <span aria-hidden>Todas as máquinas</span>
-              </label>
-              <div className="grid grid-cols-1 gap-x-300 gap-y-100 pl-300 xs:grid-cols-2">
-                {MACHINES.map((m) => (
-                  <label key={m.id} className="flex items-center gap-100 text-default">
-                    <Checkbox label={m.name} checked={machines.has(m.id)} onChange={() => setMachines((s) => toggle(s, m.id))} />
-                    <span aria-hidden className="truncate">
-                      {m.name}
-                    </span>
-                  </label>
-                ))}
+                <ul className="flex flex-col overflow-hidden rounded-large border">
+                  {LINES.map((line) => {
+                    const list = lineMachines(line);
+                    const shown = q ? list.filter((m) => m.name.toLowerCase().includes(q)) : list;
+                    if (q && shown.length === 0) return null;
+                    const count = list.filter((m) => machines.has(m.id)).length;
+                    const expanded = !!q || openLines.has(line);
+                    const panelId = `line-${line}`;
+                    return (
+                      <li key={line} className="border-b last:border-b-0">
+                        <div className="flex items-center gap-100 px-150 py-100">
+                          <Checkbox
+                            label={`Linha ${line}`}
+                            checked={count === list.length}
+                            isIndeterminate={count > 0 && count < list.length}
+                            onChange={() => setLine(line, count < list.length)}
+                          />
+                          <button
+                            type="button"
+                            aria-expanded={expanded}
+                            aria-controls={panelId}
+                            disabled={!!q}
+                            onClick={() => setOpenLines((s) => toggle(s, line))}
+                            className="ds-pressable -my-050 flex min-w-0 flex-1 items-center gap-100 rounded-medium px-050 py-050 text-left hover:bg-neutral-subtle-hovered"
+                          >
+                            <Tag accent={LINE_ACCENT[line]}>{line}</Tag>
+                            <span className="flex-1 font-body-small tabular-nums text-subtle">
+                              {count === list.length ? `todas as ${list.length}` : `${count} de ${list.length}`}
+                            </span>
+                            <ChevronDown
+                              aria-hidden
+                              className={cn("size-icon-small text-icon-subtle transition-transform duration-hover ease-out", expanded && "rotate-180")}
+                            />
+                          </button>
+                        </div>
+                        {expanded && (
+                          <ul id={panelId} className="flex flex-col border-t bg-surface-sunken py-050">
+                            {shown.map((m) => (
+                              <li key={m.id}>
+                                <label className="flex cursor-pointer items-center gap-100 py-075 pl-500 pr-150 text-default hover:bg-neutral-subtle-hovered">
+                                  <Checkbox label={m.name} checked={machines.has(m.id)} onChange={() => setMachines((s) => toggle(s, m.id))} />
+                                  <span aria-hidden className="min-w-0">
+                                    {m.name}
+                                  </span>
+                                </label>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </li>
+                    );
+                  })}
+                  {q && !MACHINES.some((m) => m.name.toLowerCase().includes(q)) && (
+                    <li className="px-150 py-150 font-body-small text-subtlest">Nenhuma máquina com “{query.trim()}”.</li>
+                  )}
+                </ul>
+                {showErrors && machinesError && <p className="font-body-small text-danger">{machinesError}</p>}
               </div>
-              {showErrors && machinesError && <p className="font-body-small text-danger">{machinesError}</p>}
-            </fieldset>
 
-            <fieldset className="flex flex-col gap-100">
-              <legend className="pb-100 font-heading-small text-default">Turnos</legend>
-              <div className="flex flex-wrap gap-300">
-                {SHIFTS.map((s) => (
-                  <label key={s} className="flex items-center gap-100 text-default">
-                    <Checkbox label={SHIFT_META[s].label} checked={shifts.has(s)} onChange={() => setShifts((set) => toggle(set, s))} />
-                    <span aria-hidden>
-                      {SHIFT_META[s].label} <span className="text-subtlest">· {SHIFT_META[s].hours}</span>
-                    </span>
-                  </label>
-                ))}
+              {/* Turnos: botões de alternar, lado a lado */}
+              <div role="group" aria-labelledby="shifts-label" className="flex flex-col gap-100">
+                <span id="shifts-label" className="font-body-small font-semibold text-subtle">
+                  Turnos
+                </span>
+                <div className="flex flex-wrap gap-100">
+                  {SHIFTS.map((s) => {
+                    const on = shifts.has(s);
+                    return (
+                      <button
+                        key={s}
+                        type="button"
+                        aria-pressed={on}
+                        onClick={() => setShifts((set) => toggle(set, s))}
+                        className={cn(
+                          "ds-pressable flex items-center gap-075 rounded-medium border px-150 py-075",
+                          on ? "border-selected bg-selected text-selected" : "text-subtle hover:bg-neutral-subtle-hovered",
+                        )}
+                      >
+                        {on ? <Check aria-hidden className="size-icon-small" /> : <span aria-hidden className="size-icon-small" />}
+                        <span className="font-medium">{SHIFT_META[s].label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+                {showErrors && shiftsError && <p className="font-body-small text-danger">{shiftsError}</p>}
               </div>
-              {showErrors && shiftsError && <p className="font-body-small text-danger">{shiftsError}</p>}
-            </fieldset>
+            </Step>
 
-            <fieldset className="flex flex-col gap-150">
-              <legend className="pb-100 font-heading-small text-default">Formato</legend>
+            <Step n={3} title="Formato">
               <SegmentedControl
                 label="Formato"
                 iconOnly={false}
+                size="control"
                 value={format}
                 onChange={(v) => setFormat(v as "PDF" | "CSV")}
                 options={[
@@ -277,9 +398,11 @@ export function ReportsPage({ notify }: { notify: Notify }) {
                 ]}
               />
               {format === "PDF" ? (
-                <div className="flex flex-col gap-100">
-                  <span className="font-body-small font-semibold text-subtle">Seções incluídas</span>
-                  <div className="flex flex-wrap gap-x-300 gap-y-100">
+                <div role="group" aria-labelledby="sections-label" className="flex flex-col gap-100">
+                  <span id="sections-label" className="font-body-small font-semibold text-subtle">
+                    Seções incluídas
+                  </span>
+                  <div className="grid grid-cols-1 gap-100 xs:grid-cols-2">
                     {SECTIONS.map((sec) => (
                       <label key={sec} className="flex items-center gap-100 text-default">
                         <Checkbox label={sec} checked={sections.has(sec)} onChange={() => setSections((s) => toggle(s, sec))} />
@@ -289,15 +412,13 @@ export function ReportsPage({ notify }: { notify: Notify }) {
                   </div>
                 </div>
               ) : (
-                <p className="font-body-small text-subtlest">
-                  A planilha traz uma linha por OP, com separador “;” para abrir direto no Excel.
-                </p>
+                <p className="font-body-small text-subtlest">A planilha traz uma linha por OP, com separador “;” para abrir direto no Excel.</p>
               )}
-            </fieldset>
+            </Step>
           </form>
 
-          {/* ---------- Pré-visualização ---------- */}
-          <section aria-labelledby="preview-title" className="flex min-w-0 flex-1 basis-chart-card-min flex-col gap-150">
+          {/* ---------- Pré-visualização (fica visível enquanto o formulário rola) ---------- */}
+          <section aria-labelledby="preview-title" className="flex min-w-0 flex-1 basis-chart-card-min flex-col gap-150 m:sticky m:top-300">
             <h2 id="preview-title" className="font-heading-small text-default">
               Pré-visualização
             </h2>
@@ -306,15 +427,12 @@ export function ReportsPage({ notify }: { notify: Notify }) {
                 <header className="flex items-start justify-between gap-150 border-b pb-150">
                   <div>
                     <p className="font-heading-small text-default">{TYPES[type].title}</p>
-                    <p className="mt-025 font-body-small text-subtle">
-                      {br(from)} a {br(to)} · Tomadas &amp; Interruptores · Itajaí
-                    </p>
+                    <p className="mt-025 font-body-small text-subtle">{period} · Tomadas &amp; Interruptores · Itajaí</p>
                   </div>
                   <WegMark className="w-500 text-brand" />
                 </header>
                 <p className="font-body-small text-subtle">
-                  {allMachines ? "Todas as máquinas" : `${machines.size} de ${MACHINES.length} máquinas`} ·{" "}
-                  {shifts.size === 3 ? "todos os turnos" : [...shifts].sort().map((s) => `Turno ${s}`).join(", ")} · {orders.length} OPs
+                  {machinesSummary} · {shiftsSummary} · {orders.length} OPs
                 </p>
                 {format === "PDF" ? (
                   <>
@@ -322,7 +440,7 @@ export function ReportsPage({ notify }: { notify: Notify }) {
                       <dl className="grid grid-cols-3 gap-100">
                         {[
                           ["Produção", formatNumber(produced)],
-                          ["Atingimento", target ? `${Math.round((produced / target) * 100)}%` : "—"],
+                          ["Atingimento", target ? `${Math.round((producedWithTarget / target) * 100)}%` : "—"],
                           ["Retrabalho", produced ? `${Math.round((reworkQty / produced) * 100)}%` : "—"],
                         ].map(([k, v]) => (
                           <div key={k} className="rounded-medium bg-neutral p-100">
@@ -372,7 +490,7 @@ export function ReportsPage({ notify }: { notify: Notify }) {
                     <table className="w-full font-code">
                       <thead>
                         <tr className="text-left text-subtlest">
-                          {["Data", "Máquina", "OP", "Qtd."].map((h) => (
+                          {["Data", "Máquina", "OP", "Material", "Qtd."].map((h) => (
                             <th key={h} className="pb-050 pr-150 font-medium">
                               {h}
                             </th>
@@ -385,17 +503,31 @@ export function ReportsPage({ notify }: { notify: Notify }) {
                             <td className="py-050 pr-150">{o.date.toLocaleDateString("pt-BR").slice(0, 5)}</td>
                             <td className="max-w-1000 truncate py-050 pr-150">{machineById(o.machineId).name}</td>
                             <td className="py-050 pr-150">{o.opId.replace("OP ", "")}</td>
+                            <td className="py-050 pr-150">{o.material}</td>
                             <td className="py-050 text-right">{o.quantity}</td>
                           </tr>
                         ))}
                       </tbody>
                     </table>
-                    <p className="mt-100 font-body-small text-subtlest">
-                      Mostrando 5 de {orders.length} linhas
-                    </p>
+                    <p className="mt-100 font-body-small text-subtlest">Mostrando 5 de {orders.length} linhas</p>
                   </div>
                 )}
               </article>
+            </div>
+            {/* Ação junto do resultado: o que vai ser gerado fica logo acima do botão */}
+            <div className="flex flex-wrap items-center justify-between gap-150">
+              <p className="min-w-0 font-body-small text-subtle">
+                {hasErrors ? (
+                  <span className="text-danger">{machinesError ?? shiftsError}</span>
+                ) : (
+                  <>
+                    <span className="font-semibold text-default">{orders.length} OPs</span> · {format === "PDF" ? `${sections.size} seções` : "uma linha por OP"}
+                  </>
+                )}
+              </p>
+              <Button appearance="primary" iconBefore={GenerateIcon} isLoading={generating} onClick={generate}>
+                {format === "PDF" ? "Gerar PDF" : "Baixar planilha"}
+              </Button>
             </div>
           </section>
         </div>

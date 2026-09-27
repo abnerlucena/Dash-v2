@@ -389,11 +389,7 @@ export function CapacitySimulator({ notify, onPublished }: CapacitySimulatorProp
 
   return (
     <>
-      <div className={cn(PAGE_GUTTER, "flex flex-wrap items-center justify-between gap-200 pt-300")}>
-        <p className="min-w-0 max-w-search-width flex-1 basis-kpi-min text-subtle">
-          Seção Tomadas &amp; Interruptores · Itajaí. Base: planilha Capacidade vs Pessoas 2026–2027 (revisão 01). Edite os
-          parâmetros e a meta por turno de cada processo se recalcula.
-        </p>
+      <div className={cn(PAGE_GUTTER, "flex flex-wrap items-center justify-end gap-200 pt-300")}>
         <PageActions>
           <Button appearance="subtle" iconBefore={RotateCcw} isDisabled={changes.length === 0} onClick={() => setConfirmReset(true)}>
             Restaurar planilha

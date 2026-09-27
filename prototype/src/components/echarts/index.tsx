@@ -14,6 +14,8 @@ const LazyDaily = lazy(() => load().then((m) => ({ default: m.DailyColumns })));
 const LazyAttainment = lazy(() => load().then((m) => ({ default: m.AttainmentBars })));
 const LazyCapacity = lazy(() => load().then((m) => ({ default: m.CapacityBars })));
 const LazyShiftStack = lazy(() => load().then((m) => ({ default: m.ShiftStackBars })));
+const LazyCombo = lazy(() => load().then((m) => ({ default: m.ComboChart })));
+const LazyHBars = lazy(() => load().then((m) => ({ default: m.HBars })));
 
 type BurnupProps = ComponentProps<typeof LazyBurnup>;
 
@@ -56,6 +58,24 @@ export function ShiftStackBars(props: ComponentProps<typeof LazyShiftStack>) {
     </Suspense>
   );
 }
+
+export function ComboChart(props: ComponentProps<typeof LazyCombo>) {
+  return (
+    <Suspense fallback={<Skeleton className="h-chart w-full rounded-medium" />}>
+      <LazyCombo {...props} />
+    </Suspense>
+  );
+}
+
+export function HBars(props: ComponentProps<typeof LazyHBars>) {
+  return (
+    <Suspense fallback={<Skeleton className="h-chart w-full rounded-medium" />}>
+      <LazyHBars {...props} />
+    </Suspense>
+  );
+}
+
+export type { ComboSeries, HBarItem } from "./Charts";
 
 /* Legendas em HTML (acima do gráfico): o formato espelha a marca */
 export const BURNUP_LEGEND: LegendItem[] = [

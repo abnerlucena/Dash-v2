@@ -32,7 +32,9 @@ const roleLabel = (m: OpMessage) =>
     ? "Gestor"
     : m.role === "leader"
       ? `Líder · ${SHIFT_META[m.shift!].label}`
-      : `Operador · ${SHIFT_META[m.shift!].label}`;
+      : m.role === "setter"
+        ? `Preparador · ${SHIFT_META[m.shift!].label}`
+        : `Operador · ${SHIFT_META[m.shift!].label} · observação do apontamento`;
 
 /**
  * Feedbacks = a conversa de cada OP. A observação do operador no apontamento
@@ -56,7 +58,11 @@ export function FeedbacksPage({ opParam, notify }: { opParam?: string; notify: N
         const m = machineById(op.machineId);
         return (
           byView &&
-          (!q || op.id.toLowerCase().includes(q) || op.product.toLowerCase().includes(q) || m.name.toLowerCase().includes(q))
+          (!q ||
+            op.id.toLowerCase().includes(q) ||
+            op.material.includes(q) ||
+            op.product.toLowerCase().includes(q) ||
+            m.name.toLowerCase().includes(q))
         );
       })
       .sort((a, b) => lastActivity(b).getTime() - lastActivity(a).getTime());
@@ -75,8 +81,13 @@ export function FeedbacksPage({ opParam, notify }: { opParam?: string; notify: N
             <Lozenge>Tudo lido</Lozenge>
           )
         }
-        description="Conversas das OPs: observações dos operadores, respostas da liderança e cada mudança de etapa. A conversa se encerra quando a OP é concluída."
+        description="Conversas das OPs: observações que os operadores deixam no apontamento, respostas de preparadores, líderes e gestores, e cada mudança de etapa. A conversa se encerra quando a OP é concluída."
       />
+      {/* Acesso: preparadores para cima. O operador participa pela observação do apontamento. */}
+      <p className="flex items-center gap-075 px-200 pt-150 font-body-small text-subtle m:px-400">
+        <Lock aria-hidden className="size-icon-small shrink-0" />
+        Visível para preparadores, líderes e gestores.
+      </p>
       <PageBody>
         <div className="flex h-chat overflow-hidden rounded-xlarge border bg-surface">
           {/* ---------- Caixa de entrada ---------- */}
@@ -111,7 +122,7 @@ export function FeedbacksPage({ opParam, notify }: { opParam?: string; notify: N
               <TextField
                 label="Buscar conversa"
                 hideLabel
-                placeholder="OP, produto ou máquina"
+                placeholder="OP, material ou máquina"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 elemAfter={<Search aria-hidden className="size-icon-small" />}
@@ -202,7 +213,7 @@ function ThreadItem({
           <span className="ml-auto shrink-0 font-body-small text-subtlest">{formatWhen(lastActivity(op))}</span>
         </span>
         <span className="truncate font-body-small text-subtle">
-          {op.product} · {m.name}
+          <span className="font-code">{op.material}</span> {op.product} · {m.name}
         </span>
         <span className={cn("flex items-center gap-100", unreadCount > 0 ? "font-semibold text-default" : "text-subtle")}>
           <span className="min-w-0 flex-1 truncate">
@@ -281,7 +292,7 @@ function Conversation({
               <Lozenge appearance={stage.appearance}>{stage.label}</Lozenge>
             </h2>
             <p className="truncate text-subtle">
-              {op.product} · {m.name}
+              Material <span className="font-code">{op.material}</span> · {op.product} · {m.name}
             </p>
           </div>
           <Button appearance="subtle" spacing="compact" onClick={onMarkUnread} className="hidden s:inline-flex">
