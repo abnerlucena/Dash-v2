@@ -21,9 +21,9 @@
 //    recuperação nunca funcionaria.
 //
 // Por isso `prepararRecuperacaoDeSenha()` roda em main.tsx, antes do render.
-import { clearSession } from "@/lib/api";
-import { isSupabase } from "@/lib/repositories";
-import { getSupabase } from "@/lib/supabase";
+import { clearSession } from "./api";
+import { isSupabase } from "./repositories";
+import { getSupabase } from "./supabase";
 
 const LINK_INVALIDO =
   "O link de recuperação expirou ou já foi usado. Peça um novo e-mail.";

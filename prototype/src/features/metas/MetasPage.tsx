@@ -22,6 +22,7 @@ import { SegmentedBar } from "@/components/data/SegmentedBar";
 import * as Tabs from "@radix-ui/react-tabs";
 import { PageActions, PageBody, PageHeader, PAGE_GUTTER } from "@/components/layout/PageHeader";
 import { CapacitySimulator } from "@/features/capacity/CapacitySimulator";
+import { useAccess } from "@/features/access/AccessContext";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/Button";
 import { Lozenge } from "@/components/ui/Lozenge";
@@ -46,6 +47,9 @@ interface CurrentMetasProps {
 
 /** Aba "Metas vigentes": meta por turno de cada máquina, edição manual com vigência e histórico */
 function CurrentMetas({ notify, history, setHistory }: CurrentMetasProps) {
+  const { can, session } = useAccess();
+  // Ver metas é targets.view (rota); alterar é targets.manage
+  const canManage = can("targets.manage");
   const [editing, setEditing] = useState(false);
   const [saved, setSaved] = useState(initialValues);
   const [values, setValues] = useState(initialValues);
@@ -203,7 +207,7 @@ function CurrentMetas({ notify, history, setHistory }: CurrentMetasProps) {
         ...(shiftsChanged ? [`Turnos ativos: ${savedShifts} → ${shifts}`] : []),
       ];
       setHistory((h) => [
-        { id: `c${Date.now()}`, date: new Date(), author: "Rafael Souza", summary: `${parts.join("; ")} (vigência ${when})` },
+        { id: `c${Date.now()}`, date: new Date(), author: session?.nome ?? "", summary: `${parts.join("; ")} (vigência ${when})` },
         ...h,
       ]);
       notify("Metas salvas", `${parts.length} ${parts.length === 1 ? "alteração passa" : "alterações passam"} a valer em ${when}.`);
@@ -237,10 +241,12 @@ function CurrentMetas({ notify, history, setHistory }: CurrentMetasProps) {
                 Revisar e salvar
               </Button>
             </>
-          ) : (
+          ) : canManage ? (
             <Button appearance="primary" iconBefore={Pencil} onClick={startEdit}>
               Editar metas
             </Button>
+          ) : (
+            <Lozenge>Somente leitura</Lozenge>
           )}
         </PageActions>
       </div>
@@ -299,7 +305,7 @@ function CurrentMetas({ notify, history, setHistory }: CurrentMetasProps) {
           <ol className="flex flex-col overflow-hidden rounded-xlarge border">
             {history.map((c) => (
               <li key={c.id} className="flex items-start gap-150 border-t px-200 py-150 first:border-t-0">
-                <Avatar name={c.author} accent={c.author === "Rafael Souza" ? "teal" : "purple"} />
+                <Avatar name={c.author} accent={c.author === session?.nome ? "teal" : "purple"} />
                 <div className="min-w-0 flex-1">
                   <p className="text-default">{c.summary}</p>
                   <p className="mt-025 font-body-small text-subtlest">
@@ -356,6 +362,7 @@ const TAB_CLASS =
  * Publicar no simulador registra a alteração no histórico das metas vigentes.
  */
 export function MetasPage({ notify }: { notify: Notify }) {
+  const { can, session } = useAccess();
   const [tab, setTab] = useState("vigentes");
   const [history, setHistory] = useState<MetaChange[]>(META_CHANGES);
 
@@ -378,9 +385,10 @@ export function MetasPage({ notify }: { notify: Notify }) {
       <Tabs.Content value="capacidade" forceMount className="outline-none data-[state=inactive]:hidden">
         <CapacitySimulator
           notify={notify}
+          canPublish={can("targets.manage")}
           onPublished={(summary, when) =>
             setHistory((h) => [
-              { id: `cap-${Date.now()}`, date: new Date(), author: "Rafael Souza", summary: `${summary} · vigência ${when}` },
+              { id: `cap-${Date.now()}`, date: new Date(), author: session?.nome ?? "", summary: `${summary} · vigência ${when}` },
               ...h,
             ])
           }

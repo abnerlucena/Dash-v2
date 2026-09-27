@@ -9,7 +9,7 @@ interface ModalProps {
   title: string;
   children: ReactNode;
   /** Ação principal; "danger" para ações destrutivas */
-  primary: { label: string; onClick: () => void; appearance?: "primary" | "danger"; isLoading?: boolean };
+  primary: { label: string; onClick: () => void; appearance?: "primary" | "danger"; isLoading?: boolean; isDisabled?: boolean };
   cancelLabel?: string;
 }
 
@@ -37,7 +37,7 @@ export function Modal({ open, onOpenChange, title, children, primary, cancelLabe
             <Dialog.Close asChild>
               <Button appearance="subtle">{cancelLabel}</Button>
             </Dialog.Close>
-            <Button appearance={primary.appearance ?? "primary"} isLoading={primary.isLoading} onClick={primary.onClick}>
+            <Button appearance={primary.appearance ?? "primary"} isLoading={primary.isLoading} isDisabled={primary.isDisabled} onClick={primary.onClick}>
               {primary.label}
             </Button>
           </div>

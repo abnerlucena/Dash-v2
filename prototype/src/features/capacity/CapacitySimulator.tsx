@@ -106,6 +106,8 @@ function diff(s: Scenario): Change[] {
 
 interface CapacitySimulatorProps {
   notify: Notify;
+  /** Publicar muda as metas vigentes: exige targets.manage */
+  canPublish: boolean;
   /** Chamado ao publicar: vira uma entrada no histórico das metas vigentes */
   onPublished?: (summary: string, effectiveFrom: string) => void;
 }
@@ -114,7 +116,7 @@ interface CapacitySimulatorProps {
  * Simulador de capacidade (aba da página Metas): parâmetros da planilha
  * Capacidade vs Pessoas editáveis, com meta por turno e capacidade recalculadas.
  */
-export function CapacitySimulator({ notify, onPublished }: CapacitySimulatorProps) {
+export function CapacitySimulator({ notify, onPublished, canPublish }: CapacitySimulatorProps) {
   const [scenario, setScenario] = useState<Scenario>(() => storageGet(STORAGE_KEY, clone(BASELINE)));
   const [tab, setTab] = useState("resumo");
   const [confirmReset, setConfirmReset] = useState(false);
@@ -394,9 +396,12 @@ export function CapacitySimulator({ notify, onPublished }: CapacitySimulatorProp
           <Button appearance="subtle" iconBefore={RotateCcw} isDisabled={changes.length === 0} onClick={() => setConfirmReset(true)}>
             Restaurar planilha
           </Button>
-          <Button appearance="primary" iconBefore={Send} isDisabled={metaChanges.length === 0} onClick={() => setPublishing(true)}>
-            Publicar metas
-          </Button>
+          {/* Simular é livre; publicar muda as metas de todo mundo */}
+          {canPublish && (
+            <Button appearance="primary" iconBefore={Send} isDisabled={metaChanges.length === 0} onClick={() => setPublishing(true)}>
+              Publicar metas
+            </Button>
+          )}
         </PageActions>
       </div>
 
