@@ -1,7 +1,7 @@
 // ─── Implementação GAS (Google Apps Script) ───────────────────
 // Repassa cada operação para o api() atual com EXATAMENTE o mesmo payload que
 // as telas enviavam antes da camada de dados existir. É o modo padrão.
-import { api, type Session } from "@/lib/api";
+import { api, type Session } from "../api";
 import type { DataSource } from "./types";
 
 /**

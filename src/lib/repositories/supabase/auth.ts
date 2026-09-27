@@ -1,6 +1,6 @@
 // ─── Autenticação via Supabase Auth (D19–D23) ─────────────────
-import { getSupabase } from "@/lib/supabase";
-import type { Session } from "@/lib/api";
+import { getSupabase } from "../../supabase";
+import type { Session } from "../../api";
 import type { DataSource, LoginResponse } from "../types";
 import { toAuthError, toError } from "./helpers";
 

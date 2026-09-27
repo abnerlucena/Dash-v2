@@ -3,7 +3,7 @@
 // No modo "gas" (padrão) este arquivo nunca é executado, então a falta das
 // variáveis de ambiente não quebra o app atual.
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import type { Database } from "@/lib/database.types";
+import type { Database } from "./database.types";
 
 export type TypedSupabaseClient = SupabaseClient<Database>;
 

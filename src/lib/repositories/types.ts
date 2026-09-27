@@ -6,8 +6,8 @@
 //
 // As respostas mantêm o formato das respostas do Apps Script, para que as
 // telas não precisem ser reescritas agora.
-import type { Session, Machine, Holiday, ProdRecord, OrdemProducao } from "@/lib/api";
-import type { BaseDaMeta } from "@/lib/metas";
+import type { Session, Machine, Holiday, ProdRecord, OrdemProducao } from "../api";
+import type { BaseDaMeta } from "../metas";
 
 export type DataSourceKind = "gas" | "supabase";
 

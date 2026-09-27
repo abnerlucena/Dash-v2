@@ -1,6 +1,6 @@
 // ─── Utilitários do modo Supabase ─────────────────────────────
-import { clearSession } from "@/lib/api";
-import type { TypedSupabaseClient } from "@/lib/supabase";
+import { clearSession } from "../../api";
+import type { TypedSupabaseClient } from "../../supabase";
 
 interface PgError { message?: string; code?: string }
 

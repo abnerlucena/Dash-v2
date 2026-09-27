@@ -1,5 +1,5 @@
 // ─── Máquinas, metas e calendário ─────────────────────────────
-import { getSupabase } from "@/lib/supabase";
+import { getSupabase } from "../../supabase";
 import type { DataSource, MetaInfoRaw } from "../types";
 import { MACHINE_STATUS_TO_LEGACY, holidayTypeToEventType, toHoliday, toMachine, type CalendarRow } from "./adapters";
 import { loadProfileNames, toError } from "./helpers";

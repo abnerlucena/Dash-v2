@@ -12,8 +12,8 @@
 //     a meta é por pessoa, e a view já entrega 25.000 × pessoas. Antes daqui
 //     passava o número cru, e três pessoas na bancada davam 300% de
 //     atingimento.
-import type { Tables } from "@/lib/database.types";
-import type { Holiday, Machine, OrdemProducao, ProdRecord } from "@/lib/api";
+import type { Tables } from "../../database.types";
+import type { Holiday, Machine, OrdemProducao, ProdRecord } from "../../api";
 
 export type SummaryRow = Tables<"production_summary">;
 export type OrderRow = Pick<Tables<"production_orders">, "production_record_id" | "order_number" | "quantity" | "is_rework" | "notes">;
