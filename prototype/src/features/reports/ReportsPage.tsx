@@ -11,11 +11,12 @@ import {
   SHIFTS,
   SHIFT_META,
   machineById,
+  workingDatesIn,
   type DateRange,
   type Line,
   type ProductionOrder,
 } from "@/data/machines";
-import { cn, formatNumber, readToken, saveFile, type Notify } from "@/lib/utils";
+import { cn, formatNumber, saveFile, type Notify } from "@/lib/utils";
 import { DataTable, type Column } from "@/components/data/DataTable";
 import { PageBody, PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/Button";
@@ -26,8 +27,8 @@ import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { DateRangePicker } from "@/components/ui/DateRangePicker";
 import { Tag } from "@/components/ui/Tag";
 import { TextField } from "@/components/ui/TextField";
+import { buildReportPdf, scopedTarget, type ReportType } from "./reportPdf";
 
-type ReportType = "production" | "entries" | "rework" | "metas";
 const TYPES: Record<ReportType, { title: string; description: string; icon: LucideIcon }> = {
   production: { title: "Produção mensal", description: "Indicadores e resumo por máquina", icon: FileText },
   entries: { title: "Apontamentos detalhados", description: "Todas as OPs, com operador e observação", icon: ClipboardList },
@@ -43,7 +44,10 @@ interface Generated {
   format: "PDF" | "CSV";
   createdAt: Date;
   size: string;
+  /** arquivo gerado nesta sessão (os exemplos da lista não têm) */
+  file?: { blob: Blob; filename: string };
 }
+const sizeLabel = (b: Blob) => `${Math.max(1, Math.round(b.size / 1024))} KB`;
 const dateTime = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
 const br = (d: Date) => d.toLocaleDateString("pt-BR");
 const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -68,9 +72,7 @@ function Step({ n, title, hint, children }: { n: number; title: string; hint?: s
 }
 
 /** CSV real: separador ";" e BOM, como o Excel em pt-BR espera */
-function downloadCsv(orders: ProductionOrder[], filename: string) {
-  return saveFile(filename, new Blob(["\uFEFF" + toCsv(orders)], { type: "text/csv;charset=utf-8" }));
-}
+const csvBlob = (orders: ProductionOrder[]) => new Blob(["\uFEFF" + toCsv(orders)], { type: "text/csv;charset=utf-8" });
 
 function toCsv(orders: ProductionOrder[]) {
   const header = ["Data", "Máquina", "Turno", "OP", "Material", "Descrição do material", "Quantidade", "Retrabalho", "Motivo", "Operador", "Observação"];
@@ -118,7 +120,10 @@ export function ReportsPage({ notify }: { notify: Notify }) {
   const produced = orders.reduce((s, o) => s + o.quantity, 0);
   const reworkQty = orders.filter((o) => o.rework).reduce((s, o) => s + o.quantity, 0);
   const chosen = MACHINES.filter((m) => machines.has(m.id));
-  const target = chosen.reduce((s, m) => s + m.target, 0) * (shifts.size / 3);
+  const workingDays = workingDatesIn(range).length;
+  // Meta do recorte: só os turnos escolhidos em que cada máquina trabalha, proporcional aos dias úteis do período
+  const target = chosen.reduce((s, m) => s + scopedTarget(m, [...shifts], workingDays), 0);
+  const producedWithTarget = orders.filter((o) => machineById(o.machineId).hasTarget).reduce((s, o) => s + o.quantity, 0);
   const period = `${br(range.from)} a ${br(range.to)}`;
   const name = `${TYPES[type].title} · ${period}`;
 
@@ -137,28 +142,40 @@ export function ReportsPage({ notify }: { notify: Notify }) {
       return next;
     });
 
-  const generate = () => {
+  const generate = async () => {
     if (hasErrors) {
       setShowErrors(true);
       notify("Revise as opções do relatório", "Há campos que precisam de ajuste.", "error");
       return;
     }
     setGenerating(true);
-    window.setTimeout(() => {
+    const filename = `dash-producao-${type}-${iso(range.from)}-a-${iso(range.to)}.${format === "PDF" ? "pdf" : "csv"}`;
+    try {
+      // PDF de verdade (jsPDF, carregado sob demanda) ou CSV; o arquivo fica na lista para baixar de novo
+      const blob =
+        format === "PDF"
+          ? await buildReportPdf({
+              type,
+              title: TYPES[type].title,
+              period,
+              scope: `${machinesSummary} · ${shiftsSummary}`,
+              site: "Tomadas & Interruptores · Itajaí",
+              orders,
+              machines: chosen,
+              shifts: [...shifts],
+              workingDays,
+              sections,
+            })
+          : csvBlob(orders);
+      setGenerated((g) => [{ id: `g${Date.now()}`, name, period, format, createdAt: new Date(), size: sizeLabel(blob), file: { blob, filename } }, ...g]);
+      const result = await saveFile(filename, blob);
+      if (result === "saved") notify(format === "PDF" ? "Relatório baixado" : "Planilha baixada", `${filename} · ${sizeLabel(blob)}`);
+      else notify("Download cancelado", "O relatório continua na lista abaixo.");
+    } catch {
+      notify("Não foi possível gerar o relatório", "Tente de novo. Se continuar, avise o suporte.", "error");
+    } finally {
       setGenerating(false);
-      const filename = `dash-producao-${type}-${iso(range.from)}-a-${iso(range.to)}.${format === "PDF" ? "pdf" : "csv"}`;
-      const kb = format === "CSV" ? Math.max(1, Math.round((orders.length * 120) / 1024)) : 180 + sections.size * 60;
-      setGenerated((g) => [{ id: `g${Date.now()}`, name, period, format, createdAt: new Date(), size: `${kb} KB` }, ...g]);
-      if (format === "CSV") {
-        downloadCsv(orders, filename).then((r) =>
-          r === "saved"
-            ? notify("Planilha baixada", `${filename} · ${orders.length} OPs`)
-            : notify("Download cancelado", "O relatório continua na lista abaixo."),
-        );
-      } else {
-        notify("Relatório pronto", `${filename} (PDF simulado no protótipo)`);
-      }
-    }, readToken("--ds-motion-duration-skeleton") / 2);
+    }
   };
 
   const columns: Column<Generated>[] = [
@@ -179,9 +196,9 @@ export function ReportsPage({ notify }: { notify: Notify }) {
           spacing="compact"
           iconBefore={Download}
           onClick={() =>
-            g.format === "CSV"
-              ? downloadCsv(ALL_ORDERS, `${g.name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}.csv`)
-              : notify("Download simulado", `${g.name} (PDF)`)
+            g.file
+              ? saveFile(g.file.filename, g.file.blob)
+              : notify("Relatório de exemplo", "Este item só ilustra a lista. Gere um relatório para baixar o arquivo.")
           }
         >
           Baixar
@@ -423,7 +440,7 @@ export function ReportsPage({ notify }: { notify: Notify }) {
                       <dl className="grid grid-cols-3 gap-100">
                         {[
                           ["Produção", formatNumber(produced)],
-                          ["Atingimento", target ? `${Math.round((produced / target) * 100)}%` : "—"],
+                          ["Atingimento", target ? `${Math.round((producedWithTarget / target) * 100)}%` : "—"],
                           ["Retrabalho", produced ? `${Math.round((reworkQty / produced) * 100)}%` : "—"],
                         ].map(([k, v]) => (
                           <div key={k} className="rounded-medium bg-neutral p-100">
