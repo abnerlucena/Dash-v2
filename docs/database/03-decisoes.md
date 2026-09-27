@@ -53,6 +53,7 @@ Status possíveis: `Aprovada` · `Assumida` (sem confirmação explícita) · `S
 | D44 | A UI de `prototype/` é a interface oficial | Aprovada | 26/09/2026 |
 | D45 | Recuperação de senha pelo e-mail do Supabase Auth | Aprovada | 26/09/2026 |
 | D46 | Onde a meta por operador é resolvida (base congelada, conta na leitura) | Aprovada | 27/09/2026 |
+| D47 | Onde a lotação do posto muda a meta: granel e horizontais | Aprovada | 27/09/2026 |
 
 ---
 
@@ -627,3 +628,60 @@ script de extração e carga em lote reversível.
     passaria a ser lido com a base de hoje;
   - **recalcular o histórico:** mudaria números já apresentados, sem ter como
     saber o que a planilha queria dizer.
+
+### D47 — Onde a lotação do posto muda a meta
+- **Status:** Aprovada (27/09/2026), pelo gestor, com a fábrica na frente.
+- **Contexto:** a D39 tinha criado uma distinção só (meta por turno × meta por
+  pessoa) e a D46 a colocou no cálculo. Ao revisar, o gestor esclareceu que a
+  regra real tem **três** casos, e que o nº de operadores só interessa em dois
+  postos:
+  - **Bancada Embalagem A Granél** — trabalho manual: cada pessoa embala. Dobrar
+    as pessoas dobra a produção, e a meta acompanha.
+  - **Embaladoras Horizontais N°1 e N°2** — a linha precisa das 4 pessoas da
+    lotação padrão para render as 10.000 do turno. Com 3 pessoas, render 7.500 é
+    o esperado, **não um fracasso**.
+  - **Todas as outras** — quem dita o ritmo é a máquina. Mais gente na volta não
+    faz sair mais peça, e cobrar meta maior por isso seria errado.
+- **Decisão:** `machine_targets.basis` (e a foto dela no apontamento) passa a ter
+  **três** valores:
+
+  | Base | O número gravado é | Meta do turno |
+  |---|---|---|
+  | `per_shift` | a meta do turno | o próprio número (padrão) |
+  | `per_shift_prorated` | a meta do turno **com a lotação padrão** | número × pessoas ÷ lotação padrão |
+  | `per_operator` | a meta de **cada pessoa** | número × pessoas |
+
+  A conta do meio é a que a **D12** já calculava em `adjusted_target` desde
+  20/09, como informação que ninguém usava. Agora ela vale como meta — **só onde
+  a base disser**. É por isso que a base ganhou um terceiro valor em vez de a
+  conta passar a valer para todas as máquinas.
+- **Consequência na tela de apontamento:** o campo *nº de operadores* passa a
+  aparecer **somente** nesses postos, e com a conta à vista
+  (`10.000 com 4 · 3 pessoas no turno` → meta 7.500). Nos outros o campo sai da
+  tela: perguntar algo que não muda nada só ocupa o operador.
+- **Buraco consertado no caminho:** `save_machine_targets` — a função do botão
+  *Salvar Metas* — gravava a meta nova **sem a base**, e a coluna tem default
+  `per_shift`. Bastava o gestor corrigir o número de A Granél na tela para o
+  "por pessoa" virar "por turno", sem aviso, e o atingimento voltar a mentir. A
+  função passa a carregar a base que a máquina já tinha: **mudar o número nunca
+  muda a regra de leitura.** Trocar a base é ato deliberado, e não tem tela.
+- **Quando o nº de operadores não é informado:** cai na lotação padrão do posto,
+  como na D39. Para a meta rateada isso dá exatamente a meta cheia — o palpite
+  certo, porque "não informaram" não é "trabalharam sozinhos".
+- **O passado não foi remendado:** as horizontais recebem um **degrau novo** de
+  meta, válido de hoje em diante, com o mesmo número (10.000) e a base nova. Os
+  turnos anteriores foram medidos com a régua antiga e continuam sendo lidos
+  assim — mesmo princípio da D46.
+- **Alternativas rejeitadas:**
+  - **ratear a meta de toda máquina pela lotação** (usar `adjusted_target` para
+    todos): puniria o posto onde o ritmo é da máquina — dois operadores numa
+    máquina de um não produzem o dobro, e a meta cairia à metade quando um
+    faltasse;
+  - **transformar a meta das horizontais em "por pessoa" (2.500)**: o número que
+    a fábrica conhece é 10.000 do turno; trocá-lo por 2.500 mudaria a conversa
+    de todo mundo para ganhar nada;
+  - **um campo novo em `machines`** (por exemplo `staffing_sensitive`): criaria
+    duas fontes de verdade sobre como ler a meta, e a base já é a resposta dessa
+    pergunta;
+  - **pedir o nº de operadores em todas as máquinas** (o que a D12 permitia):
+    dado que ninguém usa, num campo a mais na tela que a fábrica usa todo dia.

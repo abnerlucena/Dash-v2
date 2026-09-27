@@ -17,7 +17,8 @@ import type { Holiday, Machine, OrdemProducao, ProdRecord } from "@/lib/api";
 
 export type SummaryRow = Tables<"production_summary">;
 export type OrderRow = Pick<Tables<"production_orders">, "production_record_id" | "order_number" | "quantity" | "is_rework" | "notes">;
-export type MachineRow = Pick<Tables<"machines">, "id" | "name" | "has_target" | "status">;
+export type MachineRow = Pick<Tables<"machines">, "id" | "name" | "has_target" | "status"> &
+  Partial<Pick<Tables<"machines">, "standard_operator_count">>;
 export type CalendarRow = Pick<Tables<"calendar_events">, "id" | "event_date" | "description" | "event_type" | "created_by" | "created_at"> & {
   calendar_event_shifts?: { shift_id: number }[] | null;
 };
@@ -115,6 +116,8 @@ export function toMachine(row: MachineRow, target: number | undefined): Machine 
     hasMeta: row.has_target,
     defaultMeta: target ?? 0,
     status: MACHINE_STATUS_TO_LEGACY[row.status] ?? row.status,
+    // Lotação padrão do posto: é o divisor da meta rateada (D47).
+    standardOperatorCount: row.standard_operator_count ?? null,
   };
 }
 

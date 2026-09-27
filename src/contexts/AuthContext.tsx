@@ -9,6 +9,7 @@ import {
   MACHINES_DEFAULT,
 } from "@/lib/api";
 import { data as dataSource, DATA_SOURCE, isSupabase, type RegisterInput } from "@/lib/repositories";
+import type { BaseDaMeta } from "@/lib/metas";
 
 export type { OrdemProducao };
 
@@ -16,8 +17,8 @@ export interface MetaInfo {
   updatedBy: string;
   updatedAt: string;
   vigenciaInicio: string;
-  /** `per_operator` = o número é a meta de cada pessoa (A Granél, D39). */
-  basis?: "per_shift" | "per_operator";
+  /** Como ler o número: ver `src/lib/metas.ts` (D39, D47). */
+  basis?: BaseDaMeta;
 }
 
 export type { Holiday };

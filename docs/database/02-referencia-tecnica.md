@@ -1,6 +1,6 @@
 # Referência Técnica do Schema
 
-> Versão do schema: `v0.18.0` · Última atualização: 27/09/2026 · Status: **implementado no Supabase** (projeto de testes), com o histórico da planilha já carregado. O sistema em produção continua sendo o Google Sheets.
+> Versão do schema: `v0.19.0` · Última atualização: 27/09/2026 · Status: **implementado no Supabase** (projeto de testes), com o histórico da planilha já carregado. O sistema em produção continua sendo o Google Sheets.
 > SGBD: PostgreSQL (Supabase) · Schema: `public` (+ `auth`, gerenciado pelo Supabase)
 > Decisões citadas como `[Dxx]` estão em [03-decisoes.md](03-decisoes.md).
 
@@ -84,7 +84,7 @@ Exclusão física bloqueada por FK quando houver produção; desativar via `stat
 | `shift_id` | `smallint` | NN, FK `shifts` | |
 | `machine_id` | `integer` | NN, FK `machines` | |
 | `target_quantity` | `integer` | NN, CHECK `>= 0` | Snapshot da meta vigente [D08] |
-| `target_basis` | `text` | NN, default `'per_shift'`, CHECK `per_shift`/`per_operator` | Snapshot da **base** da meta: como ler `target_quantity`. `per_operator` = meta de cada pessoa [D39, D46] |
+| `target_basis` | `text` | NN, default `'per_shift'`, CHECK `per_shift`/`per_shift_prorated`/`per_operator` | Snapshot da **base** da meta: como ler `target_quantity` (fixa, rateada pela lotação, ou de cada pessoa) [D39, D46, D47] |
 | `operator_count` | `smallint` | CHECK `>= 0` | [D12] |
 | `work_mode` | `text` | NN, default `'regular'`, CHECK `regular`/`overtime` | Hora extra não entra no cálculo de meta [D27] |
 | `notes` | `text` | CHECK até 500 caracteres | |
@@ -132,7 +132,7 @@ UQ `machine_downtimes_source_external_id_key (source, external_id)` (idempotênc
 | `id` | `uuid` | PK | |
 | `machine_id` | `integer` | NN, FK `machines` | |
 | `quantity_per_shift` | `integer` | NN, CHECK `>= 0` | Igual para todos os turnos [D14] |
-| `basis` | `text` | NN, default `'per_shift'`, CHECK `per_shift`/`per_operator` | Como ler a quantidade: meta do turno ou meta por pessoa (A Granel) [D39] |
+| `basis` | `text` | NN, default `'per_shift'`, CHECK `per_shift`/`per_shift_prorated`/`per_operator` | Como ler `quantity_per_shift`: meta do turno, meta do turno rateada pela lotação, ou meta de cada pessoa [D39, D47] |
 | `valid_from` | `date` | NN; gatilho recusa data < hoje (SP) em INSERT e UPDATE | [D15] |
 | `created_by` | `uuid` | FK `profiles`, default `auth.uid()` | |
 | `created_at` | `timestamptz` | NN, default `now()` | |
@@ -285,20 +285,26 @@ PK `(user_id, permission_code)` · Índice `(permission_code)`. Permissões efet
 
 | View | Retorna |
 |---|---|
-| `production_summary` | Colunas de `production_records` + `shift_name`, `machine_name`, `good_quantity` (ordens sem retrabalho), `rework_quantity`, `total_quantity`, `order_count`, `staffing_ratio` (= `operator_count / standard_operator_count`), `adjusted_target` (meta corrigida pela lotação; para máquina por operador, igual à meta efetiva), **`effective_target`** (a meta com que comparar a produção — ver abaixo), `target_basis`, `is_excluded_day` (existe `excluded_day` na data, para o dia inteiro ou para o turno) e `counts_toward_target` (= `work_mode = 'regular'` **e** não anulado) [D11, D12, D16, D27, D39, D46] |
+| `production_summary` | Colunas de `production_records` + `shift_name`, `machine_name`, `good_quantity` (ordens sem retrabalho), `rework_quantity`, `total_quantity`, `order_count`, `staffing_ratio` (= `operator_count / standard_operator_count`), `adjusted_target` (meta corrigida pela lotação, calculada para toda máquina como informação), **`effective_target`** (a meta com que comparar a produção, resolvida conforme a base — ver abaixo), `target_basis`, `is_excluded_day` (existe `excluded_day` na data, para o dia inteiro ou para o turno) e `counts_toward_target` (= `work_mode = 'regular'` **e** não anulado) [D11, D12, D16, D27, D39, D46, D47] |
 | `current_machine_targets` | `machine_id`, `target_id`, `quantity_per_shift`, `valid_from`, `created_by`, `created_at`, `basis` — meta vigente hoje (SP) por máquina: maior `valid_from <= hoje` |
 
 Ambas criadas com `security_invoker = true`: respeitam o RLS de quem consulta.
 
 > **Regra de leitura para gráficos:** atingimento de meta = `sum(good_quantity) / sum(effective_target)` filtrando `counts_toward_target`. Produção total soma todas as linhas (inclusive hora extra).
 >
-> **Por que `effective_target` e não `target_quantity`** [D39, D46]: em quase toda
-> máquina os dois são o mesmo número. Na Bancada A Granél, `target_quantity`
-> guarda 25.000 — a meta de **cada pessoa** —, e `effective_target` faz a conta
-> que interessa: 25.000 × pessoas do apontamento. Sem operadores informados, cai
-> na lotação padrão da máquina; sem lotação cadastrada, multiplica por 1. Quem
-> somar `target_quantity` numa máquina por operador vai medir atingimento de 300%
-> onde o certo é 100%.
+> **Por que `effective_target` e não `target_quantity`** [D39, D46, D47]: em quase
+> toda máquina os dois são o mesmo número — mas não em três postos. A base
+> gravada no apontamento (`target_basis`) diz como ler o número:
+>
+> | Base | O número é | Meta do turno | Onde |
+> |---|---|---|---|
+> | `per_shift` | a meta do turno | o próprio número | padrão; ritmo da máquina |
+> | `per_shift_prorated` | a meta com a **lotação padrão** | número × pessoas ÷ lotação padrão | Horizontais N°1 e N°2 |
+> | `per_operator` | a meta de **cada pessoa** | número × pessoas | Bancada A Granél |
+>
+> Sem operadores informados, as duas últimas caem na lotação padrão do posto — o
+> que dá, para a rateada, exatamente a meta cheia. Quem somar `target_quantity`
+> numa máquina por operador vai medir atingimento de 300% onde o certo é 100%.
 
 ## 5. Triggers
 
@@ -324,7 +330,7 @@ Ambas criadas com `security_invoker = true`: respeitam o RLS de quem consulta.
 | `my_permissions()` | `text[]` | Permissões efetivas (mesmas regras); o app usa para mostrar/esconder botões |
 | `current_identified_user_id()` | `uuid` | Pessoa identificada por crachá na sessão (claim `session_id` do JWT) [D23] |
 | `machine_target_on(p_machine_id, p_date)` | `integer` | Meta vigente na data, número **cru**; antes do início do histórico, a mais antiga [D32]. Leia junto com a base |
-| `machine_target_basis_on(p_machine_id, p_date)` | `text` | Base da meta vigente na data (`per_shift` \| `per_operator`), mesma regra da anterior. O número sem a base é ambíguo [D39, D46] |
+| `machine_target_basis_on(p_machine_id, p_date)` | `text` | Base da meta vigente na data (`per_shift` \| `per_shift_prorated` \| `per_operator`), mesma regra da anterior. O número sem a base é ambíguo [D39, D46, D47] |
 | `list_profile_names()` | `table(id, full_name)` | Só id + nome, só para usuários ativos (exibir "quem apontou" sem expor crachá) |
 | `can_edit_production_record(created_by, created_at)` / `can_delete_production_record(...)` | `boolean` | Regra D24. Nunca devolve `NULL`: apontamento **sem autor** só é editável/apagável com `production.edit` / `production.delete` (correção 0.10.3) |
 | `insert_production_orders(record_id, orders jsonb)` | `integer` | Interna (sem permissão de execução para o app) |
@@ -339,7 +345,7 @@ Ambas criadas com `security_invoker = true`: respeitam o RLS de quem consulta.
 | `bulk_update_production_records(p_ids uuid[], p_new_date = null, p_new_shift_id = null) → integer` | `production.bulk_edit` | Até 200; colisão com apontamento existente → nada é alterado |
 | `bulk_delete_production_records(p_ids uuid[]) → integer` | `production.bulk_delete` | Até 200 |
 | `create_machine(p_name, p_initial_target = 0, p_has_target = true, p_standard_operator_count = null) → integer` | `machines.manage` | Máquina + primeira meta vigente hoje [D13] |
-| `save_machine_targets(p_targets jsonb {"id": meta}, p_valid_from = hoje) → integer` | `targets.manage` | Grava só as metas que mudaram; mesma data (hoje/futura) é corrigida [D15, D31] |
+| `save_machine_targets(p_targets jsonb {"id": meta}, p_valid_from = hoje) → integer` | `targets.manage` | Grava só as metas que mudaram; mesma data (hoje/futura) é corrigida [D15, D31]. **Preserva a `basis` da máquina**: mudar o número não muda como ele é lido [D47] |
 | `approve_user(p_user_id, p_role_id, p_permissions text[] = null)` | `users.approve` | Ativa, aplica o perfil e copia (ou ajusta) as permissões [D22] |
 | `identify_shared_session(p_badge_number) → text` | conta `shared` ativa | Crachá de usuário `personal` ativo; grava `shared_account_sessions`; devolve o nome |
 | `bootstrap_admin(p_email, p_role_code = 'manager')` | só o dono do banco | Instalação: ativa o primeiro gestor. Sem execução para `anon`/`authenticated` |

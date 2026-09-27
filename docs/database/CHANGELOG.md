@@ -17,8 +17,50 @@ Formato de cada entrada:
 
 ---
 
+## [0.19.0] — 27/09/2026 — Onde a lotação muda a meta: granel e horizontais
+- Status: **Desenhado** — migration escrita e revisada, **ainda não aplicada** (o contêiner desta sessão não alcança o banco: a política de rede do ambiente nega o host do projeto). Aplicar pelo SQL Editor, junto com a 0021, na ordem.
+- Commit/PR: branch `claude/ui-oficial-transicao`
+- Migration: `supabase/migrations/20260927110000_meta_depende_da_lotacao.sql`
+- Decisões: D47 (nova), D39, D46, D12
+
+### O que o gestor esclareceu
+O nº de operadores do posto só muda a meta em **dois** lugares, e por motivos
+diferentes:
+
+| Posto | Por quê | Base |
+|---|---|---|
+| Bancada Embalagem A Granél | trabalho manual: cada pessoa embala | `per_operator` — 25.000 **por pessoa** |
+| Embaladoras Horizontais N°1 e N°2 | a linha precisa de 4 pessoas para render 10.000 no turno | `per_shift_prorated` — 10.000 **com a lotação padrão**, rateado |
+| todas as outras | o ritmo é da máquina; mais gente não faz sair mais peça | `per_shift` — fixa |
+
+Com 3 das 4 pessoas, a meta da horizontal passa a ser 7.500 — render isso é o
+esperado, não um fracasso. A conta é a que a **D12** já calculava em
+`adjusted_target` desde 20/09 e ninguém usava; agora vale como meta, **só onde a
+base disser**.
+
+### Alterado
+- `machine_targets.basis` e `production_records.target_basis` aceitam um terceiro valor, `per_shift_prorated`. As restrições de CHECK foram recriadas (nenhuma linha alterada) e agora têm nome explícito.
+- `production_summary.effective_target` resolve as três bases.
+- **`save_machine_targets` preserva a base** — ver abaixo.
+- Horizontais N°1 e N°2 recebem um **degrau novo** de meta a partir de hoje: mesmo número (10.000), base `per_shift_prorated`. Os turnos anteriores continuam lidos com a régua antiga (mesmo princípio da D46).
+
+### Corrigido: a tela de metas apagava a base, sem avisar
+`save_machine_targets` gravava a meta nova **sem** `basis`, e a coluna tem default
+`per_shift`. Bastava o gestor corrigir o número de A Granél na tela para o "por
+pessoa" virar "por turno" e o atingimento voltar a mentir — sem erro, sem aviso.
+A função passa a carregar a base que a máquina já tinha naquela data: **mudar o
+número nunca muda a regra de leitura**.
+
+### Impacto no frontend
+- `src/lib/metas.ts` (novo) — as três regras num lugar só, com teste (`src/test/metas.test.ts`, 9 casos). A D39 rejeitou "cada tela lembra da exceção"; este arquivo é o outro caminho.
+- `src/components/ProductionEntry.tsx` — o campo *nº de operadores* passa a aparecer **só** nos postos onde a lotação muda a meta, com a conta à vista (`10.000 com 4 · 3 pessoas no turno`).
+- `src/components/MetasTab.tsx` — as etiquetas agora são duas: **por pessoa** e **conforme a lotação**, cada uma com a sua explicação.
+- `machines.standard_operator_count` passa a chegar às telas (`Machine.standardOperatorCount`): é o divisor da meta rateada.
+
+---
+
 ## [0.18.0] — 27/09/2026 — A meta por operador entra no cálculo
-- Status: **Desenhado** — a migration está escrita e revisada, mas **ainda não foi aplicada** no Supabase: a sessão que a escreveu não tinha acesso ao banco. Aplicar `supabase/migrations/20260927100000_meta_por_operador.sql` pelo SQL Editor e conferir com a consulta que está no fim do arquivo.
+- Status: **Desenhado** — a migration está escrita e revisada, mas **ainda não foi aplicada** no Supabase: o contêiner da sessão que a escreveu não alcança o banco. Aplicar `supabase/migrations/20260927100000_meta_por_operador.sql` pelo SQL Editor, **antes da 0.19.0**, e conferir com a consulta que está no fim do arquivo.
 - Commit/PR: branch `claude/ui-oficial-transicao`
 - Migration: `supabase/migrations/20260927100000_meta_por_operador.sql`
 - Decisões: D46 (nova), D39 (implementada agora no cálculo), D08, D12

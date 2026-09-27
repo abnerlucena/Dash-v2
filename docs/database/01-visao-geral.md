@@ -1,7 +1,7 @@
 # Visão Geral do Banco de Dados
 
 > Versão do schema: `v0.10.3` · Última atualização: 21/09/2026 · Documento em linguagem simples, para apresentação.
-> Seções 6 e 8 revisadas em 26–27/09/2026 (meta por pessoa e recuperação de senha, `v0.18.0`); as demais seções ainda descrevem o schema até a `v0.10.3`.
+> Seções 6 e 8 revisadas em 26–27/09/2026 (quando a lotação muda a meta, e recuperação de senha, `v0.19.0`); as demais seções ainda descrevem o schema até a `v0.10.3`.
 > Detalhes técnicos: [02-referencia-tecnica.md](02-referencia-tecnica.md)
 
 ## 1. Por que um banco novo
@@ -105,10 +105,14 @@ timeline
 - Uma meta nova **não pode começar no passado**. Correções em apontamentos antigos são feitas pelo gestor, um a um.
 - Cada apontamento guarda uma "foto" da meta do dia, para o passado nunca mudar sozinho.
 
-### Uma exceção: a meta por pessoa
+### Onde a quantidade de gente muda a meta
 
-A **Bancada Embalagem A Granél** não tem meta de turno: são **25.000 peças por
-pessoa**. A meta do turno depende de quantas pessoas trabalharam nele.
+Em quase toda máquina, quem dita o ritmo é a máquina: mais gente na volta não faz
+sair mais peça, e a meta do turno é a mesma. Em **dois postos** não é assim — e,
+neles, a meta depende de quantas pessoas trabalharam.
+
+**Bancada Embalagem A Granél — 25.000 por pessoa.** É trabalho manual: cada
+pessoa embala. Dobrar as pessoas dobra a produção.
 
 | Pessoas na bancada | Meta do turno |
 |---|---|
@@ -116,17 +120,29 @@ pessoa**. A meta do turno depende de quantas pessoas trabalharam nele.
 | 3 | 75.000 |
 | 5 | 125.000 |
 
-Por isso a tela de apontamento pede o **nº de operadores** dessa bancada e mostra
-a conta acontecendo. Sem esse número, o sistema não tem como saber a meta do
-turno — e prefere pedir o dado a mostrar um número errado.
+**Embaladoras Horizontais N°1 e N°2 — 10.000 com as 4 pessoas da linha.** A linha
+precisa da equipe cheia para render as 10.000. Faltando gente, a meta é rateada
+na mesma proporção: com 3 pessoas, render 7.500 é o **esperado**, não um
+fracasso.
 
-Na tela de metas, a bancada aparece com a etiqueta **por pessoa**, para ninguém
-ler 25.000 como se fosse a meta do turno inteiro.
+| Pessoas na linha | Meta do turno |
+|---|---|
+| 4 (lotação padrão) | 10.000 |
+| 3 | 7.500 |
+| 2 | 5.000 |
+
+Por isso a tela de apontamento pede o **nº de operadores** — só nesses postos — e
+mostra a conta acontecendo. Sem esse número, ela usa a lotação padrão do posto;
+quando nem essa existe, prefere pedir o dado a mostrar um número errado.
+
+Na tela de metas, esses postos aparecem com uma etiqueta: **por pessoa** ou
+**conforme a lotação**, para ninguém ler o número como se fosse a meta fechada do
+turno.
 
 > **Sobre o histórico:** os apontamentos anteriores a 27/09/2026 continuam
-> medidos como meta de turno. A planilha antiga nunca distinguiu as duas coisas,
-> e recalcular seria adivinhar. O atingimento histórico dessa bancada está,
-> portanto, mais alto do que foi na realidade (decisão **D46**).
+> medidos como meta de turno fixa. A planilha antiga nunca distinguiu essas
+> regras, e recalcular seria adivinhar. O atingimento histórico de A Granél está,
+> portanto, mais alto do que foi na realidade (decisões **D46** e **D47**).
 
 ## 7. Calendário: feriados, eventos e dias anulados
 

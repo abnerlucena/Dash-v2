@@ -4,12 +4,14 @@ import { useAuth, type OrdemProducao } from "@/contexts/AuthContext";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { TURNOS, today, pctColor } from "@/lib/api";
 import { data, isSupabase } from "@/lib/repositories";
+import { metaDoTurno as calcularMeta, rotuloDaBase } from "@/lib/metas";
 import { toast } from "sonner";
 import { DatePickerInput } from "@/components/DatePickerInput";
 import { SelectDropdown } from "@/components/SelectDropdown";
 import OrdemProducaoInput from "@/components/OrdemProducaoInput";
 
-// operadores: só no modo Supabase (D12); vazio = lotação padrão da máquina.
+// operadores: só no modo Supabase, e só nos postos onde a lotação muda a meta
+// (D47: A Granél e as horizontais). Vazio = lotação padrão da máquina (D12).
 interface EntryData { machineId: number; ordens: OrdemProducao[]; obs: string; operadores?: string; }
 
 // Static machine grouping — matched case-insensitively against backend names
@@ -110,21 +112,19 @@ const ProductionEntry = () => {
   }
 
   /**
-   * A meta do turno desta máquina (D39/D46).
-   *
-   * Em quase todas, é o número cadastrado. Na Bancada A Granél o número é a
-   * meta de CADA pessoa: a do turno é ele × quantas pessoas trabalharam. Sem o
-   * nº de operadores informado a meta do turno é desconhecida — só o banco sabe
-   * a lotação padrão —, e `valor` vem nulo, para a tela não mostrar um número
-   * errado nem um atingimento inflado.
+   * A meta do turno desta máquina. As três regras — fixa, rateada pela lotação
+   * e por pessoa — moram em src/lib/metas.ts, com teste. Aqui só se junta o que
+   * a tela sabe: a meta cadastrada, a base, as pessoas digitadas e a lotação
+   * padrão do posto.
    */
   function metaDoTurno(machineId: number) {
     const machine = machines.find(m => m.id === machineId);
-    const cadastrada = metas[machineId] ?? machine?.defaultMeta ?? 0;
-    const porPessoa = metasInfo[machineId]?.basis === "per_operator";
-    const pessoas = Number(entries[machineId]?.operadores) || 0;
-    if (!porPessoa) return { valor: cadastrada, cadastrada, porPessoa, pessoas };
-    return { valor: pessoas > 0 ? cadastrada * pessoas : null, cadastrada, porPessoa, pessoas };
+    return calcularMeta({
+      cadastrada: metas[machineId] ?? machine?.defaultMeta ?? 0,
+      base: metasInfo[machineId]?.basis,
+      pessoas: entries[machineId]?.operadores,
+      lotacaoPadrao: machine?.standardOperatorCount ?? null,
+    });
   }
 
   function getPct(machineId: number): number | null {
@@ -325,20 +325,27 @@ const ProductionEntry = () => {
                     const meta     = metaDoTurno(machine.id);
                     const isFilled = entry.ordens.some(o => o.quantidade > 0);
 
-                    // A Granél mostra a conta acontecendo: 25.000 × 3 = 75.000.
-                    // Sem o nº de operadores, diz o que falta em vez de mentir.
-                    const metaLabel = meta.porPessoa ? (
+                    // Onde a lotação muda a meta, a conta aparece acontecendo:
+                    // A Granél "25.000 × 3 pessoas", horizontal "10.000 × 3 de 4".
+                    // Sem saber as pessoas, diz o que falta em vez de mentir.
+                    const pessoasTxt = `${meta.pessoas} ${meta.pessoas === 1 ? "pessoa" : "pessoas"}`;
+                    const contaTxt = meta.base === "per_operator"
+                      ? `${meta.cadastrada.toLocaleString("pt-BR")} × ${pessoasTxt}`
+                      // Sem lotação padrão cadastrada não há do que ratear: a meta
+                      // cheia é o melhor que se pode dizer, e a conta não aparece.
+                      : meta.lotacaoPadrao
+                        ? `${meta.cadastrada.toLocaleString("pt-BR")} com ${meta.lotacaoPadrao} · ${pessoasTxt} no turno`
+                        : `${pessoasTxt} no turno · lotação padrão não cadastrada`;
+                    const metaLabel = meta.dependeDaLotacao ? (
                       meta.valor !== null ? (
                         <>
                           Meta: <strong>{meta.valor.toLocaleString("pt-BR")}</strong>{" "}
-                          <span className="text-muted-foreground/80">
-                            ({meta.cadastrada.toLocaleString("pt-BR")} × {meta.pessoas} {meta.pessoas === 1 ? "pessoa" : "pessoas"})
-                          </span>
+                          <span className="text-muted-foreground/80">({contaTxt})</span>
                         </>
                       ) : (
                         <>
-                          Meta: <strong>{meta.cadastrada.toLocaleString("pt-BR")}</strong> por pessoa
-                          {" — informe o nº de operadores"}
+                          Meta: <strong>{meta.cadastrada.toLocaleString("pt-BR")}</strong>{" "}
+                          {rotuloDaBase(meta.base)} — informe o nº de operadores
                         </>
                       )
                     ) : (
@@ -358,13 +365,15 @@ const ProductionEntry = () => {
                       </button>
                     );
 
-                    const operadoresInput = isSupabase ? (
+                    // D47: nas outras máquinas quem dita o ritmo é a máquina, e
+                    // perguntar o nº de pessoas só ocuparia a tela do operador.
+                    const operadoresInput = isSupabase && meta.dependeDaLotacao ? (
                       <input
                         value={entry.operadores ?? ""}
                         onChange={e => updateOperadores(machine.id, e.target.value)}
                         inputMode="numeric"
                         placeholder="Nº oper."
-                        title="Nº de operadores no turno (vazio = lotação padrão)"
+                        title={`Nº de operadores neste posto no turno — muda a meta${meta.lotacaoPadrao ? ` (vazio = lotação padrão, ${meta.lotacaoPadrao})` : ""}`}
                         className="h-9 w-24 px-2 text-xs font-semibold rounded-md border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/30 placeholder:text-muted-foreground/50"
                         style={{ borderRadius: 6 }}
                       />

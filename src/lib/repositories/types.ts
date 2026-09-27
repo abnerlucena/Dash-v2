@@ -7,6 +7,7 @@
 // As respostas mantêm o formato das respostas do Apps Script, para que as
 // telas não precisem ser reescritas agora.
 import type { Session, Machine, Holiday, ProdRecord, OrdemProducao } from "@/lib/api";
+import type { BaseDaMeta } from "@/lib/metas";
 
 export type DataSourceKind = "gas" | "supabase";
 
@@ -15,12 +16,10 @@ export interface MetaInfoRaw {
   updatedAt: string;
   vigenciaInicio: string;
   /**
-   * Como ler o número da meta (D39). `per_operator` é a Bancada A Granél:
-   * 25.000 é a meta de CADA pessoa, e a meta do turno é isso × lotação. Só o
-   * modo Supabase informa; vazio se comporta como `per_shift`, que é a regra
-   * de todas as outras máquinas.
+   * Como ler o número da meta (D39, D47). Só o modo Supabase informa; vazio se
+   * comporta como `per_shift`. As três regras estão em `src/lib/metas.ts`.
    */
-  basis?: "per_shift" | "per_operator";
+  basis?: BaseDaMeta;
 }
 
 export interface LoginResponse {

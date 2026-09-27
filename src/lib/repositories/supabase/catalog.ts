@@ -16,7 +16,7 @@ export const supabaseMachines: DataSource["machines"] = {
   async getMachines() {
     const sb = getSupabase();
     const [{ data, error }, targets] = await Promise.all([
-      sb.from("machines").select("id, name, has_target, status").order("id"),
+      sb.from("machines").select("id, name, has_target, status, standard_operator_count").order("id"),
       currentTargets(),
     ]);
     if (error) throw toError(error);
@@ -56,8 +56,11 @@ export const supabaseTargets: DataSource["targets"] = {
         updatedBy: (t.created_by && names.get(t.created_by)) || "carga inicial",
         updatedAt: t.created_at ?? "",
         vigenciaInicio: t.valid_from ?? "",
-        // D39: em A Granél o número é a meta de cada pessoa, não do turno.
-        basis: t.basis === "per_operator" ? "per_operator" : "per_shift",
+        // D39/D47: o número pode ser do turno, rateado pela lotação
+        // (horizontais) ou de cada pessoa (A Granél).
+        basis: t.basis === "per_operator" || t.basis === "per_shift_prorated"
+          ? t.basis
+          : "per_shift",
       };
     }
     return { metas, metasInfo };

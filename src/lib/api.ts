@@ -23,6 +23,9 @@ export interface Machine {
   hasMeta: boolean;
   defaultMeta: number;
   status?: string;
+  /** Só modo Supabase: lotação padrão do posto (`standard_operator_count`).
+   *  Serve para ratear a meta das horizontais pela lotação real (D47). */
+  standardOperatorCount?: number | null;
 }
 
 export interface Holiday {

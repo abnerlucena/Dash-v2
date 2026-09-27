@@ -7,6 +7,7 @@ import { data, isSupabase } from "@/lib/repositories";
 import TargetHistory from "@/components/TargetHistory";
 import { toast } from "sonner";
 import { DatePickerInput } from "@/components/DatePickerInput";
+import { rotuloDaBase } from "@/lib/metas";
 
 const DIAS_UTEIS_MES = 22;
 
@@ -136,15 +137,15 @@ const MetasTab = () => {
               const metaDia   = metaTurno * turnosAtivos;
               const metaMes   = metaDia * DIAS_UTEIS_MES;
               const info      = metasInfo[m.id];
-              const porPessoa = info?.basis === "per_operator";
+              const rotuloBase = rotuloDaBase(info?.basis);
               return (
                 <div key={m.id} className="px-4 py-3 space-y-2">
                   <p className="text-xs font-bold text-foreground">
                     {m.name}
-                    {porPessoa && (
+                    {rotuloBase && (
                       <span className="ml-2 font-semibold text-[10px] px-1.5 py-0.5 rounded"
                         style={{ background: '#EFF6FF', color: '#0066B3', borderRadius: 4 }}>
-                        por pessoa
+                        {rotuloBase}
                       </span>
                     )}
                   </p>
@@ -208,10 +209,11 @@ const MetasTab = () => {
                   const metaDia   = metaTurno * turnosAtivos;
                   const metaMes   = metaDia * DIAS_UTEIS_MES;
                   const info      = metasInfo[m.id];
-                  // D39: A Granél é medida por pessoa. As colunas Dia e Mês
-                  // seguem sendo por pessoa também — quantas pessoas ficam na
-                  // bancada é decisão de cada turno, e a tela não inventa.
-                  const porPessoa = info?.basis === "per_operator";
+                  // D39/D47: onde a lotação muda a meta, as colunas Turno, Dia
+                  // e Mês continuam mostrando o número CADASTRADO — quantas
+                  // pessoas ficam no posto é decisão de cada turno, e a tela não
+                  // inventa. A etiqueta avisa como o número deve ser lido.
+                  const rotuloBase = rotuloDaBase(info?.basis);
                   const rowBg     = editing ? (i % 2 === 0 ? "#EFF6FF" : "#E0EDFF") : (i % 2 === 0 ? "transparent" : "#F8FAFC");
 
                   return (
@@ -219,11 +221,13 @@ const MetasTab = () => {
 
                       <td className="px-5 py-3 font-bold text-foreground text-xs uppercase">
                         {m.name}
-                        {porPessoa && (
+                        {rotuloBase && (
                           <span className="ml-2 normal-case font-semibold text-[10px] px-1.5 py-0.5 rounded"
                             style={{ background: '#EFF6FF', color: '#0066B3', borderRadius: 4 }}
-                            title="A meta desta bancada é por pessoa: a do turno é este número × quantas pessoas trabalharam (D39)">
-                            por pessoa
+                            title={info?.basis === "per_operator"
+                              ? "A meta desta bancada é de cada pessoa: a do turno é este número × quantas pessoas trabalharam (D39)"
+                              : "Este número é a meta do turno com a lotação padrão do posto; com menos gente ela é rateada na mesma proporção (D47)"}>
+                            {rotuloBase}
                           </span>
                         )}
                       </td>
@@ -280,9 +284,11 @@ const MetasTab = () => {
         <div className="px-5 py-3 border-t border-border">
           <p className="text-xs text-muted-foreground">
             Metas são <strong>globais</strong> — todos os usuários verão as mesmas metas simultaneamente.
-            {" "}Onde aparece <strong>por pessoa</strong>, o número é a meta de <strong>cada operador</strong>:
-            a meta do turno é ele multiplicado por quantas pessoas trabalharam, e é assim que o
-            dashboard mede o atingimento.
+            {" "}Em dois lugares a <strong>lotação do posto muda a meta</strong>, e a etiqueta avisa:
+            {" "}<strong>por pessoa</strong> (A Granél — a meta do turno é este número × quantas pessoas
+            trabalharam) e <strong>conforme a lotação</strong> (horizontais — este número vale com a
+            lotação padrão e é rateado quando falta gente). Nas demais, o ritmo é da máquina e a meta
+            não muda com o nº de operadores.
             {isAdmin && !editing && <> Clique em <strong>Alterar Metas</strong> para editar e em <strong>Salvar Metas</strong> para aplicar a todos.</>}
           </p>
         </div>
