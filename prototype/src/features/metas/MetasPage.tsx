@@ -2,6 +2,7 @@ import { Info, Pencil } from "lucide-react";
 import { useMemo, useState } from "react";
 import {
   ACTIVE_SHIFTS,
+  DATA_END,
   TARGET_MACHINES,
   META_CHANGES,
   META_EFFECTIVE_FROM,
@@ -10,6 +11,7 @@ import {
   groupOf,
   metaPerShift,
   statusFor,
+  toIsoDate,
   type Machine,
   type MetaChange,
 } from "@/data/machines";
@@ -34,7 +36,7 @@ const dateTime = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-di
 const dateOnly = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" });
 
 /** Vigência mínima: dia seguinte à data de referência (metas nunca mudam o passado) */
-const MIN_EFFECTIVE = "2026-03-28";
+const MIN_EFFECTIVE = toIsoDate(new Date(DATA_END.getFullYear(), DATA_END.getMonth(), DATA_END.getDate() + 1));
 
 interface CurrentMetasProps {
   notify: Notify;
