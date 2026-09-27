@@ -18,10 +18,10 @@ Formato de cada entrada:
 ---
 
 ## [0.19.0] — 27/09/2026 — Onde a lotação muda a meta: granel e horizontais
-- Status: **Desenhado** — migration escrita e revisada, **ainda não aplicada** (o contêiner desta sessão não alcança o banco: a política de rede do ambiente nega o host do projeto). Aplicar pelo SQL Editor, junto com a 0021, na ordem.
+- Status: **Implementado** — aplicada no Supabase (projeto de testes) em 27/09/2026, pela sessão local (pooler IPv4 + `pg`; a Management API não está disponível nela, e o contêiner que escreveu a migration não alcançava o banco).
 - Commit/PR: branch `claude/ui-oficial-transicao`
 - Migration: `supabase/migrations/20260927110000_meta_depende_da_lotacao.sql`
-- Testes: `supabase/tests/06_meta_por_lotacao.sql` (12 casos, cobre também a 0021) — **escrita e com a sintaxe validada pelo parser do PostgreSQL, mas ainda não executada**: rode no SQL Editor junto com as migrations, como as suítes anteriores.
+- Testes: `supabase/tests/06_meta_por_lotacao.sql` — **12 casos, 12 passando** contra o banco real, em transação desfeita. Suítes anteriores depois de aplicar: 01 (24/24), 02 (23/23), 03 (9/9), 04 (12/12). A 05 não roda mais — ver a nota no fim desta entrada.
 - Decisões: D47 (nova), D39, D46, D12
 
 ### O que o gestor esclareceu
@@ -60,8 +60,53 @@ número nunca muda a regra de leitura**.
 
 ---
 
+
+### Conferido na aplicação (27/09/2026)
+
+O invariante que mais importava: **o histórico importado não mudou de número**.
+Soma das metas efetivas antes e depois: **20.519.500** nos dois casos; produção
+**17.618.667**; **2.507** apontamentos. Cada apontamento guarda a foto da base do
+seu dia, então mudar a base de hoje não reescreve o passado — mesma ideia da meta
+desde a D08.
+
+As três bases, provadas com número pela suíte 06:
+
+| Caso | Conta |
+|---|---|
+| A Granél com 3 pessoas | 25.000 × 3 = **75.000** |
+| Horizontal com 3 das 4 pessoas | 10.000 × 3 ÷ 4 = **7.500** |
+| Horizontal sem lotação informada | cai na lotação padrão → **meta cheia** |
+| Vertical com 5 pessoas | **10.000** — a lotação não muda a meta |
+
+O terceiro caso importa para o histórico: os apontamentos importados têm
+`operator_count` vazio, porque a planilha nunca registrou quantas pessoas
+trabalharam no turno. A conta cai em
+`coalesce(operator_count, standard_operator_count, 1)`.
+
+### A suíte 05 deixou de rodar (não é regressão)
+
+O caso `admin carrega o lote` falha com "Lote não encontrado ou já carregado":
+o lote real foi carregado em 26/09 e está com estado `loaded`, e a suíte precisa
+de um lote em `draft`. **O teste não roda mais porque o trabalho que ele testa já
+foi feito.** Nada a ver com a 0.18.0 ou a 0.19.0.
+
+A correção é a suíte montar o próprio lote de rascunho em vez de usar o real —
+a mesma fraqueza já corrigida em outros três testes. Custo honesto: ela deixaria
+de exercitar a carga das 2.507 linhas e passaria a testar só a mecânica.
+
+### `database.types.ts` estava incompleto
+
+A sessão que escreveu a 0021 não alcançava o banco e escreveu os tipos dela **à
+mão**, deixando um aviso no arquivo para conferir na próxima regeneração com
+acesso. Feito: os tipos escritos à mão conferem, mas faltavam **188 linhas** — as
+tabelas `import_batches` e `import_rows` e as funções `carregar_lote_importacao`,
+`reverter_lote_importacao`, `pode_importar` e `sincronizar_permissoes_dos_papeis`
+não estavam no arquivo. Regenerado do banco: 20 relações, 24 funções, 33 chaves
+estrangeiras. `tsc --noEmit` limpo.
+
+
 ## [0.18.0] — 27/09/2026 — A meta por operador entra no cálculo
-- Status: **Desenhado** — a migration está escrita e revisada, mas **ainda não foi aplicada** no Supabase: o contêiner da sessão que a escreveu não alcança o banco. Aplicar `supabase/migrations/20260927100000_meta_por_operador.sql` pelo SQL Editor, **antes da 0.19.0**, e conferir com a consulta que está no fim do arquivo.
+- Status: **Implementado** — aplicada no Supabase (projeto de testes) em 27/09/2026, antes da 0.19.0. Ensaiada duas vezes na mesma transação desfeita (é repetível) e conferida: nenhum dos 2.507 apontamentos mudou de número, porque todos nasceram com `target_basis = per_shift` pelo valor padrão.
 - Commit/PR: branch `claude/ui-oficial-transicao`
 - Migration: `supabase/migrations/20260927100000_meta_por_operador.sql`
 - Decisões: D46 (nova), D39 (implementada agora no cálculo), D08, D12

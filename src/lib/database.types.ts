@@ -1,12 +1,6 @@
 // Tipos do banco Supabase (schema public), no formato de `supabase gen types typescript`.
 // Gerado por introspecção do catálogo em 20/09/2026 (a CLI exige Docker para --db-url).
 // NÃO editar à mão: regenerar após cada migration (ver docs/database/README.md).
-//
-// EXCEÇÃO registrada em 27/09/2026: as adições da migration 0021 (meta por
-// operador — `production_records.target_basis`, `production_summary.
-// effective_target` e `target_basis`, função `machine_target_basis_on`) foram
-// escritas à mão, porque a sessão que fez a migration não tinha acesso ao banco
-// para regenerar. Confira este arquivo na próxima regeneração com acesso.
 
 export type Json =
   | string
@@ -140,6 +134,161 @@ export type Database = {
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      import_batches: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          description: string | null
+          error_message: string | null
+          id: string
+          loaded_at: string | null
+          reverted_at: string | null
+          source_file: string
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          error_message?: string | null
+          id?: string
+          loaded_at?: string | null
+          reverted_at?: string | null
+          source_file: string
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          error_message?: string | null
+          id?: string
+          loaded_at?: string | null
+          reverted_at?: string | null
+          source_file?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "import_batches_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      import_rows: {
+        Row: {
+          batch_id: string
+          created_at: string
+          discard_reason: string | null
+          downtime_id: string | null
+          error_message: string | null
+          id: number
+          kind: string
+          machine_id: number | null
+          notes: string | null
+          operator_count: number | null
+          production_date: string | null
+          production_record_id: string | null
+          quantity: number | null
+          raw_machine: string
+          raw_value: string | null
+          shift_id: number | null
+          source_cell: string
+          source_sheet: string
+          status: string
+          target_quantity: number | null
+          target_source: string | null
+          work_mode: string | null
+        }
+        Insert: {
+          batch_id: string
+          created_at?: string
+          discard_reason?: string | null
+          downtime_id?: string | null
+          error_message?: string | null
+          id?: never
+          kind: string
+          machine_id?: number | null
+          notes?: string | null
+          operator_count?: number | null
+          production_date?: string | null
+          production_record_id?: string | null
+          quantity?: number | null
+          raw_machine: string
+          raw_value?: string | null
+          shift_id?: number | null
+          source_cell: string
+          source_sheet: string
+          status?: string
+          target_quantity?: number | null
+          target_source?: string | null
+          work_mode?: string | null
+        }
+        Update: {
+          batch_id?: string
+          created_at?: string
+          discard_reason?: string | null
+          downtime_id?: string | null
+          error_message?: string | null
+          id?: never
+          kind?: string
+          machine_id?: number | null
+          notes?: string | null
+          operator_count?: number | null
+          production_date?: string | null
+          production_record_id?: string | null
+          quantity?: number | null
+          raw_machine?: string
+          raw_value?: string | null
+          shift_id?: number | null
+          source_cell?: string
+          source_sheet?: string
+          status?: string
+          target_quantity?: number | null
+          target_source?: string | null
+          work_mode?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "import_rows_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "import_batches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "import_rows_downtime_id_fkey"
+            columns: ["downtime_id"]
+            isOneToOne: false
+            referencedRelation: "machine_downtimes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "import_rows_machine_id_fkey"
+            columns: ["machine_id"]
+            isOneToOne: false
+            referencedRelation: "machines"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "import_rows_production_record_id_fkey"
+            columns: ["production_record_id"]
+            isOneToOne: false
+            referencedRelation: "production_records"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "import_rows_shift_id_fkey"
+            columns: ["shift_id"]
+            isOneToOne: false
+            referencedRelation: "shifts"
             referencedColumns: ["id"]
           },
         ]
@@ -417,11 +566,13 @@ export type Database = {
           created_at: string
           created_by: string | null
           id: string
+          import_batch_id: string | null
           machine_id: number
           notes: string | null
           operator_count: number | null
           production_date: string
           shift_id: number
+          source_ref: string | null
           target_basis: string
           target_quantity: number
           updated_at: string
@@ -432,11 +583,13 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           id?: string
+          import_batch_id?: string | null
           machine_id: number
           notes?: string | null
           operator_count?: number | null
           production_date: string
           shift_id: number
+          source_ref?: string | null
           target_basis?: string
           target_quantity: number
           updated_at?: string
@@ -447,11 +600,13 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           id?: string
+          import_batch_id?: string | null
           machine_id?: number
           notes?: string | null
           operator_count?: number | null
           production_date?: string
           shift_id?: number
+          source_ref?: string | null
           target_basis?: string
           target_quantity?: number
           updated_at?: string
@@ -464,6 +619,13 @@ export type Database = {
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "production_records_import_batch_id_fkey"
+            columns: ["import_batch_id"]
+            isOneToOne: false
+            referencedRelation: "import_batches"
             referencedColumns: ["id"]
           },
           {
@@ -794,6 +956,12 @@ export type Database = {
         }
         Returns: boolean
       }
+      carregar_lote_importacao: {
+        Args: {
+          p_lote: string
+        }
+        Returns: Json
+      }
       create_machine: {
         Args: {
           p_name: string
@@ -861,6 +1029,16 @@ export type Database = {
         Args: never
         Returns: string[]
       }
+      pode_importar: {
+        Args: never
+        Returns: boolean
+      }
+      reverter_lote_importacao: {
+        Args: {
+          p_lote: string
+        }
+        Returns: Json
+      }
       save_machine_targets: {
         Args: {
           p_targets: Json
@@ -880,6 +1058,10 @@ export type Database = {
           p_replace_orders?: boolean
         }
         Returns: string
+      }
+      sincronizar_permissoes_dos_papeis: {
+        Args: never
+        Returns: number
       }
       update_production_record: {
         Args: {
