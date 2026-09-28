@@ -130,10 +130,16 @@ export async function prepararRecuperacaoDeSenha(): Promise<void> {
     return;
   }
 
+  // A sessão Supabase que este navegador já tinha também sai, ANTES de o cliente
+  // nascer. Sem isso, um link inválido deixava a sessão antiga no lugar,
+  // `getSession()` a devolvia, e a tela de senha nova abria — trocando a senha
+  // de quem estava logado antes, não de quem pediu o e-mail.
+  apagarSessaoSupabaseGuardada(window.localStorage);
+
   try {
     // Criar o cliente é o que faz o supabase-js ler o token do endereço;
-    // `getSession()` espera essa leitura terminar. Sessão em mãos = o link
-    // valia, e a troca de senha pode acontecer.
+    // `getSession()` espera essa leitura terminar. Como a sessão antiga já foi
+    // apagada, sessão em mãos só pode ter vindo do link.
     const { data } = await getSupabase().auth.getSession();
     estado = data.session
       ? { tela: "novaSenha" }
@@ -143,6 +149,23 @@ export async function prepararRecuperacaoDeSenha(): Promise<void> {
     estado = { tela: "recuperar", erro: LINK_INVALIDO };
   }
   normalizarEndereco();
+}
+
+/**
+ * Apaga a sessão que o supabase-js guardou (`sb-<projeto>-auth-token`). Mantém
+ * o `...-auth-token-code-verifier`: no fluxo PKCE é ele que troca o `code` do
+ * link pela sessão nova, e apagá-lo quebraria a recuperação. Exportada para teste.
+ */
+export function apagarSessaoSupabaseGuardada(storage: Storage | undefined): void {
+  try {
+    if (!storage) return;
+    const chaves: string[] = [];
+    for (let i = 0; i < storage.length; i++) {
+      const chave = storage.key(i);
+      if (chave && /^sb-.+-auth-token$/.test(chave)) chaves.push(chave);
+    }
+    chaves.forEach(chave => storage.removeItem(chave));
+  } catch { /* sem localStorage: não há sessão guardada para vazar */ }
 }
 
 /**
