@@ -28,7 +28,7 @@ o sistema que a fábrica usa. A chave liga/desliga é a variável
 
 ```bash
 npm ci
-npm run dev            # app atual        → http://localhost:8080/Dash-v2/
+npm run dev            # app atual        → http://localhost:8080/Dashboard-Tomadas/
 npm run proto:dev      # interface nova   → http://localhost:8090/
 ```
 

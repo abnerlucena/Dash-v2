@@ -174,7 +174,15 @@ função ou coluna nova**.
 - `src/lib/recovery.ts` (novo) + `src/main.tsx` — tratam a chegada pelo link antes de a tela montar. O app usa `HashRouter`, e o token do Supabase vem no hash, que é onde mora a rota: sem isso o link cairia na página "não encontrada". Testes em `src/test/recovery.test.ts`.
 
 ### O que ainda falta (painel do Supabase, não versionável)
-1. **Authentication → URL Configuration:** incluir em *Site URL* e *Redirect URLs* os endereços do app (`http://localhost:<porta>/Dash-v2/*` (8080 é o padrão do projeto; no computador do dono roda em 8081 — libere a que for usada) e a URL publicada). Fora da lista, o Supabase devolve o link **sem** token e a tela mostra "o link expirou ou já foi usado".
+
+> **Atenção (27/09/2026):** o repositório foi renomeado de `Dash-v2` para
+> `Dashboard-Tomadas`, e o caminho base do app acompanhou. O GitHub redireciona
+> o endereço antigo do repositório, mas **não** o caminho do site publicado: com
+> o base antigo, o app no GitHub Pages pediria os arquivos em `/Dash-v2/` num
+> site servido em `/Dashboard-Tomadas/` e abriria em branco. Os endereços a
+> liberar no painel do Supabase são os novos.
+
+1. **Authentication → URL Configuration:** incluir em *Site URL* e *Redirect URLs* os endereços do app (`http://localhost:<porta>/Dashboard-Tomadas/*` (8080 é o padrão do projeto; no computador do dono roda em 8081 — libere a que for usada) e a URL publicada). Fora da lista, o Supabase devolve o link **sem** token e a tela mostra "o link expirou ou já foi usado".
 2. **Authentication → Emails → SMTP próprio:** o e-mail embutido do Supabase é de teste — poucos envios por hora e, em projetos novos, entrega só para os endereços da equipe do projeto. **Enquanto não houver SMTP, a recuperação não serve para a fábrica.**
 3. Opcional: traduzir o template *Reset Password* para português.
 

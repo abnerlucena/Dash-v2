@@ -3,8 +3,8 @@
 // pelo servidor do Supabase e volta para este app já com a permissão de trocar
 // a senha no endereço — de duas formas possíveis:
 //
-//   fluxo implícito  .../Dash-v2/?recuperar=1#access_token=...&type=recovery
-//   fluxo PKCE       .../Dash-v2/?recuperar=1&code=...
+//   fluxo implícito  .../Dashboard-Tomadas/?recuperar=1#access_token=...&type=recovery
+//   fluxo PKCE       .../Dashboard-Tomadas/?recuperar=1&code=...
 //
 // O `?recuperar=1` é nosso (vem do `redirectTo`, em repositories/supabase/auth.ts);
 // o resto é o Supabase que acrescenta.

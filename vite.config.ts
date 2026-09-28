@@ -4,7 +4,7 @@ import path from "path";
 
 // https://vitejs.dev/config/
 export default defineConfig(() => ({
-  base: "/Dash-v2/",
+  base: "/Dashboard-Tomadas/",
   server: {
     // 0.0.0.0 e não "::": o "::" só funciona onde há pilha IPv6, e falha com
     // EAFNOSUPPORT em ambientes sem ela (contêineres, algumas redes corporativas).

@@ -561,8 +561,8 @@ script de extração e carga em lote reversível.
 - **O que exige configuração no painel do Supabase** (não dá para versionar, e
   sem isso a recuperação não funciona):
   1. **Authentication → URL Configuration:** a *Site URL* e a lista de *Redirect
-     URLs* precisam incluir os endereços do app — `http://localhost:<porta>/Dash-v2/*` (8080 é o padrão do projeto; no computador do dono roda em 8081 — libere a que for usada)
-     em desenvolvimento e a URL publicada (`https://<usuario>.github.io/Dash-v2/*`).
+     URLs* precisam incluir os endereços do app — `http://localhost:<porta>/Dashboard-Tomadas/*` (8080 é o padrão do projeto; no computador do dono roda em 8081 — libere a que for usada)
+     em desenvolvimento e a URL publicada (`https://<usuario>.github.io/Dashboard-Tomadas/*`).
      Endereço fora da lista faz o Supabase devolver o link **sem** o token, e a
      tela mostra "o link expirou ou já foi usado".
   2. **SMTP próprio (Authentication → Emails):** o serviço de e-mail embutido do
