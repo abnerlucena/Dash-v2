@@ -338,7 +338,7 @@ const ProductionEntry = () => {
                         ? `${meta.cadastrada.toLocaleString("pt-BR")} com ${meta.lotacaoPadrao} · ${pessoasTxt} no turno`
                         : `${pessoasTxt} no turno · lotação padrão não cadastrada`;
                     const metaLabel = meta.dependeDaLotacao ? (
-                      meta.valor !== null ? (
+                      !meta.estimada ? (
                         <>
                           Meta: <strong>{meta.valor.toLocaleString("pt-BR")}</strong>{" "}
                           <span className="text-muted-foreground/80">({contaTxt})</span>

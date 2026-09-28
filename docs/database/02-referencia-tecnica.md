@@ -1,6 +1,6 @@
 # Referência Técnica do Schema
 
-> Versão do schema: `v0.19.0` · Última atualização: 27/09/2026 · Status: **implementado no Supabase** (projeto de testes), com o histórico da planilha já carregado. O sistema em produção continua sendo o Google Sheets.
+> Versão do schema: `v0.19.1` · Última atualização: 27/09/2026 · Status: **implementado no Supabase** (projeto de testes), com o histórico da planilha já carregado. O sistema em produção continua sendo o Google Sheets.
 > SGBD: PostgreSQL (Supabase) · Schema: `public` (+ `auth`, gerenciado pelo Supabase)
 > Decisões citadas como `[Dxx]` estão em [03-decisoes.md](03-decisoes.md).
 
@@ -285,7 +285,7 @@ PK `(user_id, permission_code)` · Índice `(permission_code)`. Permissões efet
 
 | View | Retorna |
 |---|---|
-| `production_summary` | Colunas de `production_records` + `shift_name`, `machine_name`, `good_quantity` (ordens sem retrabalho), `rework_quantity`, `total_quantity`, `order_count`, `staffing_ratio` (= `operator_count / standard_operator_count`), `adjusted_target` (meta corrigida pela lotação, calculada para toda máquina como informação), **`effective_target`** (a meta com que comparar a produção, resolvida conforme a base — ver abaixo), `target_basis`, `is_excluded_day` (existe `excluded_day` na data, para o dia inteiro ou para o turno) e `counts_toward_target` (= `work_mode = 'regular'` **e** não anulado) [D11, D12, D16, D27, D39, D46, D47] |
+| `production_summary` | Colunas de `production_records` + `shift_name`, `machine_name`, `good_quantity` (ordens sem retrabalho), `rework_quantity`, `total_quantity`, `order_count`, `staffing_ratio` (= `operator_count / standard_operator_count`), `adjusted_target` (meta corrigida pela lotação, calculada para toda máquina como informação), **`effective_target`** (a meta com que comparar a produção, resolvida conforme a base — ver abaixo), `target_basis`, `is_excluded_day` (existe `excluded_day` na data, para o dia inteiro ou para o turno) e `counts_toward_target` (= `work_mode = 'regular'` **e** não anulado) [D11, D12, D16, D27, D39, D46, D47, D48] |
 | `current_machine_targets` | `machine_id`, `target_id`, `quantity_per_shift`, `valid_from`, `created_by`, `created_at`, `basis` — meta vigente hoje (SP) por máquina: maior `valid_from <= hoje` |
 
 Ambas criadas com `security_invoker = true`: respeitam o RLS de quem consulta.
@@ -302,9 +302,11 @@ Ambas criadas com `security_invoker = true`: respeitam o RLS de quem consulta.
 > | `per_shift_prorated` | a meta com a **lotação padrão** | número × pessoas ÷ lotação padrão | Horizontais N°1 e N°2 |
 > | `per_operator` | a meta de **cada pessoa** | número × pessoas | Bancada A Granél |
 >
-> Sem operadores informados, as duas últimas caem na lotação padrão do posto — o
+> Sem operadores informados — vazio **ou 0** [D48] —, as duas últimas caem na lotação padrão do posto — o
 > que dá, para a rateada, exatamente a meta cheia. Quem somar `target_quantity`
 > numa máquina por operador vai medir atingimento de 300% onde o certo é 100%.
+> Sem lotação padrão também, a meta por pessoa vale × 1 e a rateada vale cheia. A
+> mesma regra, com os mesmos testes, está em `src/lib/metas.ts` (tela) [D48].
 
 ## 5. Triggers
 

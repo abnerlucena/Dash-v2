@@ -17,6 +17,20 @@ Formato de cada entrada:
 
 ---
 
+## [0.19.1] — 27/09/2026 — Zero operadores é "não informado"
+- Status: **Desenhado** — ainda não aplicado. Aplicar no SQL Editor e rodar `supabase/tests/06_meta_por_lotacao.sql` (agora 14 casos).
+- Commit/PR: revisão da PR 23 (branch `claude/pr23-review-issues-a800d3`)
+- Migration: `supabase/migrations/20260927120000_zero_pessoas_nao_informado.sql`
+- Decisões: D48 (nova), D46, D47
+
+### Alterado
+- `production_summary.effective_target` e `adjusted_target`: `operator_count = 0` passa a valer como "não informado" e cai na lotação padrão. Antes a view multiplicava por zero, a meta virava 0 ("não conta para meta") e o turno sumia do atingimento. Uma lotação padrão 0 também é ignorada (a meta por pessoa vale × 1).
+- Nenhuma linha alterada; colunas iguais, na mesma ordem.
+
+### Impacto no frontend
+- `src/lib/metas.ts` segue a mesma regra: `valor` nunca é nulo (é o número da view) e o novo `estimada` diz quando não há nem pessoas nem lotação padrão. A tela de apontamento usa `estimada` para pedir o nº de operadores.
+- Testes dos dois lados: `src/test/metas.test.ts` e casos 13–14 da suíte 06.
+
 ## [0.19.0] — 27/09/2026 — Onde a lotação muda a meta: granel e horizontais
 - Status: **Implementado** — aplicada no Supabase (projeto de testes) em 27/09/2026, pela sessão local (pooler IPv4 + `pg`; a Management API não está disponível nela, e o contêiner que escreveu a migration não alcançava o banco).
 - Commit/PR: branch `claude/ui-oficial-transicao`

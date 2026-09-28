@@ -54,6 +54,7 @@ Status possíveis: `Aprovada` · `Assumida` (sem confirmação explícita) · `S
 | D45 | Recuperação de senha pelo e-mail do Supabase Auth | Aprovada | 26/09/2026 |
 | D46 | Onde a meta por operador é resolvida (base congelada, conta na leitura) | Aprovada | 27/09/2026 |
 | D47 | Onde a lotação do posto muda a meta: granel e horizontais | Aprovada | 27/09/2026 |
+| D48 | Zero operadores é "não informado", e a regra da meta é uma só (tela = banco) | Aprovada | 27/09/2026 |
 
 ---
 
@@ -688,3 +689,23 @@ script de extração e carga em lote reversível.
     pergunta;
   - **pedir o nº de operadores em todas as máquinas** (o que a D12 permitia):
     dado que ninguém usa, num campo a mais na tela que a fábrica usa todo dia.
+
+### D48 — Zero operadores é "não informado", e a regra da meta é uma só
+- **Data:** 27/09/2026 · **Status:** Aprovada · **Migration:** `20260927120000_zero_pessoas_nao_informado.sql` (0023)
+- **Contexto:** a revisão da PR 23 achou a tela de apontamento (`src/lib/metas.ts`)
+  e a view (`production_summary.effective_target`) fazendo contas diferentes:
+  com **0 operadores**, a tela usava a lotação padrão e a view multiplicava por
+  zero. Meta 0 quer dizer "não conta para meta", e o turno sumia do atingimento
+  sem aviso. A coluna aceita 0 (`check >= 0`), então o caso acontece de verdade.
+  Em outro caso-limite (meta por pessoa sem lotação padrão) a tela devolvia
+  "desconhecida" e o banco multiplicava por 1.
+- **Decisão:** uma regra só, igual nos dois lados, com teste nos dois lados
+  (`src/test/metas.test.ts` e casos 13–14 de `supabase/tests/06`):
+  pessoas = informadas **> 0**, senão lotação padrão **> 0**, senão nenhuma.
+  Sem ninguém para contar, a meta por pessoa vale × 1 e a rateada vale cheia. A
+  tela recebe o mesmo número, com a marca `estimada`, e continua pedindo o dado.
+- **Alternativas rejeitadas:**
+  - **proibir 0 com `check (operator_count > 0)`**: mudaria dados antigos da
+    importação e recusaria um salvamento que hoje funciona;
+  - **meta nula quando não há pessoas**: o app cai em `target_quantity` quando a
+    coluna é nula, e o resultado seria o mesmo × 1, só que escondido.

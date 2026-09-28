@@ -1,8 +1,8 @@
--- Testes da meta que depende da lotação (migrations 0021 e 0022).
--- Decisões: D39, D46, D47. Ver README desta pasta.
+-- Testes da meta que depende da lotação (migrations 0021, 0022 e 0023).
+-- Decisões: D39, D46, D47, D48. Ver README desta pasta.
 --
 -- Rode SEMPRE dentro de uma transação desfeita, depois do seed estrutural e do
--- 00_fixtures.sql, com as migrations 0021 e 0022 aplicadas.
+-- 00_fixtures.sql, com as migrations 0021, 0022 e 0023 aplicadas.
 --
 -- Os apontamentos de teste são feitos para AMANHÃ: assim não encostam em nada
 -- que a fábrica tenha apontado hoje, e a meta de amanhã já é o degrau novo das
@@ -93,6 +93,28 @@ do $$ declare m int; begin
   insert into rc values (10, 'A Granél corrigida para 2 pessoas: 50.000', 'aceita',
     case when m = 50000 then 'ACEITOU' else format('RECUSOU: %s', m) end);
 exception when others then insert into rc values (10, 'A Granél corrigida para 2 pessoas: 50.000', 'aceita', 'RECUSOU: ' || sqlerrm); end $$;
+
+-- ─── Zero pessoas é "não informado" (0023, D48) ─────────────────────────────
+-- Mesma regra de src/lib/metas.ts: 0 cai na lotação padrão, nunca vira meta 0.
+select pg_temp.as_user('00000000-0000-0000-0000-0000000000b1');
+
+do $$ declare m int; v_id uuid; lot int; begin
+  v_id := public.save_production_record(pg_temp.amanha(), 2::smallint,
+    pg_temp.maquina('BANCADA EMBALAGEM A GRANÉL'), '[{"order_number":"000001008005","quantity":1000}]'::jsonb,
+    null, 0::smallint);
+  select coalesce(nullif(standard_operator_count, 0), 1) into lot
+    from public.machines where id = pg_temp.maquina('BANCADA EMBALAGEM A GRANÉL');
+  m := pg_temp.meta_efetiva(v_id);
+  insert into rc values (13, 'A Granél com 0 pessoas: cai na lotação padrão, não em meta 0', 'aceita',
+    case when m = 25000 * lot then 'ACEITOU' else format('RECUSOU: %s', m) end);
+
+  v_id := public.save_production_record(pg_temp.amanha(), 1::smallint,
+    pg_temp.maquina('EMBALADORA HORIZONTAL N°2'), '[{"order_number":"000001008006","quantity":1000}]'::jsonb,
+    null, 0::smallint);
+  m := pg_temp.meta_efetiva(v_id);
+  insert into rc values (14, 'Horizontal com 0 pessoas: meta cheia, não meta 0', 'aceita',
+    case when m = 10000 then 'ACEITOU' else format('RECUSOU: %s', m) end);
+exception when others then insert into rc values (13, 'zero pessoas', 'aceita', 'RECUSOU: ' || sqlerrm); end $$;
 
 -- ─── O buraco consertado na 0022: salvar meta não apaga a base ──────────────
 select pg_temp.as_user('00000000-0000-0000-0000-0000000000a1');

@@ -45,8 +45,23 @@ describe("a meta do turno conforme a base (D39, D47)", () => {
 
   it("meta desconhecida: depende de gente, e não há nem pessoas nem lotação", () => {
     const m = metaDoTurno({ cadastrada: 25000, base: "per_operator", pessoas: "", lotacaoPadrao: null });
-    expect(m.valor).toBeNull();
+    // Mesmo palpite da view: × 1 — mas marcado, para a tela pedir o dado.
+    expect(m.valor).toBe(25000);
+    expect(m.estimada).toBe(true);
     expect(m.cadastrada).toBe(25000);
+    const h = metaDoTurno({ cadastrada: 10000, base: "per_shift_prorated", pessoas: null, lotacaoPadrao: null });
+    expect(h.valor).toBe(10000);
+    expect(h.estimada).toBe(true);
+  });
+
+  // Espelha os casos 13 e 14 de supabase/tests/06_meta_por_lotacao.sql (D48):
+  // 0 pessoas nunca vira meta 0, que tiraria o turno do atingimento.
+  it("0 pessoas é não informado: cai na lotação padrão, igual à view", () => {
+    expect(metaDoTurno({ cadastrada: 25000, base: "per_operator", pessoas: 0, lotacaoPadrao: 1 }).valor)
+      .toBe(25000);
+    const h = metaDoTurno({ cadastrada: 10000, base: "per_shift_prorated", pessoas: "0", lotacaoPadrao: 4 });
+    expect(h.valor).toBe(10000);
+    expect(h.estimada).toBe(false);
   });
 
   it("texto inválido no campo de pessoas conta como não informado", () => {
