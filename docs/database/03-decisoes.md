@@ -532,7 +532,7 @@ script de extração e carga em lote reversível.
    > projeto pode fazer. A meta por operador continua pendente.
 
 ### D45 — Recuperação de senha pelo e-mail do Supabase Auth
-- **Status:** Aprovada (26/09/2026).
+- **Status:** Aprovada (26/09/2026) e **em uso desde 27/09/2026** — painel configurado e fluxo percorrido inteiro: pedir o link, receber o e-mail, definir a senha nova e entrar com ela.
 - **Contexto:** no modo Supabase, quem esquecia a senha não tinha saída. A tela
   de login dizia "fale com o administrador", e o administrador também não tinha
   o que fazer: o Supabase Auth guarda só o hash da senha, e trocá-la exige ou a
@@ -558,6 +558,9 @@ script de extração e carga em lote reversível.
   endereço e do histórico do navegador, e devolve o hash que o roteador espera.
   Também descarta o login antigo guardado neste navegador — senão o app abriria o
   dashboard e a tela de senha nova nunca apareceria.
+- **Configuração feita em 27/09/2026** pelo dono do projeto, com os endereços de
+  `/Dashboard-Tomadas/` (o repositório foi renomeado; ver o commit do caminho base).
+  O fluxo foi percorrido inteiro e funciona.
 - **O que exige configuração no painel do Supabase** (não dá para versionar, e
   sem isso a recuperação não funciona):
   1. **Authentication → URL Configuration:** a *Site URL* e a lista de *Redirect

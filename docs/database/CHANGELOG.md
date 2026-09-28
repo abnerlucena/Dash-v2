@@ -154,7 +154,7 @@ informa as pessoas do turno, ou o gestor corrige a lotação padrão
 ---
 
 ## [0.17.1] — 26/09/2026 — Recuperação de senha por e-mail
-- Status: **Implementado** no app. **Falta a configuração no painel do Supabase** (só o dono do projeto pode fazer) — ver "O que ainda falta" abaixo.
+- Status: **Em uso** — implementado no app e **verificado de ponta a ponta em 27/09/2026**: o dono do projeto configurou a *Site URL* e as *Redirect URLs*, pediu o link, recebeu o e-mail, definiu a senha nova e entrou com ela. O fluxo inteiro funciona.
 - Commit/PR: branch `claude/ui-oficial-transicao`
 - Migration: **nenhuma — o schema não mudou.** A versão sobe só para registrar a mudança de configuração do projeto; quem conferir o banco não vai achar diferença nenhuma em relação à 0.17.0.
 - Decisões: D45 (nova), D44.1 (item 4 — era o único bloqueio para usar o sistema)
