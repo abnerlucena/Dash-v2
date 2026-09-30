@@ -55,6 +55,7 @@ Status possíveis: `Aprovada` · `Assumida` (sem confirmação explícita) · `S
 | D46 | Onde a meta por operador é resolvida (base congelada, conta na leitura) | Aprovada | 27/09/2026 |
 | D47 | Onde a lotação do posto muda a meta: granel e horizontais | Aprovada | 27/09/2026 |
 | D48 | Zero operadores é "não informado", e a regra da meta é uma só (tela = banco) | Aprovada | 27/09/2026 |
+| D49 | Teto na meta rateada pela lotação | Aprovada | 30/09/2026 |
 
 ---
 
@@ -715,3 +716,36 @@ script de extração e carga em lote reversível.
     importação e recusaria um salvamento que hoje funciona;
   - **meta nula quando não há pessoas**: o app cai em `target_quantity` quando a
     coluna é nula, e o resultado seria o mesmo × 1, só que escondido.
+
+### D49 — Teto na meta rateada pela lotação
+- **Status:** Aprovada (30/09/2026).
+- **Contexto:** a base `per_shift_prorated` (D47) rateia a meta do turno pela
+  lotação: `meta × pessoas ÷ lotação padrão`. A fórmula não tinha limite. Numa
+  horizontal com lotação padrão de 4, um turno com 5 pessoas gerava meta de
+  12.500 em vez de 10.000 — bastava um reforço para a meta subir sozinha.
+- **Decisão:** a meta para de crescer na lotação padrão.
+
+  > meta efetiva = meta × **menor(pessoas, lotação padrão)** ÷ lotação padrão
+
+  Com meta 10.000 e lotação 4: três pessoas dão 7.500, quatro dão 10.000, oito
+  dão 10.000. Gente a **menos** continua reduzindo proporcionalmente; gente a
+  **mais** não soma.
+- **Por quê:** quem limita a produção é a **máquina**, não a quantidade de
+  gente. Pôr uma quinta pessoa numa embaladora não a faz embalar mais rápido.
+- **O teto é no número de pessoas, não no valor da meta.** Trocar a meta de
+  10.000 para 15.000 não muda a regra, só a escala: três de quatro passam a dar
+  11.250. E se a lotação padrão mudar de 4 para 5, o teto se move junto, porque
+  a regra lê `machines.standard_operator_count`.
+- **Não vale para `per_operator`.** Ali cada pessoa embala por conta própria (A
+  Granél), então mais gente é mesmo mais meta, sem limite.
+- **Alternativa rejeitada:** deixar sem teto. Faria sentido se a máquina não
+  fosse o gargalo e pôr gente a mais realmente aumentasse o que sai — não é o
+  caso das embaladoras.
+- **Onde a regra vive:** em dois lugares, e eles mudam juntos (D48) — o `least`
+  na view `production_summary` e o `Math.min` em `src/lib/metas.ts`, que é o que
+  a tela usa para mostrar a meta antes de salvar. Divergirem significa a tela
+  mostrar um número e o relatório outro.
+- **Deixado de fora de propósito:** as colunas `adjusted_target` e
+  `staffing_ratio`, da D12, que têm fórmula parecida e **não são lidas por
+  nenhuma tela** hoje. Mexer nelas seria mudar o significado de um indicador que
+  ninguém está usando. Candidatas a serem aposentadas numa limpeza futura.

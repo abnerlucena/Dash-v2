@@ -86,7 +86,15 @@ export function metaDoTurno({ cadastrada, base, pessoas, lotacaoPadrao }: Entrad
   // per_shift_prorated: sem lotação padrão não há do que ratear — a meta
   // cadastrada já é a do turno, e é o melhor que se pode dizer.
   if (!lotacao) return { ...comum, valor: cadastrada };
-  return { ...comum, valor: Math.round((cadastrada * usadas) / lotacao) };
+
+  // Teto na lotação padrão (D49): gente A MAIS não aumenta a meta, porque quem
+  // limita a produção é a máquina, não a quantidade de pessoas. Gente A MENOS
+  // continua reduzindo proporcionalmente.
+  //
+  // Esta linha tem de ser a MESMA do `least(...)` na view production_summary
+  // (D48). Se as duas divergirem, a tela mostra um número e o relatório outro.
+  const contadas = Math.min(usadas, lotacao);
+  return { ...comum, valor: Math.round((cadastrada * contadas) / lotacao) };
 }
 
 /** Texto curto da base, para etiqueta de tela. */

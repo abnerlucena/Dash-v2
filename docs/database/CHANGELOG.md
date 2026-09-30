@@ -17,6 +17,50 @@ Formato de cada entrada:
 
 ---
 
+## [0.19.3] — 30/09/2026 — Teto na meta rateada pela lotação
+- Status: **Implementado** — aplicada no Supabase (projeto de testes) em 30/09/2026
+- Commit/PR: PR #23
+- Migration: `supabase/migrations/20260930110000_teto_na_meta_rateada.sql`
+- Testes: `supabase/tests/06_meta_por_lotacao.sql` — **13 casos, 13 passando**; `src/test/metas.test.ts` — 14 casos
+- Decisões: **D49 (nova)**, D47, D48
+
+### O que estava errado
+A base `per_shift_prorated` rateava a meta pela lotação **sem limite**. Numa
+horizontal com lotação padrão de 4, um turno que rodasse com 5 pessoas gerava
+meta de 12.500 em vez de 10.000 — bastava um reforço para a meta subir sozinha.
+
+### A regra nova
+> meta efetiva = meta × **menor(pessoas, lotação padrão)** ÷ lotação padrão
+
+Com meta 10.000 e lotação 4: três pessoas dão 7.500, quatro dão 10.000, oito dão
+10.000. Gente a **menos** continua reduzindo proporcionalmente.
+
+O teto é no **número de pessoas**, não no valor da meta: trocar a meta para
+15.000 não muda a regra, só a escala. E se a lotação padrão mudar, o teto se
+move junto, porque a regra lê o cadastro da máquina.
+
+### Alterado
+- View `production_summary`: `effective_target` ganha `least(operator_count, standard_operator_count)` no caso `per_shift_prorated`.
+- `src/lib/metas.ts`: o mesmo teto, com `Math.min`. **As duas mudam juntas (D48)** — divergirem significa a tela mostrar um número e o relatório outro.
+
+### Removido
+- Nada. Só a view muda; a conta é feita na leitura e nenhum dado é tocado.
+
+### Deixado de fora de propósito
+As colunas `adjusted_target` e `staffing_ratio`, da D12, têm fórmula parecida e
+**não são lidas por nenhuma tela** hoje — só aparecem nos tipos gerados e numa
+fixture de teste. Mexer nelas seria mudar um indicador que ninguém está usando.
+Candidatas a serem aposentadas numa limpeza futura.
+
+### Conferido na aplicação
+Antes e depois: **20.519.500** de metas efetivas e **2.507** apontamentos,
+idênticos. Nenhum apontamento do histórico tem lotação acima da padrão, então o
+teto não mudou número nenhum do passado — ele passa a valer daqui para frente.
+
+### Os testes foram escritos para reprovar primeiro
+No banco, o caso 13 acusou `RECUSOU: 15000` sem a migration (uma horizontal com
+6 das 4 pessoas). No app, o teste acusou `expected 12500 to be 10000`. Com as
+duas mudanças, passam. Um teste que passa antes e depois não prova nada.
 ## [0.19.2] — 30/09/2026 — A importação grava a base da meta
 - Status: **Implementado** — aplicada no Supabase (projeto de testes) em 30/09/2026
 - Commit/PR: PR #23

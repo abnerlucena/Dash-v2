@@ -58,8 +58,11 @@ do $$ begin
   insert into ids values ('vertical', public.save_production_record(pg_temp.amanha(), 1::smallint,
     pg_temp.maquina('EMBALADORA VERTICAL MÓDULOS N°1'), '[{"order_number":"000001008004","quantity":12000}]'::jsonb,
     null, 5::smallint));
-  insert into rc values (4, 'operador aponta os quatro turnos de teste', 'aceita', 'ACEITOU');
-exception when others then insert into rc values (4, 'operador aponta os quatro turnos de teste', 'aceita', 'RECUSOU: ' || sqlerrm); end $$;
+  insert into ids values ('horizontal_lotada', public.save_production_record(pg_temp.amanha(), 1::smallint,
+    pg_temp.maquina('EMBALADORA HORIZONTAL N°2'), '[{"order_number":"000001008005","quantity":11000}]'::jsonb,
+    null, 6::smallint));
+  insert into rc values (4, 'operador aponta os cinco turnos de teste', 'aceita', 'ACEITOU');
+exception when others then insert into rc values (4, 'operador aponta os cinco turnos de teste', 'aceita', 'RECUSOU: ' || sqlerrm); end $$;
 
 do $$ declare m int; begin
   m := pg_temp.meta_efetiva((select id from ids where nome = 'granel'));
@@ -77,6 +80,13 @@ do $$ declare m int; begin
   m := pg_temp.meta_efetiva((select id from ids where nome = 'vertical'));
   insert into rc values (8, 'Vertical com 5 pessoas: a lotação não muda a meta', 'aceita',
     case when m = 13000 then 'ACEITOU' else format('RECUSOU: %s', m) end);
+
+  -- D49: o teto. Gente ACIMA da lotação padrão não aumenta a meta, porque quem
+  -- limita a produção é a máquina, não a quantidade de pessoas. Sem o teto,
+  -- este mesmo apontamento daria 15.000 (10.000 × 6 ÷ 4).
+  m := pg_temp.meta_efetiva((select id from ids where nome = 'horizontal_lotada'));
+  insert into rc values (13, 'Horizontal com 6 das 4 pessoas: o teto segura em 10.000', 'aceita',
+    case when m = 10000 then 'ACEITOU' else format('RECUSOU: %s', m) end);
 end $$;
 
 -- A base fica congelada no apontamento (D46).
