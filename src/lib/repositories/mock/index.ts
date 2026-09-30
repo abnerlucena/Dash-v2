@@ -36,6 +36,7 @@ export const mockDataSource: DataSource = {
     async getMetas() { return { metas: {}, metasInfo: {} }; },
     saveMetas: semBanco,
     async getHistory() { return []; },
+    async getMetasEm() { return { metas: {}, metasInfo: {} }; },
   },
   calendar: {
     async getHolidays() { return { holidays: [] }; },

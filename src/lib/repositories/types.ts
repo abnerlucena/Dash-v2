@@ -145,6 +145,16 @@ export interface DataSource {
     saveMetas(metas: Record<string, number>, vigenciaInicio: string, session: Session | null): Promise<void>;
     /** Só Supabase: histórico de metas (D13). No GAS devolve lista vazia. */
     getHistory(session: Session | null): Promise<TargetHistoryItem[]>;
+    /**
+     * A meta e a base que valiam NUMA DATA, não hoje.
+     *
+     * O apontamento guarda uma foto da meta do seu dia (D08). Quem lança um
+     * turno atrasado precisa da meta daquele dia, senão a foto sai errada e
+     * fica errada para sempre — a meta antiga nunca é reescrita.
+     *
+     * No GAS não existe histórico de metas: devolve as de hoje.
+     */
+    getMetasEm(date: string, session: Session | null): Promise<{ metas: Record<number, number>; metasInfo: Record<number, MetaInfoRaw> }>;
   };
 
   calendar: {

@@ -690,6 +690,12 @@ script de extração e carga em lote reversível.
   - **pedir o nº de operadores em todas as máquinas** (o que a D12 permitia):
     dado que ninguém usa, num campo a mais na tela que a fábrica usa todo dia.
 
+- **Como o app usa (30/09/2026):** a tela de apontamento busca a meta e a base
+  **pela data apontada**, não pelas de hoje. Quem lança um turno atrasado teria
+  gravado a foto errada — e foto de meta não se reescreve, então o erro ficaria
+  para sempre. A consulta é `targets.getMetasEm(data)` na camada de dados; no
+  modo Apps Script, que não guarda histórico de metas, devolve as de hoje.
+
 ### D48 — Zero operadores é "não informado", e a regra da meta é uma só
 - **Data:** 27/09/2026 · **Status:** Aprovada · **Migration:** `20260927120000_zero_pessoas_nao_informado.sql` (0023)
 - **Contexto:** a revisão da PR 23 achou a tela de apontamento (`src/lib/metas.ts`)

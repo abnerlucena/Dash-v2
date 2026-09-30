@@ -1,6 +1,6 @@
-import { useState, useMemo, useRef } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import { Save, Check, MessageSquare, X, Search, ChevronDown, ChevronUp, Plus } from "lucide-react";
-import { useAuth, type OrdemProducao } from "@/contexts/AuthContext";
+import { useAuth, type MetaInfo, type OrdemProducao } from "@/contexts/AuthContext";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { TURNOS, today, pctColor } from "@/lib/api";
 import { data, isSupabase } from "@/lib/repositories";
@@ -29,6 +29,32 @@ const ProductionEntry = () => {
   const { user, machines, metas, metasInfo, silentRefresh } = useAuth();
 
   const [selectedDate, setSelectedDate]     = useState(today());
+
+  // A meta e a base VALEM POR DATA (D13, D47). O apontamento guarda uma foto
+  // da meta do seu dia (D08), e quem lança um turno atrasado precisa da meta
+  // daquele dia — usar a de hoje gravaria uma foto errada, que nunca mais é
+  // corrigida porque meta antiga não se reescreve.
+  //
+  // Enquanto a data for hoje, valem as metas que o contexto já carregou; para
+  // qualquer outra data, busca-se as de lá.
+  const [metasDoDia, setMetasDoDia] = useState<{
+    metas: Record<number, number>;
+    metasInfo: Record<number, MetaInfo>;
+  } | null>(null);
+
+  useEffect(() => {
+    if (selectedDate === today()) { setMetasDoDia(null); return; }
+    let cancelado = false;
+    data.targets.getMetasEm(selectedDate, user)
+      .then(r => { if (!cancelado) setMetasDoDia(r as { metas: Record<number, number>; metasInfo: Record<number, MetaInfo> }); })
+      // Sem as metas daquele dia é melhor cair nas de hoje do que travar a
+      // tela: o número aparece, e quem aponta segue trabalhando.
+      .catch(() => { if (!cancelado) setMetasDoDia(null); });
+    return () => { cancelado = true; };
+  }, [selectedDate, user]);
+
+  const metasVigentes = metasDoDia?.metas ?? metas;
+  const infoVigente = metasDoDia?.metasInfo ?? metasInfo;
   const [selectedTurno, setSelectedTurno]   = useState(TURNOS[0]);
   // Só modo Supabase (D27): hora extra fica fora do cálculo de meta.
   const [workMode, setWorkMode]             = useState<"regular" | "overtime">("regular");
@@ -121,8 +147,8 @@ const ProductionEntry = () => {
   function metaDoTurno(machineId: number) {
     const machine = machines.find(m => m.id === machineId);
     return calcularMeta({
-      cadastrada: metas[machineId] ?? machine?.defaultMeta ?? 0,
-      base: metasInfo[machineId]?.basis,
+      cadastrada: metasVigentes[machineId] ?? machine?.defaultMeta ?? 0,
+      base: infoVigente[machineId]?.basis,
       pessoas: entries[machineId]?.operadores,
       lotacaoPadrao: machine?.standardOperatorCount ?? null,
     });
