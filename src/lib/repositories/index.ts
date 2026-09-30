@@ -10,7 +10,6 @@
 import type { DataSource, DataSourceKind } from "./types";
 import { gasDataSource } from "./gas";
 import { supabaseDataSource } from "./supabase";
-import { mockDataSource } from "./mock";
 
 function escolher(): DataSourceKind {
   const pedido = import.meta.env.VITE_DATA_SOURCE;
@@ -28,14 +27,42 @@ export const isMock = DATA_SOURCE === "mock";
 /** Modos com login por e-mail, cadastro com aprovação e permissões (D19–D23). */
 export const usaAcessoPorEmail = isSupabase || isMock;
 
-const FONTES: Record<DataSourceKind, DataSource> = {
-  gas: gasDataSource,
-  supabase: supabaseDataSource,
-  mock: mockDataSource,
-};
-export const data: DataSource = FONTES[DATA_SOURCE];
+/**
+ * A fonte de dados em uso.
+ *
+ * É `let` e não `const` de propósito: o modo de demonstração é carregado sob
+ * demanda (ver `carregarModoDemonstracao`), e quem importa isto enxerga a
+ * troca — em ESM, `import { data }` é uma ligação viva, não uma cópia.
+ *
+ * Nenhuma tela guarda esta referência: todas chamam `data.algo()` na hora.
+ */
+export let data: DataSource = isSupabase ? supabaseDataSource : gasDataSource;
 
-if (isMock) console.warn("[dados] Modo de demonstração (mock): contas e senhas são de mentira. Ver src/lib/repositories/mock/contas.ts.");
+/**
+ * Carrega o modo de demonstração, se for o caso. Chamado uma vez em main.tsx,
+ * antes de a tela montar.
+ *
+ * O `import()` aqui é dinâmico por um motivo concreto: com importação estática,
+ * o empacotador punha as contas e a senha de mentira no pacote PUBLICADO.
+ * O modo nunca ligava em produção — isso já estava protegido —, mas o arquivo
+ * ia junto e era legível por quem abrisse o código do site. Porta trancada com
+ * a chave pendurada do lado de fora.
+ *
+ * Como o `import()` está atrás de `isMock`, que é falso em qualquer build, o
+ * empacotador consegue deixar esse pedaço fora do pacote.
+ */
+export async function carregarModoDemonstracao(): Promise<void> {
+  // `import.meta.env.DEV` vira o literal `false` em qualquer build, então o
+  // empacotador vê `if (false && ...)` e joga o bloco inteiro fora — junto com
+  // o `import()` e tudo que ele alcança. Testar só `isMock` não bastava: o
+  // empacotador não conseguia provar que aquilo nunca seria verdade, e as
+  // contas de mentira continuavam no pacote publicado.
+  if (import.meta.env.DEV && isMock) {
+    const { mockDataSource } = await import("./mock");
+    data = mockDataSource;
+    console.warn("[dados] Modo de demonstração (mock): contas e senhas são de mentira. Ver src/lib/repositories/mock/contas.ts.");
+  }
+}
 
 export { BadgeRequiredError } from "./supabase";
 export type * from "./types";
