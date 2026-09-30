@@ -17,6 +17,25 @@ Formato de cada entrada:
 
 ---
 
+## [0.19.4] — 30/09/2026 — Aposentadoria do `_consolidado.sql` e higiene
+- Status: **Implementado** (sem mudança de schema — o banco continua na 0.19.3)
+- Commit/PR: PR #23
+- Decisões: **D50 (nova)**, **D51 (nova)**
+
+### Removido
+- **`supabase/migrations/_consolidado.sql`** (D51). Ele se anunciava como "schema completo" e tinha parado na **v0.13.0**, seis versões atrás. O problema não era estar desatualizado, era **mentir**: quem confiasse nele montaria um banco sem a meta por operador, sem as três bases e sem a área de preparo — e o script roda sem erro nenhum, então ninguém descobriria.
+
+### Adicionado
+- Seção **"Como montar um projeto novo"** em `docs/database/README.md`: rodar as migrations em ordem de nome, o seed estrutural e o `bootstrap_admin`.
+- **D50** — migration que aponta para uma máquina específica usa o **id**, não o nome. A 0022 usou o nome e funcionou, mas este projeto renomeia máquinas (a 0014 renomeou dezessete de uma vez): um nome trocado faria a migration não achar nada **sem dar erro**. Quando o nome for inevitável, a migration tem de falhar alto.
+
+### Corrigido
+- **`docs/database/README.md` estava truncado.** Um recorte meu no commit `5e8d511` usou um índice `-1` quando o marcador não foi encontrado e comeu **45 das 54 linhas** do arquivo, sem aviso. Restaurado a partir de `69d20c4`, com as mudanças de cabeçalho reaplicadas.
+- Comentário de `toProdRecord` em `adapters.ts` dizia que o `??` cobria bancos sem a migration 0021 — o que deixou de ser verdade quando a 0021 foi aplicada. Hoje ele cobre a linha em que a view não soube calcular a meta.
+
+### Conferido
+A 0022 fez o que devia: o degrau `per_shift_prorated` existe para os ids 1 e 2, com meta 10.000 e vigência de 27/09/2026. A migration **não foi editada** — reescrever migration aplicada é pior que conviver com ela.
+
 ## [0.19.3] — 30/09/2026 — Teto na meta rateada pela lotação
 - Status: **Implementado** — aplicada no Supabase (projeto de testes) em 30/09/2026
 - Commit/PR: PR #23

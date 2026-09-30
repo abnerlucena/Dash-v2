@@ -56,6 +56,8 @@ Status possíveis: `Aprovada` · `Assumida` (sem confirmação explícita) · `S
 | D47 | Onde a lotação do posto muda a meta: granel e horizontais | Aprovada | 27/09/2026 |
 | D48 | Zero operadores é "não informado", e a regra da meta é uma só (tela = banco) | Aprovada | 27/09/2026 |
 | D49 | Teto na meta rateada pela lotação | Aprovada | 30/09/2026 |
+| D50 | Migration encontra máquina por id, não por nome | Aprovada | 30/09/2026 |
+| D51 | Aposentar o `_consolidado.sql` | Aprovada | 30/09/2026 |
 
 ---
 
@@ -185,12 +187,12 @@ Status possíveis: `Aprovada` · `Assumida` (sem confirmação explícita) · `S
 - **Quando o TURNO 3 virar regular:** nada muda na estrutura — os apontamentos novos simplesmente deixam de ser marcados como `overtime`, e o passado continua verdadeiro.
 
 ### D28 — Recriar `shifts` no banco que estava vazio
-- **Status:** Aprovada em 21/09/2026. O projeto Supabase usado nesta etapa é um **projeto de testes**. O projeto oficial será montado depois com `supabase/migrations/_consolidado.sql` + `supabase/seed/01_estrutural.sql` (sem o seed de demonstração).
+- **Status:** Aprovada em 21/09/2026. O projeto Supabase usado nesta etapa é um **projeto de testes**. O projeto oficial será montado depois rodando as migrations de `supabase/migrations/` **em ordem de nome**, seguidas de `supabase/seed/01_estrutural.sql` (sem o seed de demonstração). *Atualizado em 30/09/2026: o `_consolidado.sql` foi aposentado — ver D51.*
 - **Contexto:** a documentação registrava `shifts` como criada em 16/09/2026, mas o banco apontado pelo arquivo de segredos estava com o schema `public` **vazio**, sem nenhum rastro de criação ou remoção da tabela. Detalhes em [notas/2026-09-20-verificacao-inicial.md](notas/2026-09-20-verificacao-inicial.md).
 - **Decisão:** aplicar as duas migrations versionadas de `shifts` sem nenhuma alteração, antes das demais.
 - **Alternativas rejeitadas:** trabalhar só offline (atrasaria toda a verificação real); reescrever a migration de `shifts` (mudaria o histórico versionado).
 - **Por que é seguro:** a ação é só aditiva. Se `shifts` existir em outro projeto, ele não é tocado.
-- **A confirmar:** qual é o projeto oficial. Se for outro, basta rodar `supabase/migrations/_consolidado.sql` nele.
+- **A confirmar:** qual é o projeto oficial. Se for outro, basta rodar as migrations em ordem nele.
 
 ### D29 — Criação e remoção de contas
 - **Status:** Aprovada em 21/09/2026 (as duas partes).
@@ -749,3 +751,58 @@ script de extração e carga em lote reversível.
   `staffing_ratio`, da D12, que têm fórmula parecida e **não são lidas por
   nenhuma tela** hoje. Mexer nelas seria mudar o significado de um indicador que
   ninguém está usando. Candidatas a serem aposentadas numa limpeza futura.
+
+### D50 — Migration encontra máquina por id, não por nome
+- **Status:** Aprovada (30/09/2026).
+- **Contexto:** a migration 0022 (D47) criou o degrau de meta das horizontais
+  procurando-as pelo **nome**: `where name = 'EMBALADORA HORIZONTAL N°1'`.
+  Funcionou, e está aplicada — mas é frágil de um jeito silencioso: se alguém
+  renomear a máquina, a migration não encontra nada, **não dá erro**, e a meta
+  simplesmente não é criada. Ninguém descobre até o indicador sair errado.
+- **Agrava o risco:** este projeto **renomeia máquinas**. A migration 0014
+  renomeou dezessete centros de uma vez, e a D43 prevê que isso volte a
+  acontecer quando a fábrica reorganizar postos.
+- **Decisão:** migration que precise apontar para uma máquina específica usa o
+  **id**. O id é gerado pelo banco e nunca muda (D01); o nome é rótulo de tela e
+  muda quando a fábrica muda.
+- **Quando o nome for inevitável** — por exemplo, um dado externo que só traz o
+  nome, como a importação da planilha —, a migration precisa **falhar alto** se
+  não encontrar, em vez de seguir em silêncio:
+
+  ```sql
+  if not found then
+    raise exception 'Máquina % não encontrada: a migration não pode continuar.', p_nome;
+  end if;
+  ```
+
+- **A 0022 não se edita.** Já está aplicada, e reescrever migration aplicada é
+  pior que conviver com ela. Conferido em 30/09/2026 que ela fez o que devia: o
+  degrau `per_shift_prorated` existe para os ids 1 e 2, com meta 10.000 e
+  vigência de 27/09/2026.
+- **Alternativa rejeitada:** nada fazer. O custo de lembrar é zero enquanto
+  alguém lembra; a decisão existe para quando ninguém lembrar.
+
+### D51 — Aposentar o `_consolidado.sql`
+- **Status:** Aprovada (30/09/2026).
+- **Contexto:** `supabase/migrations/_consolidado.sql` juntava todas as migrations
+  num arquivo só, para colar no SQL Editor e montar um projeto novo de uma vez.
+  A geração era **manual**: cada migration nova precisava ser acrescentada a ele
+  à mão, e ninguém lembrava. Ele parou na **v0.13.0** enquanto o schema chegou à
+  **v0.19.3** — seis versões atrás.
+- **O problema não é estar desatualizado, é mentir.** O arquivo se anuncia como
+  "schema completo". Quem confiasse nele montaria um banco sem a meta por
+  operador, sem as três bases, sem a área de preparo da importação — e acharia
+  que estava certo, porque o script roda sem erro nenhum.
+- **Decisão:** apagar o arquivo. Projeto novo se monta rodando as migrations de
+  `supabase/migrations/` **em ordem de nome**, seguidas do seed estrutural. O
+  `README.md` da pasta de documentação ganhou a seção com o passo a passo.
+- **Por que isso já funciona:** o nome de cada migration começa com data e hora,
+  então a ordem é óbvia; e todas são idempotentes, então rodar de novo não
+  quebra. É o mesmo caminho que esta sessão usou para aplicar as 0021 a 0025.
+- **Alternativa rejeitada:** gerar por script, juntando as migrations em ordem.
+  Manteria a conveniência de um arquivo só, ao custo de mais um script para
+  manter e lembrar de rodar — exatamente o tipo de passo que foi esquecido e
+  produziu o problema atual. Um arquivo que ninguém regenera é pior que arquivo
+  nenhum.
+- **Consequência:** quem tinha o hábito de colar um arquivo só passa a colar
+  vários. É mais trabalho uma vez por projeto novo, que acontece raramente.

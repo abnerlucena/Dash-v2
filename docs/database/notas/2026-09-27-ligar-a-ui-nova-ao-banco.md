@@ -151,11 +151,11 @@ adaptador entrar, isso vem de graça: a view já entrega `good_quantity` e
 
 ## 7. Dois avisos de terreno
 
-- **`supabase/migrations/_consolidado.sql` está desatualizado** (parou na
+- ~~**`supabase/migrations/_consolidado.sql` está desatualizado** (parou na
   `0.13.0`, faltam seis migrations) e o cabeçalho dele diz "não editar à mão" sem
   existir script que o gere. O levantamento de lacunas foi feito lendo esse
   arquivo; para as sete lacunas as conclusões continuam valendo, mas ele não
-  serve mais como fonte da verdade. Ou se gera, ou se aposenta.
+  serve mais como fonte da verdade. Ou se gera, ou se aposenta.~~ **Resolvido em 30/09/2026:** o arquivo foi aposentado (D51). Projeto novo se monta rodando as migrations em ordem.
 - **Pendências operacionais** (não são código, e nenhuma é de quem programa):
   liberar as URLs do app em *Authentication → URL Configuration* e configurar
   **SMTP próprio** no Supabase, sem o que a recuperação de senha não entrega
