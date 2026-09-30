@@ -142,7 +142,16 @@ export interface DataSource {
 
   targets: {
     getMetas(session: Session | null): Promise<{ metas?: Record<number, number>; metasInfo?: Record<number, MetaInfoRaw> }>;
-    saveMetas(metas: Record<string, number>, vigenciaInicio: string, session: Session | null): Promise<void>;
+    /**
+     * Grava as metas e, opcionalmente, a BASE de cada uma (D47, D53).
+     *
+     * Máquina que não aparecer em `bases` mantém a base que já tinha — mudar
+     * o número não muda como o número é lido. Só o que mudou vira degrau novo
+     * na linha do tempo; o passado nunca é reescrito.
+     *
+     * No modo Apps Script a base não existe e o parâmetro é ignorado.
+     */
+    saveMetas(metas: Record<string, number>, vigenciaInicio: string, session: Session | null, bases?: Record<string, BaseDaMeta>): Promise<void>;
     /** Só Supabase: histórico de metas (D13). No GAS devolve lista vazia. */
     getHistory(session: Session | null): Promise<TargetHistoryItem[]>;
     /**

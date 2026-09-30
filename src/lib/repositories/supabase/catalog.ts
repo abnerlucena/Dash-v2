@@ -66,10 +66,12 @@ export const supabaseTargets: DataSource["targets"] = {
     return { metas, metasInfo };
   },
 
-  async saveMetas(metas, vigenciaInicio) {
+  async saveMetas(metas, vigenciaInicio, _session, bases) {
     const { error } = await getSupabase().rpc("save_machine_targets", {
       p_targets: metas,
       p_valid_from: vigenciaInicio || undefined,
+      // Sem bases, a função preserva a que cada máquina já tinha.
+      p_bases: bases && Object.keys(bases).length ? bases : undefined,
     });
     if (error) throw toError(error);
   },

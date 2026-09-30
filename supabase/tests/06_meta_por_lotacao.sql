@@ -115,14 +115,14 @@ do $$ declare m int; v_id uuid; lot int; begin
   select coalesce(nullif(standard_operator_count, 0), 1) into lot
     from public.machines where id = pg_temp.maquina('BANCADA EMBALAGEM A GRANÉL');
   m := pg_temp.meta_efetiva(v_id);
-  insert into rc values (13, 'A Granél com 0 pessoas: cai na lotação padrão, não em meta 0', 'aceita',
+  insert into rc values (26, 'A Granél com 0 pessoas: cai na lotação padrão, não em meta 0', 'aceita',
     case when m = 25000 * lot then 'ACEITOU' else format('RECUSOU: %s', m) end);
 
   v_id := public.save_production_record(pg_temp.amanha(), 1::smallint,
     pg_temp.maquina('EMBALADORA HORIZONTAL N°2'), '[{"order_number":"000001008006","quantity":1000}]'::jsonb,
     null, 0::smallint);
   m := pg_temp.meta_efetiva(v_id);
-  insert into rc values (14, 'Horizontal com 0 pessoas: meta cheia, não meta 0', 'aceita',
+  insert into rc values (27, 'Horizontal com 0 pessoas: meta cheia, não meta 0', 'aceita',
     case when m = 10000 then 'ACEITOU' else format('RECUSOU: %s', m) end);
 exception when others then insert into rc values (13, 'zero pessoas', 'aceita', 'RECUSOU: ' || sqlerrm); end $$;
 
@@ -178,6 +178,60 @@ do $$ declare v uuid; n int; begin
   insert into rc values (18, 'apagado, A Granél cai na lotação padrão: 25.000', 'aceita',
     case when n = 25000 then 'ACEITOU' else format('RECUSOU: %s', n) end);
 exception when others then insert into rc values (15, 'apagar o nº de operadores', 'aceita', 'RECUSOU: ' || sqlerrm); end $$;
+
+-- D53: a base da meta pode ser definida pelo app, e muda como qualquer outra
+-- meta muda — criando um DEGRAU NOVO, nunca reescrevendo o passado.
+select pg_temp.as_user('00000000-0000-0000-0000-0000000000a1');
+do $$ declare v_maq int; v_base text; v_qtd int; n int; begin
+  v_maq := pg_temp.maquina('EMBALADORA VERTICAL MÓDULOS N°1');
+
+  -- muda só o número: a base tem de ser PRESERVADA (o buraco da 0022)
+  perform public.save_machine_targets(jsonb_build_object(v_maq::text, 14000));
+  v_base := public.machine_target_basis_on(v_maq, (now() at time zone 'America/Sao_Paulo')::date);
+  insert into rc values (19, 'mudar só o número preserva a base', 'aceita',
+    case when v_base = 'per_shift' then 'ACEITOU' else format('RECUSOU: %s', v_base) end);
+
+  -- agora muda a base junto
+  perform public.save_machine_targets(jsonb_build_object(v_maq::text, 14000), null,
+                                      jsonb_build_object(v_maq::text, 'per_operator'));
+  v_base := public.machine_target_basis_on(v_maq, (now() at time zone 'America/Sao_Paulo')::date);
+  v_qtd  := public.machine_target_on(v_maq, (now() at time zone 'America/Sao_Paulo')::date);
+  insert into rc values (20, 'dá para mudar a base pelo app', 'aceita',
+    case when v_base = 'per_operator' and v_qtd = 14000 then 'ACEITOU'
+         else format('RECUSOU: base=%s qtd=%s', v_base, v_qtd) end);
+
+  -- salvar igual de novo não cria degrau nenhum
+  n := public.save_machine_targets(jsonb_build_object(v_maq::text, 14000), null,
+                                   jsonb_build_object(v_maq::text, 'per_operator'));
+  insert into rc values (21, 'salvar igual não cria degrau novo', 'aceita',
+    case when n = 0 then 'ACEITOU' else format('RECUSOU: gravou %s', n) end);
+
+  -- base inventada é recusada, com mensagem que diz quais valem
+  begin
+    perform public.save_machine_targets(jsonb_build_object(v_maq::text, 14000), null,
+                                        jsonb_build_object(v_maq::text, 'por_pessoa'));
+    insert into rc values (22, 'base inventada', 'recusa', 'ACEITOU');
+  exception when others then insert into rc values (22, 'base inventada', 'recusa', 'RECUSOU'); end;
+
+  -- máquina nova já nasce com a base certa
+  v_maq := public.create_machine('POSTO DE TESTE D53', 9000, true, 2::smallint, 'per_shift_prorated');
+  v_base := public.machine_target_basis_on(v_maq, (now() at time zone 'America/Sao_Paulo')::date);
+  insert into rc values (23, 'máquina nova nasce com a base pedida', 'aceita',
+    case when v_base = 'per_shift_prorated' then 'ACEITOU' else format('RECUSOU: %s', v_base) end);
+
+  -- sem pedir base, continua nascendo per_shift
+  v_maq := public.create_machine('POSTO DE TESTE D53 SEM BASE', 500);
+  v_base := public.machine_target_basis_on(v_maq, (now() at time zone 'America/Sao_Paulo')::date);
+  insert into rc values (24, 'sem pedir base, nasce per_shift', 'aceita',
+    case when v_base = 'per_shift' then 'ACEITOU' else format('RECUSOU: %s', v_base) end);
+exception when others then insert into rc values (19, 'base da meta pelo app', 'aceita', 'RECUSOU: ' || sqlerrm); end $$;
+
+-- Operador não muda base, como não muda meta.
+select pg_temp.as_user('00000000-0000-0000-0000-0000000000b1');
+do $$ begin
+  perform public.save_machine_targets(jsonb_build_object('1', 1), null, jsonb_build_object('1', 'per_operator'));
+  insert into rc values (25, 'operador muda a base', 'recusa', 'ACEITOU');
+exception when others then insert into rc values (25, 'operador muda a base', 'recusa', 'RECUSOU'); end $$;
 
 select n, caso, esperado, resultado,
        case when (esperado = 'aceita') = (resultado = 'ACEITOU') then 'PASSOU' else '>>> FALHOU' end as veredito

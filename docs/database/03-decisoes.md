@@ -59,6 +59,7 @@ Status possíveis: `Aprovada` · `Assumida` (sem confirmação explícita) · `S
 | D50 | Migration encontra máquina por id, não por nome | Aprovada | 30/09/2026 |
 | D51 | Aposentar o `_consolidado.sql` | Aprovada | 30/09/2026 |
 | D52 | Nº de operadores em todo apontamento, e dá para apagar | Aprovada | 30/09/2026 |
+| D53 | A base da meta é definida pelo app, junto com o valor | Aprovada | 30/09/2026 |
 
 ---
 
@@ -843,3 +844,50 @@ script de extração e carga em lote reversível.
   Resolveria, ao custo de mais um argumento numa função que já tem oito, e de
   uma regra a mais para lembrar. Reusar o zero aproveita uma decisão que já
   existia.
+
+### D53 — A base da meta é definida pelo app, junto com o valor
+- **Status:** Aprovada (30/09/2026).
+- **Contexto:** as três bases (D47) existiam no banco desde a 0022, mas **só
+  mudavam por SQL**. Máquina nova sempre nascia `per_shift`, e trocar a base de
+  uma existente exigia alguém com acesso ao banco escrevendo um `insert` à mão.
+  A aba Metas já edita o valor e já respeita a vigência ("vale a partir de") —
+  falta uma coluna ao lado, com as três opções.
+- **Decisão:** a base entra como parâmetro **opcional** da
+  `save_machine_targets`, a mesma função que o botão "Revisar e salvar" já
+  chama. A `create_machine` ganha o mesmo parâmetro, para máquina nova já nascer
+  com a base certa.
+- **Por que junto, e não numa função separada:** meta e base mudam na mesma
+  vigência. Numa chamada só elas entram na mesma transação, e não existe o
+  estado intermediário de "a meta mudou mas a base ainda não" — que seria uma
+  meta lida do jeito errado até a segunda chamada chegar.
+- **Quem não informar base não muda nada.** Máquina que não aparecer no
+  parâmetro mantém a base que tinha. Era o buraco que a 0022 tapou: antes,
+  bastava o gestor editar a meta de A Granél para ela deixar de ser por pessoa,
+  sem aviso nenhum.
+- **Mudar a base cria um degrau novo**, com a data em que passa a valer (D13).
+  O passado nunca é reescrito: os apontamentos antigos guardam a base que valia
+  no dia deles (D46). E salvar um valor idêntico ao atual **não** cria degrau —
+  isso encheria o histórico de metas de movimento sem nada ter acontecido.
+- **Continua exigindo `targets.manage`**, como qualquer mudança de meta.
+- **Alternativas rejeitadas:** uma RPC `set_machine_target_basis` separada (duas
+  chamadas para uma mudança só, com estado intermediário errado); e mudar o
+  formato do parâmetro de metas para `{"1": {"meta": 500, "base": "..."}}`, que
+  quebraria quem já chama.
+
+#### D53.1 — Armadilha do PostgreSQL encontrada aqui
+Acrescentar um parâmetro **com valor padrão** a uma função **não a substitui**:
+cria uma segunda, com outra assinatura. As duas passam a existir, e a chamada
+antiga vira erro:
+
+```
+function public.save_machine_targets(jsonb, date) is not unique
+```
+
+Toda migration que acrescentar parâmetro precisa **derrubar a assinatura antiga**
+antes (`drop function if exists ... (tipos antigos)`).
+
+E função criada do zero nasce executável por **qualquer um, inclusive anônimo** —
+diferente do `create or replace`, que preserva as permissões. As duas funções
+checam permissão por dentro, então uma chamada anônima falharia; mas deixar a
+porta destrancada porque há um cadeado atrás dela não é o padrão deste banco. A
+migration revoga de `public` e `anon`, e concede a `authenticated`.

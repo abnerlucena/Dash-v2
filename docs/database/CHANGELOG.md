@@ -17,6 +17,48 @@ Formato de cada entrada:
 
 ---
 
+## [0.20.0] — 30/09/2026 — A base da meta pode ser definida pelo app
+- Status: **Implementado** — aplicada no Supabase (projeto de testes) em 30/09/2026
+- Commit/PR: PR #23
+- Migration: `supabase/migrations/20260930130000_base_da_meta_pelo_app.sql`
+- Testes: `supabase/tests/06_meta_por_lotacao.sql` — **26 casos, 26 passando**
+- Decisões: **D53 (nova)**, D47, D39, D13
+
+### O que faltava
+As três bases existiam desde a 0022, mas **só mudavam por SQL**. Máquina nova
+sempre nascia `per_shift`, e trocar a base de uma existente exigia alguém com
+acesso ao banco escrevendo um `insert` à mão.
+
+### Alterado
+- **`save_machine_targets(p_targets, p_valid_from, p_bases)`** — o terceiro parâmetro é opcional e mapeia máquina → base, no mesmo formato do primeiro. Máquina que não aparecer nele **mantém a base que tinha**.
+- **`create_machine(..., p_basis)`** — máquina nova já nasce com a base certa; sem informar, continua `per_shift`.
+- A camada de dados: `saveMetas(metas, vigencia, session, bases?)`. No modo Apps Script o parâmetro é ignorado, porque lá a base não existe.
+
+### Por que junto com o valor, e não numa função separada
+Meta e base mudam na mesma vigência. Numa chamada só elas entram na mesma
+transação, e não existe o estado intermediário de "a meta mudou mas a base ainda
+não" — que seria uma meta lida do jeito errado até a segunda chamada chegar.
+
+### Removido
+- As assinaturas antigas de duas funções (ver a armadilha abaixo). Nenhum dado tocado.
+
+### A armadilha que isto revelou (D53.1)
+Acrescentar parâmetro **com valor padrão** não substitui a função: cria uma
+segunda. As duas passam a existir e a chamada antiga vira
+`function ... is not unique`. Migration que acrescenta parâmetro precisa
+**derrubar a assinatura antiga antes**.
+
+E função criada do zero nasce executável por **qualquer um, inclusive anônimo** —
+diferente do `create or replace`, que preserva as permissões. As duas checam
+permissão por dentro, mas a migration revoga de `public` e `anon` mesmo assim: o
+padrão deste banco não é deixar a porta destrancada porque há um cadeado atrás.
+
+### Ainda pendente
+`src/lib/database.types.ts` foi atualizado **à mão** nas duas assinaturas novas,
+conferido contra `pg_get_function_arguments`. O gerador de tipos vivia num
+diretório temporário que foi limpo; precisa ser recriado, ou usar
+`supabase gen types` (que exige Docker, ausente nesta máquina).
+
 ## [0.19.5] — 30/09/2026 — O nº de operadores volta a ser pedido, e dá para apagar
 - Status: **Implementado** — aplicada no Supabase (projeto de testes) em 30/09/2026
 - Commit/PR: PR #23

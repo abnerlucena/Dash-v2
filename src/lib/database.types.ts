@@ -968,6 +968,7 @@ export type Database = {
           p_initial_target?: number
           p_has_target?: boolean
           p_standard_operator_count?: number
+          p_basis?: string
         }
         Returns: number
       }
@@ -1043,6 +1044,7 @@ export type Database = {
         Args: {
           p_targets: Json
           p_valid_from?: string
+          p_bases?: Json
         }
         Returns: number
       }
