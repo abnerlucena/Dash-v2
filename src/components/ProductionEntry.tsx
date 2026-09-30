@@ -196,7 +196,10 @@ const ProductionEntry = () => {
             savedBy: user?.nome || "",
             savedAt: nowBR,
             obs: e.obs || "",
-            ...(isSupabase && e.operadores ? { operatorCount: Number(e.operadores) } : {}),
+            // Campo vazio vira ZERO, não "não mandar nada" (D52). Sem isto,
+            // quem digitasse 3 por engano não conseguiria apagar: "nada" quer
+            // dizer "mantenha o que está lá", e o 3 ficaria para sempre.
+            ...(isSupabase ? { operatorCount: Number(e.operadores) || 0 } : {}),
           };
         });
 
@@ -392,15 +395,20 @@ const ProductionEntry = () => {
                       </button>
                     );
 
-                    // D47: nas outras máquinas quem dita o ritmo é a máquina, e
-                    // perguntar o nº de pessoas só ocuparia a tela do operador.
-                    const operadoresInput = isSupabase && meta.dependeDaLotacao ? (
+                    // O campo aparece em TODAS as máquinas. Nas que a meta
+                    // depende da lotação ele muda o número; nas outras, serve
+                    // para saber quantas pessoas estavam no posto — que é o que
+                    // a D12 mede e deixaria de existir se só perguntássemos
+                    // onde muda a meta.
+                    const operadoresInput = isSupabase ? (
                       <input
                         value={entry.operadores ?? ""}
                         onChange={e => updateOperadores(machine.id, e.target.value)}
                         inputMode="numeric"
                         placeholder="Nº oper."
-                        title={`Nº de operadores neste posto no turno — muda a meta${meta.lotacaoPadrao ? ` (vazio = lotação padrão, ${meta.lotacaoPadrao})` : ""}`}
+                        title={meta.dependeDaLotacao
+                          ? `Nº de operadores neste posto no turno — muda a meta${meta.lotacaoPadrao ? ` (vazio = lotação padrão, ${meta.lotacaoPadrao})` : ""}`
+                          : "Nº de operadores neste posto no turno — aqui não muda a meta, fica só registrado"}
                         className="h-9 w-24 px-2 text-xs font-semibold rounded-md border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/30 placeholder:text-muted-foreground/50"
                         style={{ borderRadius: 6 }}
                       />

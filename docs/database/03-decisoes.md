@@ -58,6 +58,7 @@ Status possíveis: `Aprovada` · `Assumida` (sem confirmação explícita) · `S
 | D49 | Teto na meta rateada pela lotação | Aprovada | 30/09/2026 |
 | D50 | Migration encontra máquina por id, não por nome | Aprovada | 30/09/2026 |
 | D51 | Aposentar o `_consolidado.sql` | Aprovada | 30/09/2026 |
+| D52 | Nº de operadores em todo apontamento, e dá para apagar | Aprovada | 30/09/2026 |
 
 ---
 
@@ -806,3 +807,39 @@ script de extração e carga em lote reversível.
   nenhum.
 - **Consequência:** quem tinha o hábito de colar um arquivo só passa a colar
   vários. É mais trabalho uma vez por projeto novo, que acontece raramente.
+
+### D52 — O nº de operadores é pedido em todo apontamento, e dá para apagar
+- **Status:** Aprovada (30/09/2026). Ajusta a **D47**, que tinha escondido o campo.
+- **Contexto:** quando as três bases entraram (D47), o campo "nº de operadores"
+  passou a aparecer **só** nas máquinas cuja meta depende da lotação — A Granél e
+  as horizontais. A ideia era não ocupar a tela do operador com uma pergunta que
+  não muda nada. O efeito colateral: nas outras vinte máquinas o número deixou de
+  ser coletado, e com ele o indicador de presença do time (**D12**), que compara
+  quantas pessoas estavam no posto com a lotação padrão.
+- **Decisão:** o campo volta em **todas** as máquinas. Onde a meta depende da
+  lotação, ele muda o número; onde não depende, fica registrado — e o texto de
+  ajuda diz isso, para ninguém achar que digitar ali mexe na meta.
+- **Custo assumido:** mais um campo para preencher em todo turno. Continua
+  opcional: vazio não impede salvar.
+- **E dá para apagar.** `save_production_record` gravava com
+  `coalesce(p_operator_count, operator_count)`: quem digitasse 3 por engano e
+  limpasse o campo não conseguia desfazer, porque a tela mandava "nada" e "nada"
+  queria dizer "mantenha o que está lá".
+- **Como o nó foi desatado:** um valor só — nulo — precisava dizer duas coisas
+  diferentes. A saída usa o que a **D48** já tinha decidido, que **zero é "não
+  informado"**:
+
+  | O que chega | O que acontece |
+  |---|---|
+  | nada (nulo) | mantém o que estava |
+  | zero | apaga |
+  | um número | grava |
+
+  A tela manda **zero** quando o campo está vazio, em vez de omitir o parâmetro.
+- **Por que grava nulo e não zero:** nulo é o que o resto do banco entende como
+  ausência — a view já usa `nullif(operator_count, 0)`. Deixar dois valores
+  significando a mesma coisa em lugares diferentes é pedir confusão.
+- **Alternativa rejeitada:** um parâmetro à parte, tipo `p_apagar_operadores`.
+  Resolveria, ao custo de mais um argumento numa função que já tem oito, e de
+  uma regra a mais para lembrar. Reusar o zero aproveita uma decisão que já
+  existia.

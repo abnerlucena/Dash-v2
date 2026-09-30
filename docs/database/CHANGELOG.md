@@ -17,6 +17,48 @@ Formato de cada entrada:
 
 ---
 
+## [0.19.5] — 30/09/2026 — O nº de operadores volta a ser pedido, e dá para apagar
+- Status: **Implementado** — aplicada no Supabase (projeto de testes) em 30/09/2026
+- Commit/PR: PR #23
+- Migration: `supabase/migrations/20260930120000_apagar_numero_de_operadores.sql`
+- Testes: `supabase/tests/06_meta_por_lotacao.sql` — **18 casos, 18 passando**
+- Decisões: **D52 (nova)**, D48, D47, D12
+
+### O que estava errado
+Quando as três bases entraram (D47), o campo "nº de operadores" passou a aparecer
+**só** nas máquinas cuja meta depende da lotação. Nas outras vinte, o número
+deixou de ser coletado — e com ele o indicador de presença do time (**D12**).
+
+E não dava para **apagar**: `save_production_record` usava
+`coalesce(p_operator_count, operator_count)`. Quem digitasse 3 por engano e
+limpasse o campo não desfazia, porque a tela mandava "nada" e "nada" queria dizer
+"mantenha o que está lá".
+
+### Alterado
+- O campo volta em **todas** as máquinas. Onde não muda a meta, o texto de ajuda diz isso.
+- `save_production_record` passa a distinguir três casos, reusando o que a D48 decidiu (**zero é "não informado"**):
+
+| O que chega | O que acontece |
+|---|---|
+| nada (nulo) | mantém o que estava |
+| zero | apaga (grava nulo) |
+| um número | grava |
+
+- A tela manda **zero** quando o campo está vazio, em vez de omitir o parâmetro.
+
+### Por que grava nulo e não zero
+Nulo é o que o resto do banco entende como ausência — a view já usa
+`nullif(operator_count, 0)`. Dois valores significando a mesma coisa em lugares
+diferentes é pedir confusão.
+
+### Removido
+- Nada. Só a função muda; nenhum dado é tocado.
+
+### Conferido
+2.507 apontamentos intactos. O caso 17 da suíte foi escrito para reprovar
+primeiro e acusou `RECUSOU: 0` sem a migration — o banco guardava zero onde
+devia guardar ausência.
+
 ## [0.19.4] — 30/09/2026 — Aposentadoria do `_consolidado.sql` e higiene
 - Status: **Implementado** (sem mudança de schema — o banco continua na 0.19.3)
 - Commit/PR: PR #23

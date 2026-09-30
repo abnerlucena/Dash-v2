@@ -147,6 +147,38 @@ do $$ begin
   insert into rc values (12, 'base fora da lista', 'recusa', 'ACEITOU');
 exception when others then insert into rc values (12, 'base fora da lista', 'recusa', 'RECUSOU'); end $$;
 
+-- D52: dá para APAGAR o nº de operadores. Antes, "campo vazio" e "não mexi
+-- nisso" chegavam ao banco do mesmo jeito (nulo), e o valor antigo ficava.
+select pg_temp.as_user('00000000-0000-0000-0000-0000000000b1');
+do $$ declare v uuid; n int; begin
+  -- informa 3 pessoas
+  v := public.save_production_record(pg_temp.amanha(), 3::smallint,
+       pg_temp.maquina('BANCADA EMBALAGEM A GRANÉL'),
+       '[{"order_number":"000001008006","quantity":40000}]'::jsonb, null, 3::smallint);
+  select operator_count into n from public.production_records where id = v;
+  insert into rc values (15, 'grava o nº de operadores informado', 'aceita',
+    case when n = 3 then 'ACEITOU' else format('RECUSOU: %s', n) end);
+
+  -- não manda nada: tem de MANTER
+  perform public.save_production_record(pg_temp.amanha(), 3::smallint,
+       pg_temp.maquina('BANCADA EMBALAGEM A GRANÉL'), null, 'só uma observação');
+  select operator_count into n from public.production_records where id = v;
+  insert into rc values (16, 'sem informar, mantém o que estava', 'aceita',
+    case when n = 3 then 'ACEITOU' else format('RECUSOU: %s', n) end);
+
+  -- manda zero: tem de APAGAR
+  perform public.save_production_record(pg_temp.amanha(), 3::smallint,
+       pg_temp.maquina('BANCADA EMBALAGEM A GRANÉL'), null, null, 0::smallint);
+  select operator_count into n from public.production_records where id = v;
+  insert into rc values (17, 'zero apaga o nº de operadores', 'aceita',
+    case when n is null then 'ACEITOU' else format('RECUSOU: %s', n) end);
+
+  -- apagado, a meta por pessoa volta a usar a lotação padrão da máquina (1)
+  n := pg_temp.meta_efetiva(v);
+  insert into rc values (18, 'apagado, A Granél cai na lotação padrão: 25.000', 'aceita',
+    case when n = 25000 then 'ACEITOU' else format('RECUSOU: %s', n) end);
+exception when others then insert into rc values (15, 'apagar o nº de operadores', 'aceita', 'RECUSOU: ' || sqlerrm); end $$;
+
 select n, caso, esperado, resultado,
        case when (esperado = 'aceita') = (resultado = 'ACEITOU') then 'PASSOU' else '>>> FALHOU' end as veredito
   from rc order by n;
