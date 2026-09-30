@@ -28,6 +28,33 @@ import { getSupabase } from "@/lib/supabase";
 const LINK_INVALIDO =
   "O link de recuperação expirou ou já foi usado. Peça um novo e-mail.";
 
+const LINK_DEMOROU =
+  "O servidor demorou para responder. Tente de novo ou peça um novo e-mail.";
+
+/**
+ * Quanto se espera pelo Supabase antes de desistir e mostrar a tela.
+ *
+ * Oito segundos é o meio-termo: tempo de sobra para uma conexão lenta de
+ * fábrica, e curto o bastante para ninguém achar que o app travou. O risco
+ * assumido é um link VÁLIDO numa rede muito ruim cair na tela de "peça outro
+ * e-mail" — pedir de novo resolve, e é melhor do que uma tela branca sem saída.
+ */
+const LIMITE_MS = 8000;
+
+/** Estourou o tempo de espera — separado para a mensagem poder ser outra. */
+class DemorouDemais extends Error {}
+
+/** Devolve a promessa, ou estoura `DemorouDemais` se ela passar do tempo. */
+function comLimiteDeTempo<T>(promessa: PromiseLike<T>, ms: number): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const alarme = setTimeout(() => reject(new DemorouDemais()), ms);
+    promessa.then(
+      v => { clearTimeout(alarme); resolve(v); },
+      e => { clearTimeout(alarme); reject(e); },
+    );
+  });
+}
+
 /** O que o endereço trazia. */
 export type PedidoDeRecuperacao =
   /** Veio token (ou código): dá para trocar a senha. */
@@ -140,13 +167,24 @@ export async function prepararRecuperacaoDeSenha(): Promise<void> {
     // Criar o cliente é o que faz o supabase-js ler o token do endereço;
     // `getSession()` espera essa leitura terminar. Como a sessão antiga já foi
     // apagada, sessão em mãos só pode ter vindo do link.
-    const { data } = await getSupabase().auth.getSession();
-    estado = data.session
+    //
+    // O limite de tempo existe porque esta chamada acontece ANTES de a tela
+    // montar (ver main.tsx): sem ele, rede ruim ou Supabase fora do ar deixam
+    // a pessoa olhando uma tela branca, sem mensagem nem botão.
+    const sessao = await comLimiteDeTempo(
+      getSupabase().auth.getSession().then(r => r.data.session),
+      LIMITE_MS,
+    );
+    estado = sessao
       ? { tela: "novaSenha" }
       : { tela: "recuperar", erro: LINK_INVALIDO };
-  } catch {
-    // Supabase sem configuração, ou sem rede: a tela pede outro e-mail.
-    estado = { tela: "recuperar", erro: LINK_INVALIDO };
+  } catch (e) {
+    // Sem rede, sem configuração, ou demorou demais: a tela pede outro e-mail.
+    // Preferir uma tela com instrução a uma tela branca.
+    estado = {
+      tela: "recuperar",
+      erro: e instanceof DemorouDemais ? LINK_DEMOROU : LINK_INVALIDO,
+    };
   }
   normalizarEndereco();
 }
