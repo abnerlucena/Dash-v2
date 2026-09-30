@@ -4,7 +4,7 @@ import { ArrowLeft, Eye, EyeOff, Loader2 } from "lucide-react";
 import WEGLogo from "@/components/WEGLogo";
 import { useAuth } from "@/contexts/AuthContext";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { data, isSupabase } from "@/lib/repositories";
+import { data, usaAcessoPorEmail } from "@/lib/repositories";
 import { recuperacaoEmAndamento } from "@/lib/recovery";
 import { codigoDoErro, mensagemDeErro } from "@/lib/erros";
 
@@ -85,7 +85,7 @@ const LoginPage = () => {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (isSupabase) return handleSubmitSupabase();
+    if (usaAcessoPorEmail) return handleSubmitPorEmail();
     if (!nome || !senha) { setAlert({ type: "error", msg: "Preencha todos os campos." }); return; }
     if (!isLogin) {
       if (nome.length < 3) { setAlert({ type: "error", msg: "Nome muito curto (mín. 3 caracteres)." }); return; }
@@ -109,7 +109,7 @@ const LoginPage = () => {
   }
 
   // ── Modo Supabase: login por e-mail e cadastro com aprovação (D19–D23) ──
-  async function handleSubmitSupabase() {
+  async function handleSubmitPorEmail() {
     if (isLogin) {
       if (!nome || !senha) { setAlert({ type: "error", msg: "Preencha e-mail e senha." }); return; }
       if (needsBadge && !cracha.trim()) { setAlert({ type: "error", msg: "Informe o nº do crachá." }); return; }
@@ -252,20 +252,20 @@ const LoginPage = () => {
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="text-xs font-bold mb-1.5 block tracking-wide uppercase" style={{ color: '#1E293B' }}>
-                {isSupabase ? (isLogin ? "E-mail" : "Nome completo") : "Nome de usuário"}
+                {usaAcessoPorEmail ? (isLogin ? "E-mail" : "Nome completo") : "Nome de usuário"}
               </label>
               <input value={nome} onChange={e => setNome(e.target.value)} autoFocus className={inputLight} style={{ borderRadius: 6 }}
-                type={isSupabase && isLogin ? "email" : "text"}
-                placeholder={isSupabase ? (isLogin ? "seu.email@empresa.com" : "Seu nome completo") : "Seu nome"} />
+                type={usaAcessoPorEmail && isLogin ? "email" : "text"}
+                placeholder={usaAcessoPorEmail ? (isLogin ? "seu.email@empresa.com" : "Seu nome completo") : "Seu nome"} />
             </div>
-            {isSupabase && !isLogin && (
+            {usaAcessoPorEmail && !isLogin && (
               <div>
                 <label className="text-xs font-bold mb-1.5 block tracking-wide uppercase" style={{ color: '#1E293B' }}>E-mail</label>
                 <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="seu.email@empresa.com"
                   className={inputLight} style={{ borderRadius: 6 }} />
               </div>
             )}
-            {isSupabase && (!isLogin || needsBadge) && (
+            {usaAcessoPorEmail && (!isLogin || needsBadge) && (
               <div>
                 <label className="text-xs font-bold mb-1.5 block tracking-wide uppercase" style={{ color: '#1E293B' }}>Nº do crachá</label>
                 <input value={cracha} onChange={e => setCracha(e.target.value)} placeholder="Nº de cadastro do crachá" inputMode="numeric"
@@ -276,7 +276,7 @@ const LoginPage = () => {
             <div>
               <label className="text-xs font-bold mb-1.5 block tracking-wide uppercase" style={{ color: '#1E293B' }}>Senha</label>
               <div className="relative">
-                <input type={showPw ? "text" : "password"} value={senha} onChange={e => setSenha(e.target.value)} placeholder={isSupabase ? "Mínimo 6 caracteres" : "Mínimo 4 caracteres"}
+                <input type={showPw ? "text" : "password"} value={senha} onChange={e => setSenha(e.target.value)} placeholder={usaAcessoPorEmail ? "Mínimo 6 caracteres" : "Mínimo 4 caracteres"}
                   className={`${inputLight} pr-16`} style={{ borderRadius: 6 }} />
                 <button type="button" onClick={() => setShowPw(!showPw)}
                   className="absolute right-0 top-0 bottom-0 px-3 flex items-center text-muted-foreground hover:text-foreground transition-colors border-l border-border">
@@ -292,13 +292,13 @@ const LoginPage = () => {
                   <input type={showPw ? "text" : "password"} value={senha2} onChange={e => setSenha2(e.target.value)} placeholder="Repita a senha"
                     className={inputLight} style={{ borderRadius: 6 }} />
                 </div>
-                {!isSupabase && <div>
+                {!usaAcessoPorEmail && <div>
                   <label className="text-xs font-bold mb-1.5 block tracking-wide uppercase" style={{ color: '#1E293B' }}>Código de acesso</label>
                   <input value={codigoAcesso} onChange={e => setCodigoAcesso(e.target.value)} placeholder="Informe o código fornecido" autoComplete="off"
                     className={inputLight} style={{ borderRadius: 6 }} />
                   <p className="text-[11px] text-muted-foreground mt-1">Solicite o código de acesso ao administrador.</p>
                 </div>}
-                {isSupabase && <p className="text-[11px] text-muted-foreground">Depois do cadastro, o gestor precisa aprovar o seu acesso.</p>}
+                {usaAcessoPorEmail && <p className="text-[11px] text-muted-foreground">Depois do cadastro, o gestor precisa aprovar o seu acesso.</p>}
               </div>
             )}
 
@@ -320,7 +320,7 @@ const LoginPage = () => {
 
           {/* Esqueceu a senha? No modo Supabase há e-mail de recuperação; no
               Apps Script a senha vive na planilha e só o administrador troca. */}
-          {isLogin && (isSupabase ? (
+          {isLogin && (usaAcessoPorEmail ? (
             <p className="text-center text-xs text-muted-foreground mt-5">
               Esqueceu a senha?{" "}
               <button type="button" onClick={() => switchMode("recuperar")}

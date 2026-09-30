@@ -14,6 +14,9 @@ const { requestPasswordReset, setNewPassword, recuperacaoEmAndamento } = vi.hois
 
 vi.mock("@/lib/repositories", () => ({
   isSupabase: true,
+  // A tela pergunta por `usaAcessoPorEmail` (Supabase OU demonstração), não por
+  // `isSupabase`: os dois modos têm o mesmo formato de login, por e-mail.
+  usaAcessoPorEmail: true,
   DATA_SOURCE: "supabase",
   data: {
     auth: {
