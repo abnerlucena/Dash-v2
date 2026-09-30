@@ -129,6 +129,23 @@ do $$ declare n int; begin
     case when n = 0 then 'ACEITOU' else format('RECUSOU: %s com outro número', n) end);
 end $$;
 
+-- O apontamento importado guarda a base que valia NAQUELE dia, não a de hoje
+-- nem o valor padrão da coluna. A Horizontal N°1 é `per_shift_prorated` desde
+-- 27/09/2026, então as linhas de 2027 têm de nascer com essa base.
+do $$ declare fora int; base_1 text; begin
+  select count(*) into fora
+    from public.production_records p
+   where p.import_batch_id = '00000000-0000-0000-0000-00000000ca01'::uuid
+     and p.target_basis is distinct from
+         coalesce(public.machine_target_basis_on(p.machine_id, p.production_date), 'per_shift');
+  select target_basis into base_1 from public.production_records
+   where import_batch_id = '00000000-0000-0000-0000-00000000ca01'::uuid
+     and machine_id = 1 and production_date = '2027-01-04';
+  insert into rc values (14, 'importado guarda a base do dia', 'aceita',
+    case when fora = 0 and base_1 = 'per_shift_prorated' then 'ACEITOU'
+         else format('RECUSOU: %s fora da linha do tempo, máquina 1 = %s', fora, base_1) end);
+end $$;
+
 -- ─── Reversão ───────────────────────────────────────────────────────────────
 do $$ declare r jsonb; begin
   r := public.reverter_lote_importacao('00000000-0000-0000-0000-00000000ca01'::uuid);

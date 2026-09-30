@@ -17,6 +17,40 @@ Formato de cada entrada:
 
 ---
 
+## [0.19.2] — 30/09/2026 — A importação grava a base da meta
+- Status: **Implementado** — aplicada no Supabase (projeto de testes) em 30/09/2026
+- Commit/PR: PR #23
+- Migration: `supabase/migrations/20260930100000_importacao_grava_a_base.sql`
+- Testes: `supabase/tests/05_carga_importacao.sql` — **14 casos, 14 passando** (o caso 14 é novo)
+- Decisões: D46, D47, D35
+
+### O que estava errado
+A carga da planilha criava o apontamento com a meta daquele dia, mas **sem
+dizer como ler essa meta**. Como `production_records.target_basis` tem valor
+padrão `per_shift`, toda linha importada nascia "meta do turno".
+
+Para o histórico já carregado isso está certo e **não se mexe** (D46): aqueles
+2.507 apontamentos são anteriores à regra das três bases. O problema era a
+**próxima** importação — um turno de A Granél entraria como meta fixa em vez
+de por pessoa, e o atingimento dela sairia errado sem ninguém perceber.
+
+### Alterado
+- `carregar_lote_importacao` passa a gravar `target_basis` com a base vigente **na data do apontamento**, pela `machine_target_basis_on` — do mesmo jeito que a meta já vem da linha do tempo. Sem base conhecida, vale `per_shift`.
+
+### Removido
+- Nada. Nenhuma tabela, coluna ou dado foi tocado; só a função mudou.
+
+### Conferido na aplicação
+Antes e depois: **2.507 apontamentos**, todos ainda `per_shift`. O histórico
+não se mexeu.
+
+### O teste foi escrito para reprovar primeiro
+O caso 14 confere que todo apontamento importado tem a base que a
+`machine_target_basis_on` devolve para a data dele. Rodado **sem** a migration,
+ele reprova com a mensagem certa: *"2 fora da linha do tempo, máquina 1 =
+per_shift"* — a Horizontal N°1 é `per_shift_prorated` desde 27/09/2026. Com a
+migration, passa. Um teste que passa antes e depois não prova nada.
+
 ## [0.19.1] — 27/09/2026 — Zero operadores é "não informado"
 - Status: **Desenhado** — ainda não aplicado. Aplicar no SQL Editor e rodar `supabase/tests/06_meta_por_lotacao.sql` (agora 14 casos).
 - Commit/PR: revisão da PR 23 (branch `claude/pr23-review-issues-a800d3`)
