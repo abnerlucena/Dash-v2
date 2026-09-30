@@ -56,9 +56,11 @@ export function toOrdens(orders: OrderRow[]): OrdemProducao[] {
 
 export function toProdRecord(row: SummaryRow, orders: OrderRow[], names: Map<string, string>): ProdRecord {
   const counts = row.counts_toward_target === true;
-  // A meta efetiva já vem multiplicada pelas pessoas quando a base é por
-  // operador. O `??` cobre o banco que ainda não recebeu a migration 0021:
-  // ali a coluna não existe e vale o número cru, como era antes.
+  // A meta efetiva já vem pronta do banco: multiplicada pelas pessoas quando a
+  // base é por operador, e rateada (com teto) quando é conforme a lotação.
+  //
+  // O `??` cobre a linha em que a view não soube calcular — apontamento sem
+  // meta cadastrada, por exemplo. Aí vale o número cru, e na falta dele, zero.
   const target = row.effective_target ?? row.target_quantity ?? 0;
   const rec: ProdRecord = {
     id: row.id ?? undefined,
