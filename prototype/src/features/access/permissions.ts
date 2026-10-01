@@ -24,29 +24,51 @@ export type Permission =
   | "alerts.manage"
   | "targets.manage"
   | "users.approve"
+  | "import.review"
+  | "import.manage"
   | "system.admin";
 
-/** O que cada permissão libera, em português (tela de Usuários) */
+/**
+ * Catálogo com o texto da tabela `permissions` do banco. Com o backend, a tela
+ * usa `users.listPermissions()`; esta cópia serve à fonte de demonstração (o
+ * mock da sessão do banco não entra em build — ele tem as senhas de mentira).
+ */
 export const PERMISSION_LABEL: Record<Permission, string> = {
   "production.create": "Apontar produção",
-  "production.edit_own": "Corrigir o próprio apontamento",
-  "production.edit": "Editar apontamentos de qualquer pessoa",
-  "production.delete": "Excluir apontamentos",
-  "production.bulk_edit": "Editar em lote",
-  "production.bulk_delete": "Excluir em lote",
-  "history.view": "Ver o histórico",
-  "feedbacks.view": "Ver feedbacks e OPs",
-  "reports.export": "Exportar relatórios",
+  "production.edit_own": "Corrigir os próprios apontamentos (até 24 h)",
+  "production.edit": "Editar qualquer apontamento",
+  "production.delete": "Apagar qualquer apontamento",
+  "production.bulk_edit": "Editar vários apontamentos de uma vez",
+  "production.bulk_delete": "Apagar vários apontamentos de uma vez",
+  "history.view": "Ver histórico de apontamentos",
+  "feedbacks.view": "Ver e editar observações (feedbacks)",
+  "reports.export": "Exportar relatórios (PDF/CSV)",
   "dashboard.view": "Ver o dashboard",
   "targets.view": "Ver metas",
-  "tv_mode.view": "Modo TV",
-  "machines.manage": "Gerenciar máquinas",
-  "calendar.manage": "Gerenciar calendário",
-  "alerts.manage": "Gerenciar alertas",
+  "tv_mode.view": "Usar o modo TV",
+  "machines.manage": "Cadastrar e alterar máquinas",
+  "calendar.manage": "Cadastrar feriados, eventos e dias anulados",
+  "alerts.manage": "Configurar alertas",
   "targets.manage": "Alterar metas",
-  "users.approve": "Aprovar cadastros e gerenciar usuários",
-  "system.admin": "Administrador (tudo)",
+  "users.approve": "Aprovar usuários e ajustar permissões",
+  "import.review": "Conferir a área de preparo da importação",
+  "import.manage": "Criar, carregar e reverter lotes de importação",
+  "system.admin": "Administração do sistema (auditoria, turnos)",
 };
+
+/** Grupos da tela de permissões (código fora daqui cai em "Outras") */
+export const PERMISSION_GROUPS: Array<{ title: string; codes: Permission[] }> = [
+  { title: "Apontamento", codes: ["production.create", "production.edit_own", "production.edit", "production.delete", "production.bulk_edit", "production.bulk_delete"] },
+  { title: "Consulta", codes: ["dashboard.view", "history.view", "feedbacks.view", "targets.view", "reports.export", "tv_mode.view"] },
+  { title: "Gestão", codes: ["targets.manage", "machines.manage", "calendar.manage", "alerts.manage", "users.approve"] },
+  { title: "Importação e sistema", codes: ["import.review", "import.manage", "system.admin"] },
+];
+
+/**
+ * Permissões fortes: o gestor PODE concedê-las (decisão de 01/10/2026) e elas
+ * não são escondidas — a tela só deixa claro que ficam registradas.
+ */
+export const STRONG_PERMISSIONS = new Set<string>(["system.admin", "users.approve", "targets.manage", "production.delete", "production.bulk_delete", "import.manage"]);
 
 /**
  * Modo Apps Script (legado): a sessão não traz permissões, só `role`.
@@ -100,8 +122,11 @@ export const canOpen = (session: Session | null, route: string) => {
   return p ? can(session, p) : !!session;
 };
 
-/** Rótulo curto do tipo de acesso, para o menu do usuário */
+/** Rótulo do perfil, para o menu do usuário (dedução só para o modo Apps Script) */
 export function accessLabel(session: Session): string {
+  // O nome do perfil vem do banco (roleName); deduzir pelas permissões deixava
+  // duas pessoas de perfis diferentes com o mesmo conjunto iguais
+  if (session.roleName) return session.roleName;
   if (session.accountType === "shared") return "Posto compartilhado";
   if (session.accountType === "display") return "Tela de TV";
   if (can(session, "system.admin")) return "Administrador";

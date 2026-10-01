@@ -1,4 +1,4 @@
-import { Ban, Check, RefreshCw, Search, UserCheck, UserRoundCheck, Users } from "lucide-react";
+import { Ban, Check, KeyRound, RefreshCw, Search, UserCheck, UserRoundCheck, Users } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { AdminUser, RoleOption } from "../../../../src/lib/repositories/types";
 import { mensagemDeErro } from "../../../../src/lib/erros";
@@ -12,11 +12,12 @@ import { Modal } from "@/components/ui/Modal";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { TextField } from "@/components/ui/TextField";
 import { useAccess } from "./AccessContext";
+import { PermissionsDialog } from "./PermissionsDialog";
 
 /*
  * Usuários (gestão, exige users.approve): aprovar cadastro escolhendo o
- * perfil-modelo, bloquear e desbloquear. O perfil é ponto de partida; ajustar
- * permissão a permissão ainda não está no contrato da camada de dados.
+ * perfil-modelo, ajustar permissão a permissão (PermissionsDialog), bloquear e
+ * desbloquear. O perfil é só o ponto de partida (D22).
  */
 
 const STATUS: Record<string, { label: string; appearance: "success" | "danger" | "warning" }> = {
@@ -37,6 +38,7 @@ export function UsersPage({ notify }: { notify: Notify }) {
   const [query, setQuery] = useState("");
   const [approving, setApproving] = useState<{ user: AdminUser; roleId: number | null } | null>(null);
   const [blocking, setBlocking] = useState<AdminUser | null>(null);
+  const [editing, setEditing] = useState<AdminUser | null>(null);
   const [busy, setBusy] = useState(false);
 
   const load = useCallback(async () => {
@@ -121,17 +123,25 @@ export function UsersPage({ notify }: { notify: Notify }) {
       srHeader: "Ações",
       align: "end",
       className: "pr-150",
-      cell: (u) =>
-        // Ninguém se bloqueia sem querer
-        u.id === session?.userId ? null : u.status === "bloqueado" ? (
-          <Button appearance="subtle" spacing="compact" iconBefore={UserCheck} onClick={() => toggle(u)}>
-            Desbloquear
-          </Button>
-        ) : (
-          <Button appearance="subtle" spacing="compact" iconBefore={Ban} onClick={() => setBlocking(u)}>
-            Bloquear
-          </Button>
-        ),
+      cell: (u) => (
+        <span className="flex justify-end gap-050">
+          {u.id && (
+            <Button appearance="subtle" spacing="compact" iconBefore={KeyRound} onClick={() => setEditing(u)}>
+              Permissões
+            </Button>
+          )}
+          {/* Ninguém se bloqueia sem querer */}
+          {u.id === session?.userId ? null : u.status === "bloqueado" ? (
+            <Button appearance="subtle" spacing="compact" iconBefore={UserCheck} onClick={() => toggle(u)}>
+              Desbloquear
+            </Button>
+          ) : (
+            <Button appearance="subtle" spacing="compact" iconBefore={Ban} onClick={() => setBlocking(u)}>
+              Bloquear
+            </Button>
+          )}
+        </span>
+      ),
     },
   ];
 
@@ -141,7 +151,7 @@ export function UsersPage({ notify }: { notify: Notify }) {
     <>
       <PageHeader
         title="Usuários"
-        description="Aprove os cadastros novos e bloqueie quem não deve mais entrar. O perfil escolhido na aprovação define o que a pessoa vê e faz."
+        description="Aprove os cadastros novos, ajuste as permissões de cada pessoa e bloqueie quem não deve mais entrar. O perfil escolhido na aprovação é o ponto de partida."
         actions={
           <Button iconBefore={RefreshCw} onClick={load}>
             Atualizar
@@ -240,7 +250,9 @@ export function UsersPage({ notify }: { notify: Notify }) {
       >
         {approving && (
           <div className="flex flex-col gap-150">
-            <p className="text-subtle">Escolha o perfil. Ele define o que a pessoa vê e pode fazer no Dash.</p>
+            <p className="text-subtle">
+              Escolha o perfil. As permissões dele são copiadas para a conta e, depois, podem ser ajustadas uma a uma em “Permissões”.
+            </p>
             <div role="radiogroup" aria-label="Perfil" className="flex flex-col gap-050">
               {roles.map((r) => {
                 const on = approving.roleId === r.id;
@@ -266,6 +278,8 @@ export function UsersPage({ notify }: { notify: Notify }) {
           </div>
         )}
       </Modal>
+
+      <PermissionsDialog user={editing} onClose={() => setEditing(null)} notify={notify} />
 
       <Modal
         open={!!blocking}

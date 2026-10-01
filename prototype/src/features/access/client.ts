@@ -26,7 +26,10 @@ export interface AccessClient {
     DataSource["auth"],
     "login" | "register" | "logout" | "isSessionValid" | "watchSession" | "requestPasswordReset" | "setNewPassword"
   >;
-  users: Pick<DataSource["users"], "listUsers" | "approveUser" | "listRoles" | "toggleUser">;
+  users: Pick<
+    DataSource["users"],
+    "listUsers" | "approveUser" | "listRoles" | "toggleUser" | "listPermissions" | "getPermissions" | "setPermissions"
+  >;
   /** Sessão guardada no navegador (mesma chave do app antigo no modo real) */
   store: { load(): Session | null; save(s: Session): void; clear(): void };
   /** Se esta visita veio do link de recuperação de senha, em que tela começa */
