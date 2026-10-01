@@ -378,7 +378,7 @@ function MachineEntryRow({
     onChange((e) => ({ ...e, rows: e.rows.map((r) => (r.key === key ? { ...r, ...patch } : r)) }));
 
   return (
-    <li className="flex flex-col gap-200 border-t p-200 first:border-t-0 l:flex-row">
+    <li className="flex flex-col gap-200 border-t p-200 first:border-t-0 l:flex-row l:items-center">
       {/* Identificação e resultado */}
       <div className="flex min-w-0 flex-col gap-100 l:w-column-name l:shrink-0">
         <div className="flex flex-wrap items-center gap-100">
