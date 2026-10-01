@@ -58,7 +58,37 @@ export interface ContaDemo {
   tipo: TipoConta;
   perfilId: number | null;
   senha: string;
+  /**
+   * Permissões DESTA conta. O perfil é só o modelo de onde elas saem na
+   * aprovação (D22); depois disso cada uma anda por conta própria, e é esta
+   * lista que vale. Ausente = ainda não aprovada, ou nunca ajustada.
+   */
+  permissoes?: string[];
 }
+
+/** O catálogo, com o texto que a tela mostra. Espelha a tabela permissions. */
+export const CATALOGO_DE_PERMISSOES: Array<{ code: string; description: string }> = [
+  { code: "alerts.manage", description: "Configurar alertas" },
+  { code: "calendar.manage", description: "Cadastrar feriados, eventos e dias anulados" },
+  { code: "dashboard.view", description: "Ver o dashboard" },
+  { code: "feedbacks.view", description: "Ver e editar observações (feedbacks)" },
+  { code: "history.view", description: "Ver histórico de apontamentos" },
+  { code: "import.manage", description: "Criar, carregar e reverter lotes de importação" },
+  { code: "import.review", description: "Conferir a área de preparo da importação" },
+  { code: "machines.manage", description: "Cadastrar e alterar máquinas" },
+  { code: "production.bulk_delete", description: "Apagar vários apontamentos de uma vez" },
+  { code: "production.bulk_edit", description: "Editar vários apontamentos de uma vez" },
+  { code: "production.create", description: "Apontar produção" },
+  { code: "production.delete", description: "Apagar qualquer apontamento" },
+  { code: "production.edit", description: "Editar qualquer apontamento" },
+  { code: "production.edit_own", description: "Corrigir os próprios apontamentos (até 24 h)" },
+  { code: "reports.export", description: "Exportar relatórios (PDF/CSV)" },
+  { code: "system.admin", description: "Administração do sistema (auditoria, turnos)" },
+  { code: "targets.manage", description: "Alterar metas" },
+  { code: "targets.view", description: "Ver metas" },
+  { code: "tv_mode.view", description: "Usar o modo TV" },
+  { code: "users.approve", description: "Aprovar usuários e ajustar permissões" },
+];
 
 /** Crachás aceitos na conta compartilhada (D23): quem se identifica nela. */
 export const CRACHAS_DA_CONTA_COMPARTILHADA: Record<string, string> = {

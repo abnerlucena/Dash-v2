@@ -78,6 +78,26 @@ export interface RoleOption {
   name: string;
 }
 
+/** Uma permissão do catálogo, com o texto que a tela mostra. */
+export interface PermissionOption {
+  code: string;
+  description: string;
+}
+
+/**
+ * Uma permissão que ESTE usuário tem, com o rastro de quem a concedeu.
+ *
+ * O rastro existe por decisão do gestor (01/10/2026): em vez de impedir que
+ * um gestor conceda permissões fortes, o sistema registra quem concedeu o quê.
+ * Por isso a leitura não devolve só os códigos.
+ */
+export interface UserPermission {
+  code: string;
+  /** Nome de quem concedeu. Vazio quando veio da aprovação inicial (D22). */
+  grantedBy: string;
+  grantedAt: string;
+}
+
 export interface TargetHistoryItem {
   machineId: number;
   quantity: number;
@@ -181,6 +201,23 @@ export interface DataSource {
     /** Só Supabase (D20/D22). */
     approveUser(userId: string, roleId: number, session: Session | null): Promise<void>;
     listRoles(session: Session | null): Promise<RoleOption[]>;
+    /** O catálogo inteiro de permissões, para a tela montar a lista. */
+    listPermissions(session: Session | null): Promise<PermissionOption[]>;
+    /**
+     * As permissões de um usuário, com quem concedeu cada uma.
+     *
+     * Quem aprova vê as de qualquer um; os demais só as próprias — é a RLS
+     * que decide, não a tela.
+     */
+    getPermissions(userId: string, session: Session | null): Promise<UserPermission[]>;
+    /**
+     * Grava a lista COMPLETA de permissões do usuário: o que não estiver nela
+     * é retirado.
+     *
+     * Só mexe no que mudou. Reescrever tudo a cada salvar apagaria o rastro de
+     * quem concedeu o quê, que é justamente o que o gestor pediu para manter.
+     */
+    setPermissions(userId: string, permissions: string[], session: Session | null): Promise<void>;
   };
 
   alerts: {
