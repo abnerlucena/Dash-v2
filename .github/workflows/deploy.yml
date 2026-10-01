@@ -31,6 +31,24 @@ jobs:
       - name: Build
         run: npm run build
 
+      # Prévia da UI nova (prototype/) em /nova/, só com dados de demonstração.
+      # Isolada: se falhar, o app antigo sai do mesmo jeito, sem /nova/.
+      - name: Build da UI nova (prévia)
+        id: proto
+        continue-on-error: true
+        env:
+          # Nunca liga a um backend real, mesmo que o job ganhe variáveis do Supabase
+          VITE_DATA_SOURCE: ""
+        run: npm run proto:build
+
+      - name: Copiar a prévia para dist/nova
+        if: steps.proto.outcome == 'success'
+        run: cp -r prototype/dist dist/nova
+
+      - name: Aviso se a prévia falhou
+        if: steps.proto.outcome != 'success'
+        run: echo "::warning::A prévia da UI nova não foi gerada; o app antigo segue publicado sem /nova/."
+
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
