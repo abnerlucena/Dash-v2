@@ -60,6 +60,7 @@ Status possíveis: `Aprovada` · `Assumida` (sem confirmação explícita) · `S
 | D51 | Aposentar o `_consolidado.sql` | Aprovada | 30/09/2026 |
 | D52 | Nº de operadores em todo apontamento, e dá para apagar | Aprovada | 30/09/2026 |
 | D53 | A base da meta é definida pelo app, junto com o valor | Aprovada | 30/09/2026 |
+| D54 | Nº de operadores obrigatório onde a meta é por pessoa | Aprovada | 01/10/2026 |
 
 ---
 
@@ -980,3 +981,50 @@ diferente do `create or replace`, que preserva as permissões. As duas funções
 checam permissão por dentro, então uma chamada anônima falharia; mas deixar a
 porta destrancada porque há um cadeado atrás dela não é o padrão deste banco. A
 migration revoga de `public` e `anon`, e concede a `authenticated`.
+
+### D54 — Nº de operadores obrigatório onde a meta é por pessoa
+- **Status:** Aprovada (01/10/2026).
+- **Contexto:** o gestor confirmou que a lotação padrão da A Granél é **1** —
+  e que o posto **tem rotatividade constante de pessoas**. As duas coisas
+  juntas são o problema. A meta ali é por pessoa
+  (`meta_cadastrada × nº de pessoas`), e quando ninguém informava o número a
+  função preenchia com a lotação padrão. Um turno de 3 pessoas era comparado
+  com a meta de uma, e a máquina aparecia com 300% sem ninguém desconfiar.
+- **A evidência:** dos 289 turnos importados da A Granél, nenhum tem o número.
+  A produção deles, dividida pela meta de uma pessoa, se espalha assim:
+
+  | Produção sugere | Turnos | |
+  |---|---|---|
+  | menos de 1 pessoa | 118 | 40,8% |
+  | 1 a 2 pessoas | 123 | 42,6% |
+  | 2 a 3 pessoas | 38 | 13,1% |
+  | 3 ou mais | 10 | 3,5% |
+
+  Com essa dispersão não dá para separar "turno fraco" de "tinha menos gente".
+- **Decisão:** `save_production_record` passa a **exigir** o número quando a
+  base da meta daquela máquina, naquela data, é `per_operator`. Também recusa
+  **apagar** o número (o `0` da D52) nessas máquinas — senão bastaria esvaziar
+  o campo para voltar ao problema de origem.
+- **Só nessa base, e por quê:** em `per_shift` o campo não entra na conta; em
+  `per_shift_prorated` esquecer é **conservador**, porque a meta fica a cheia e
+  nunca maior. Só em `per_operator` o esquecimento deixa a meta pequena demais
+  e o atingimento grande demais, em silêncio.
+- **Alterar sem mandar o número continua permitido.** "Não veio no pedido"
+  ainda quer dizer "mantém o que estava" (D52): recusar aí impediria corrigir
+  uma observação sem redigitar a lotação.
+- **O passado fica como está, e é lido como 1 pessoa.** Decisão explícita do
+  gestor. Os 289 turnos importados não têm o número e nunca vão ter — a
+  planilha nunca teve essa coluna (D35). O `coalesce(...,
+  standard_operator_count, 1)` da `production_summary` **fica**, e passa a
+  valer só para eles. Em consequência, **o atingimento da A Granél anterior à
+  virada é informativo, não medição** — ninguém deve tirar conclusão de 2026
+  achando que está comparando desempenho.
+- **Por que na função e não numa restrição ou gatilho:** `production_records`
+  só tem política de `select`, então a RLS já impede escrita direta — as
+  funções são a única porta. Uma restrição `check` também teria de nascer
+  `not valid` para não brigar com os 289 turnos antigos, e restrição
+  `not valid` é a que todo mundo esquece que existe.
+- **Alternativas rejeitadas:** deixar opcional e só avisar na tela (o aviso se
+  ignora, e o número errado fica para sempre no histórico); e inferir o número
+  de pessoas a partir da produção (seria inventar dado, e a dispersão acima
+  mostra que nem daria para inferir com honestidade).
