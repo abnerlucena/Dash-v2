@@ -79,11 +79,44 @@ Duas coisas importantes sobre a janela:
 select max(production_date) from public.production_records;
 ```
 
-   Começar no mesmo dia duplicaria os apontamentos daquele dia — a proteção da
-   chave `(lote, aba, célula)` vale **dentro** de um lote, e um lote novo tem id
-   novo. Se o último dia do banco estiver pela metade (a exportação foi tirada
-   no meio do turno), isso aparece como dia incompleto e precisa ser resolvido
-   à parte, não pelo `--desde`.
+   Começar no mesmo dia reemitiria os apontamentos daquele dia, e a carga
+   abortaria na restrição `unique (machine_id, production_date, shift_id,
+   work_mode)`. Nada se perde — a transação inteira é desfeita —, mas também
+   nada entra.
+
+### `--turno`: completar um dia que entrou pela metade
+
+Quando a exportação anterior foi tirada no meio do expediente, o último dia do
+banco tem só o primeiro turno. Um dia pela metade é um dia errado em todo
+relatório, e `--desde` não resolve porque corta por dia.
+
+```bash
+node supabase/import/extrair.cjs planilha.xlsx saida.sql --desde=2026-09-21 --ate=2026-09-21 --turno=2
+```
+
+Antes de usar, confira quais turnos já estão lá:
+
+```sql
+select shift_id, count(*) from public.production_records
+ where production_date = '2026-09-21' group by 1;
+```
+
+### Linhas com a data errada na planilha
+
+A data de uma linha vem da coluna A, e quando falta o extrator repete a de cima
+(abril escreve a data só na linha do T1, de propósito). Isso faz com que uma
+linha órfã herde a data errada e leve a produção para outro mês.
+
+A correção vai na lista `DATAS` de `mapa.cjs`, **por linha**, depois de alguém
+conferir contra a planilha aberta:
+
+```js
+const DATAS = [
+  { aba: 'SET 26', linha: 53, data: '2026-09-30' },
+];
+```
+
+O extrator avisa quantas linhas corrigiu em cada rodada.
 
 ## O que a extração produziu (planilha de 21/09/2026)
 

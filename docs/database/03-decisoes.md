@@ -446,39 +446,69 @@ Agora os espaços internos são normalizados antes da consulta, e `HORA EXTRA 1�
 e `HORA EXTRA 2°` entram no mapa. Significam o mesmo que `HORA EXTRA` e
 `EXTRA 1°T`, que o gestor já havia revisado.
 
-##### Duas linhas da planilha que o ensaio recusou
+##### Duas linhas da planilha com a data errada — resolvido em 01/10/2026
 
-No pé da aba `SET 26` há sobras de edição. Duas delas têm números de verdade e
-**não dá para carregar sem o gestor dizer o que são**:
+No pé da aba `SET 26` havia duas linhas com números de verdade e data que não
+fechava. O gestor conferiu contra a planilha aberta e mandou o print:
 
-| Linha | Data na planilha | Conteúdo | O problema |
+| Linha | Data na planilha | **É, na verdade** | Como se provou |
 |---|---|---|---|
-| L53 | **vazia** | T1, 16 números, 237.912 peças | Sem data, o extrator repete a última vista acima — que eram linhas vazias de **25/08**. As peças iriam para agosto. |
-| L54 | 29/09 | T2, 15 números, 107.381 peças | O 29/09 T2 **já está** na L48, com 216.385. Carregar as duas conta o turno duas vezes. |
+| L53 | **vazia** | **30/09 T1** | 4.815 · 2.520 · 14.442 … fecha em **96.104** |
+| L54 | 29/09 (já ocupado pela L48) | **30/09 T2** | 3.180 · 1.185 · 4.013 … fecha em **45.442** |
 
-Repetir a data para baixo é proposital (abril escreve a data só na linha do T1),
-e por isso não é a regra que está errada — é a planilha que tem linha órfã.
+A conferência foi número a número contra o print do gestor: os dois totais são
+exatamente os que a planilha mostra para o dia 30.
 
-**Decisão:** a carga de 01/10/2026 foi feita com `--desde=2026-09-22
---ate=2026-09-28`, deixando o dia 29 de fora. 133 apontamentos, 927.624 peças.
-O dia 29/09 e as duas linhas ficam pendentes de resposta do gestor.
+**Decisão:** a correção entra em `mapa.cjs`, na lista `DATAS`, **por linha e não
+por célula** — o que está errado é a data da linha inteira, o resto dela está
+certo. A correção é aplicada **antes** do arrasto da data, para que uma linha
+corrigida também sirva de referência às de baixo que não trazem data própria.
 
-##### Três divergências entre a planilha de hoje e o banco
+Repetir a data para baixo continua sendo proposital (abril escreve a data só na
+linha do T1). Não era a regra que estava errada — era a planilha que tinha linha
+órfã.
 
-O ensaio comparou dia a dia tudo o que já estava carregado. Fora da janela nova,
-três dias não batem:
+**Efeito colateral bom:** a divergência de **25/08** (planilha 45 × banco 30)
+desapareceu sozinha. Era inteiramente a L53 sem data caindo em agosto, porque as
+linhas imediatamente acima dela eram sobras vazias de 24 e 25/08. Com a data
+corrigida, 25/08 dá 30 — o mesmo que o banco.
 
-| Dia | Planilha | Banco | Leitura |
+##### `--turno`: completar um dia que entrou pela metade
+
+O banco tinha só o T1 do dia 21/09: a exportação anterior foi tirada no meio do
+expediente. Um dia pela metade é um dia errado em todo relatório.
+
+Completar é aditivo — o T2 é turno diferente do que está lá, e a restrição
+`unique (machine_id, production_date, shift_id, work_mode)` garante que nada se
+sobrescreve. Mas `--desde` corta por **dia**: incluir o 21/09 reemitiria os 17
+apontamentos do T1 e a carga abortaria na restrição.
+
+Daí `--turno`, que existe só para este caso. Conferido antes de usar: a planilha
+tem 17 no T1 e 13 no T2 do dia 21 — o T1 está completo no banco, e `--turno=2`
+não deixa nada para trás.
+
+##### Resultado da carga de 01/10/2026
+
+Três lotes, todos reversíveis:
+
+| Lote | Janela | Apontamentos | Peças |
 |---|---|---|---|
-| 27/04 | 10 | **11** | o banco tem um apontamento que a planilha não produz mais |
-| 25/08 | **45** | 30 | os 15 excedentes são a L53 sem data, acima — **não são produção de agosto** |
-| 21/09 | **30** | 17 | o banco tem só o T1: a exportação anterior foi tirada no meio do dia |
+| A | 22/09 a 28/09 | 133 | 927.624 |
+| B | 21/09, turno 2 | 13 | 57.684 |
+| C | 29/09 a 30/09 | 59 | 451.036 |
 
-O 21/09 é o mais relevante: um dia pela metade é um dia errado em todo
-relatório. Os 13 que faltam são o **T2**, turno diferente do que está lá, então
-completá-lo é puramente aditivo. Não foi feito nesta carga porque `--desde` é um
-corte por dia e incluir o 21/09 reemitiria os 17 do T1, duplicando-os.
+O banco foi de **2.507 para 2.712 apontamentos** e de 17.627.977 para
+**19.064.321 peças**. Os 22 dias de setembro batem com a planilha, dia a dia,
+sem exceção.
 
+##### O que ficou de fora, por decisão do gestor
+
+Uma divergência sobrou: **27/04 — a planilha produz 10 apontamentos e o banco tem
+11**. O banco guarda um apontamento que a planilha de hoje não gera mais; algum
+valor foi apagado ou editado desde a primeira carga.
+
+O gestor decidiu em 01/10/2026 **ignorar as divergências anteriores a setembro**.
+O registro fica aqui porque um dia alguém vai somar abril e achar 1 a mais.
 ### D36 — Atingimento × disponibilidade (máquinas contínuas e sob demanda)
 - **Status:** Proposta (21/09/2026) — opção escolhida pelo usuário; **a classificação das máquinas precisa ser revisada pelo gestor**.
 - **Contexto:** um turno com produção zero pode ser parada (máquina contínua) ou simplesmente falta de pedido (máquina sob demanda). Contar todo zero no atingimento castiga as máquinas sob demanda; ignorar todo zero esconde as paradas das contínuas.
