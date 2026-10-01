@@ -22,7 +22,8 @@ import {
 import { cn, formatCompactShort, formatLongDate, formatNumber, type Notify } from "@/lib/utils";
 import { DataTable, type Column } from "@/components/data/DataTable";
 import { MonthCalendar } from "@/components/data/MonthCalendar";
-import { SHIFT_FILL, StackedBar } from "@/components/data/StackedBar";
+import { StackedBar } from "@/components/data/StackedBar";
+import { SHIFT_FILL } from "@/components/data/shiftColors";
 import { PageBody, PageHeader } from "@/components/layout/PageHeader";
 import { Button, IconButton } from "@/components/ui/Button";
 import { Checkbox } from "@/components/ui/Checkbox";

@@ -1,6 +1,7 @@
 # Visão Geral do Banco de Dados
 
 > Versão do schema: `v0.10.3` · Última atualização: 21/09/2026 · Documento em linguagem simples, para apresentação.
+> Seções 6 e 8 revisadas em 26–27/09/2026 (quando a lotação muda a meta, e recuperação de senha, `v0.19.0`); as demais seções ainda descrevem o schema até a `v0.10.3`.
 > Detalhes técnicos: [02-referencia-tecnica.md](02-referencia-tecnica.md)
 
 ## 1. Por que um banco novo
@@ -104,6 +105,45 @@ timeline
 - Uma meta nova **não pode começar no passado**. Correções em apontamentos antigos são feitas pelo gestor, um a um.
 - Cada apontamento guarda uma "foto" da meta do dia, para o passado nunca mudar sozinho.
 
+### Onde a quantidade de gente muda a meta
+
+Em quase toda máquina, quem dita o ritmo é a máquina: mais gente na volta não faz
+sair mais peça, e a meta do turno é a mesma. Em **dois postos** não é assim — e,
+neles, a meta depende de quantas pessoas trabalharam.
+
+**Bancada Embalagem A Granél — 25.000 por pessoa.** É trabalho manual: cada
+pessoa embala. Dobrar as pessoas dobra a produção.
+
+| Pessoas na bancada | Meta do turno |
+|---|---|
+| 1 | 25.000 |
+| 3 | 75.000 |
+| 5 | 125.000 |
+
+**Embaladoras Horizontais N°1 e N°2 — 10.000 com as 4 pessoas da linha.** A linha
+precisa da equipe cheia para render as 10.000. Faltando gente, a meta é rateada
+na mesma proporção: com 3 pessoas, render 7.500 é o **esperado**, não um
+fracasso.
+
+| Pessoas na linha | Meta do turno |
+|---|---|
+| 4 (lotação padrão) | 10.000 |
+| 3 | 7.500 |
+| 2 | 5.000 |
+
+Por isso a tela de apontamento pede o **nº de operadores** — só nesses postos — e
+mostra a conta acontecendo. Sem esse número, ela usa a lotação padrão do posto;
+quando nem essa existe, prefere pedir o dado a mostrar um número errado.
+
+Na tela de metas, esses postos aparecem com uma etiqueta: **por pessoa** ou
+**conforme a lotação**, para ninguém ler o número como se fosse a meta fechada do
+turno.
+
+> **Sobre o histórico:** os apontamentos anteriores a 27/09/2026 continuam
+> medidos como meta de turno fixa. A planilha antiga nunca distinguiu essas
+> regras, e recalcular seria adivinhar. O atingimento histórico de A Granél está,
+> portanto, mais alto do que foi na realidade (decisões **D46** e **D47**).
+
 ## 7. Calendário: feriados, eventos e dias anulados
 
 | Tipo | Exemplo | Efeito no dashboard |
@@ -145,6 +185,33 @@ sequenceDiagram
 
 O perfil é um **ponto de partida**: o gestor pode marcar ou desmarcar permissões individualmente.
 As permissões são impostas **pelo próprio banco**, não apenas escondidas na tela.
+
+### Esqueceu a senha?
+
+A senha não fica guardada em lugar nenhum que alguém possa ler — nem o
+administrador consegue vê-la. Quem esquece resolve pelo e-mail, sem depender de
+ninguém:
+
+```mermaid
+sequenceDiagram
+  actor C as Colaborador
+  participant S as Sistema
+  C->>S: "Esqueceu a senha? Recuperar por e-mail"
+  S-->>C: 📧 Link de uso único, válido por pouco tempo
+  C->>S: Abre o link e escolhe a senha nova
+  S-->>C: "Senha alterada — entre com a senha nova"
+```
+
+Dois detalhes propositais:
+
+- **A resposta é sempre a mesma**, tenha o e-mail conta ou não. Responder "essa
+  conta não existe" contaria a qualquer estranho quem tem acesso ao sistema.
+- **O link vale uma vez e expira.** Se der erro, basta pedir outro — a própria
+  tela oferece.
+
+Enquanto o sistema em produção for a planilha (Apps Script), a recuperação por
+e-mail não existe ali, e a tela continua mandando falar com o administrador.
+Detalhes e o que ainda falta configurar: decisão **D45**.
 
 ## 9. Rastreabilidade
 

@@ -6,14 +6,20 @@
 //
 // As respostas mantêm o formato das respostas do Apps Script, para que as
 // telas não precisem ser reescritas agora.
-import type { Session, Machine, Holiday, ProdRecord, OrdemProducao } from "@/lib/api";
+import type { Session, Machine, Holiday, ProdRecord, OrdemProducao } from "../api";
+import type { BaseDaMeta } from "../metas";
 
-export type DataSourceKind = "gas" | "supabase";
+export type DataSourceKind = "gas" | "supabase" | "mock";
 
 export interface MetaInfoRaw {
   updatedBy: string;
   updatedAt: string;
   vigenciaInicio: string;
+  /**
+   * Como ler o número da meta (D39, D47). Só o modo Supabase informa; vazio se
+   * comporta como `per_shift`. As três regras estão em `src/lib/metas.ts`.
+   */
+  basis?: BaseDaMeta;
 }
 
 export interface LoginResponse {
@@ -105,6 +111,18 @@ export interface DataSource {
      * válido. Devolve a função que para de vigiar. No GAS não faz nada.
      */
     watchSession(onChange: (session: Session | null) => void): () => void;
+    /**
+     * Pede o e-mail de recuperação de senha. Não diz se o e-mail existe ou
+     * não: responder "essa conta não existe" contaria a estranhos quem tem
+     * conta no sistema. A mensagem é sempre a mesma.
+     * No GAS não existe recuperação — avisa para procurar o administrador.
+     */
+    requestPasswordReset(email: string): Promise<void>;
+    /**
+     * Define a senha nova. Só funciona logo depois de abrir o link do e-mail,
+     * porque é o link que cria a sessão temporária de recuperação.
+     */
+    setNewPassword(newPassword: string): Promise<void>;
   };
 
   production: {
@@ -124,9 +142,28 @@ export interface DataSource {
 
   targets: {
     getMetas(session: Session | null): Promise<{ metas?: Record<number, number>; metasInfo?: Record<number, MetaInfoRaw> }>;
-    saveMetas(metas: Record<string, number>, vigenciaInicio: string, session: Session | null): Promise<void>;
+    /**
+     * Grava as metas e, opcionalmente, a BASE de cada uma (D47, D53).
+     *
+     * Máquina que não aparecer em `bases` mantém a base que já tinha — mudar
+     * o número não muda como o número é lido. Só o que mudou vira degrau novo
+     * na linha do tempo; o passado nunca é reescrito.
+     *
+     * No modo Apps Script a base não existe e o parâmetro é ignorado.
+     */
+    saveMetas(metas: Record<string, number>, vigenciaInicio: string, session: Session | null, bases?: Record<string, BaseDaMeta>): Promise<void>;
     /** Só Supabase: histórico de metas (D13). No GAS devolve lista vazia. */
     getHistory(session: Session | null): Promise<TargetHistoryItem[]>;
+    /**
+     * A meta e a base que valiam NUMA DATA, não hoje.
+     *
+     * O apontamento guarda uma foto da meta do seu dia (D08). Quem lança um
+     * turno atrasado precisa da meta daquele dia, senão a foto sai errada e
+     * fica errada para sempre — a meta antiga nunca é reescrita.
+     *
+     * No GAS não existe histórico de metas: devolve as de hoje.
+     */
+    getMetasEm(date: string, session: Session | null): Promise<{ metas: Record<number, number>; metasInfo: Record<number, MetaInfoRaw> }>;
   };
 
   calendar: {

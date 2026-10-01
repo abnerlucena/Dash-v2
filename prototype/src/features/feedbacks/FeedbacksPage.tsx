@@ -9,7 +9,8 @@ import { Lozenge } from "@/components/ui/Lozenge";
 import { Avatar } from "@/components/ui/Misc";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { TextField } from "@/components/ui/TextField";
-import { OpActionButtons, useOpActions } from "@/features/ops/OpActions";
+import { useOpActions } from "@/features/ops/OpActions";
+import { OpActionButtons } from "@/features/ops/OpActionButtons";
 import { OpProgress } from "@/features/ops/OpsPage";
 import { formatWhen, lastActivity, opNumber, stageView, useOps } from "@/features/ops/OpsStore";
 

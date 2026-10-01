@@ -13,7 +13,7 @@ import { BarList } from "@/components/data/BarList";
 import { ChartCard, MiniTable } from "@/components/data/Chart";
 import { DataTable, type Column } from "@/components/data/DataTable";
 import { KpiStrip, type KpiItem } from "@/components/data/KpiStrip";
-import { SHIFT_FILL } from "@/components/data/StackedBar";
+import { SHIFT_FILL } from "@/components/data/shiftColors";
 import { PageBody, PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/Feedback";

@@ -9,6 +9,7 @@ import { today, fmt, dispD, pctColor, saveCachedRecords, TURNOS } from "@/lib/ap
 import { data } from "@/lib/repositories";
 import { toast } from "sonner";
 import ExportModal from "@/components/ExportModal";
+import { mensagemDeErro } from "@/lib/erros";
 
 type HistSubTab = "calendario" | "tabela";
 
@@ -161,8 +162,8 @@ const ReportsTab = () => {
       toast.success(`${selectedIds.size} registro(s) excluído(s)`);
       setSelectedIds(new Set());
       setBulkAction(null);
-    } catch (e: any) {
-      toast.error(e.message || "Erro ao excluir registros");
+    } catch (e) {
+      toast.error(mensagemDeErro(e, "Erro ao excluir registros"));
     } finally {
       setBulkLoading(false);
     }
@@ -178,8 +179,8 @@ const ReportsTab = () => {
       toast.success(`${selectedIds.size} registro(s) movido(s) para ${dispD(bulkMoveDate)}`);
       setSelectedIds(new Set());
       setBulkAction(null);
-    } catch (e: any) {
-      toast.error(e.message || "Erro ao mover registros");
+    } catch (e) {
+      toast.error(mensagemDeErro(e, "Erro ao mover registros"));
     } finally {
       // Spinner some assim que o api() retorna — silentRefresh roda em background
       setBulkLoading(false);
@@ -196,8 +197,8 @@ const ReportsTab = () => {
       toast.success(`${selectedIds.size} registro(s) atualizados para ${bulkTurno}`);
       setSelectedIds(new Set());
       setBulkAction(null);
-    } catch (e: any) {
-      toast.error(e.message || "Erro ao editar turno");
+    } catch (e) {
+      toast.error(mensagemDeErro(e, "Erro ao editar turno"));
     } finally {
       setBulkLoading(false);
     }

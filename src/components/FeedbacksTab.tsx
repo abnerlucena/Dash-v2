@@ -7,6 +7,7 @@ import { pctColor, fmt, dispD, today, type ProdRecord } from "@/lib/api";
 import { data } from "@/lib/repositories";
 import { DatePickerInput } from "@/components/DatePickerInput";
 import { SelectDropdown } from "@/components/SelectDropdown";
+import { mensagemDeErro } from "@/lib/erros";
 
 // Hora extra (só modo Supabase) é outro apontamento no mesmo dia/turno/máquina: chave própria.
 const recordKey = (r: ProdRecord) => `${r.date}-${r.machineId}-${r.turno}${r.workMode === "overtime" ? "-HE" : ""}`;
@@ -68,8 +69,8 @@ const FeedbacksTab = () => {
       toast.success("Observação atualizada!");
       setEditingKey(null);
       setEditText("");
-    } catch (e: any) {
-      toast.error(e.message || "Erro ao salvar");
+    } catch (e) {
+      toast.error(mensagemDeErro(e, "Erro ao salvar"));
     } finally {
       // Spinner some assim que o api() retorna — silentRefresh roda em background
       setSavingKey(null);
@@ -86,8 +87,8 @@ const FeedbacksTab = () => {
       ok = true;
       toast.success("Observação removida.");
       setDeletingKey(null);
-    } catch (e: any) {
-      toast.error(e.message || "Erro ao excluir");
+    } catch (e) {
+      toast.error(mensagemDeErro(e, "Erro ao excluir"));
     } finally {
       setSavingKey(null);
     }

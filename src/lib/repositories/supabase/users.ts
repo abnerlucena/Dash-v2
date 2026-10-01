@@ -1,5 +1,5 @@
 // ─── Usuários, aprovação e alertas ────────────────────────────
-import { getSupabase } from "@/lib/supabase";
+import { getSupabase } from "../../supabase";
 import type { AdminUser, DataSource } from "../types";
 import { PROFILE_STATUS_TO_LEGACY } from "./adapters";
 import { toError } from "./helpers";

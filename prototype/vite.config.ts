@@ -7,6 +7,10 @@ import autoprefixer from "autoprefixer";
 // Protótipo isolado do app de produção: config, Tailwind e tokens próprios.
 export default defineConfig(({ mode }) => ({
   root: __dirname,
+  // Lê o .env.local da RAIZ do repositório, o mesmo do app: VITE_DATA_SOURCE,
+  // VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY valem para as duas interfaces.
+  // Sem isto o Vite procuraria em prototype/, e a variável seria ignorada calada.
+  envDir: path.resolve(__dirname, ".."),
   base: "./",
   plugins: [react()],
   css: {

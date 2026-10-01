@@ -1,4 +1,5 @@
 import type { EChartsOption } from "echarts";
+import { numeroDoItem, primeiroItem } from "./chart-params";
 import { pctColor as pctCol } from "./api";
 
 const C = {
@@ -119,8 +120,8 @@ export function getRetrabalhoOption(data: RetrabalhoData[], mobile: boolean): EC
     animation: true, animationDuration: 600,
     tooltip: {
       ...tooltipBase, trigger: 'axis', axisPointer: { type: 'shadow' },
-      formatter: (params: Array<{ dataIndex: number }>) => {
-        const idx = params[0].dataIndex;
+      formatter: (params: unknown) => {
+        const idx = primeiroItem(params).dataIndex ?? 0;
         const d = reversed[idx];
         const total = d.normal + d.retrabalho;
         return `<strong>${d.name}</strong><br/>` +
@@ -165,13 +166,13 @@ export function getHorizontalBarOption(data: HBarData[], mobile: boolean): EChar
     animation: true, animationDuration: 750,
     tooltip: {
       ...tooltipBase, trigger: 'axis', axisPointer: { type: 'shadow' },
-      formatter: (params: any) => {
-        const d = params[0];
-        return `<strong>${d.name}</strong><br/>${d.value}% da meta`;
+      formatter: (params: unknown) => {
+        const d = primeiroItem(params);
+        return `<strong>${d.name}</strong><br/>${numeroDoItem(d.value)}% da meta`;
       },
     },
     grid: { top: 10, right: mobile ? 50 : 65, bottom: 10, left: 10, containLabel: true },
-    xAxis: { type: 'value', axisLabel: { formatter: '{value}%', fontSize: fs }, max: (v: any) => Math.max(v.max * 1.1, 110) },
+    xAxis: { type: 'value', axisLabel: { formatter: '{value}%', fontSize: fs }, max: (v: { max: number }) => Math.max(v.max * 1.1, 110) },
     yAxis: { type: 'category', data: data.map(d => d.name), axisLabel: { fontSize: fs, width: mobile ? 70 : 130, overflow: 'truncate' } },
     series: [{
       type: 'bar', barMaxWidth: mobile ? 18 : 30,
@@ -182,7 +183,7 @@ export function getHorizontalBarOption(data: HBarData[], mobile: boolean): EChar
           borderRadius: [0, 4, 4, 0],
         },
       })),
-      label: { show: true, position: 'right', formatter: (p: any) => `${p.value}%`, fontSize: fs, color: '#2D3E4E', fontWeight: 'bold' },
+      label: { show: true, position: 'right', formatter: (p: unknown) => `${numeroDoItem(primeiroItem(p).value)}%`, fontSize: fs, color: '#2D3E4E', fontWeight: 'bold' },
     }],
   };
 }

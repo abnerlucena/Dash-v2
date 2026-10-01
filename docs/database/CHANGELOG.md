@@ -17,6 +17,372 @@ Formato de cada entrada:
 
 ---
 
+## [0.20.0] — 30/09/2026 — A base da meta pode ser definida pelo app
+- Status: **Implementado** — aplicada no Supabase (projeto de testes) em 30/09/2026
+- Commit/PR: PR #23
+- Migration: `supabase/migrations/20260930130000_base_da_meta_pelo_app.sql`
+- Testes: `supabase/tests/06_meta_por_lotacao.sql` — **26 casos, 26 passando**
+- Decisões: **D53 (nova)**, D47, D39, D13
+
+### O que faltava
+As três bases existiam desde a 0022, mas **só mudavam por SQL**. Máquina nova
+sempre nascia `per_shift`, e trocar a base de uma existente exigia alguém com
+acesso ao banco escrevendo um `insert` à mão.
+
+### Alterado
+- **`save_machine_targets(p_targets, p_valid_from, p_bases)`** — o terceiro parâmetro é opcional e mapeia máquina → base, no mesmo formato do primeiro. Máquina que não aparecer nele **mantém a base que tinha**.
+- **`create_machine(..., p_basis)`** — máquina nova já nasce com a base certa; sem informar, continua `per_shift`.
+- A camada de dados: `saveMetas(metas, vigencia, session, bases?)`. No modo Apps Script o parâmetro é ignorado, porque lá a base não existe.
+
+### Por que junto com o valor, e não numa função separada
+Meta e base mudam na mesma vigência. Numa chamada só elas entram na mesma
+transação, e não existe o estado intermediário de "a meta mudou mas a base ainda
+não" — que seria uma meta lida do jeito errado até a segunda chamada chegar.
+
+### Removido
+- As assinaturas antigas de duas funções (ver a armadilha abaixo). Nenhum dado tocado.
+
+### A armadilha que isto revelou (D53.1)
+Acrescentar parâmetro **com valor padrão** não substitui a função: cria uma
+segunda. As duas passam a existir e a chamada antiga vira
+`function ... is not unique`. Migration que acrescenta parâmetro precisa
+**derrubar a assinatura antiga antes**.
+
+E função criada do zero nasce executável por **qualquer um, inclusive anônimo** —
+diferente do `create or replace`, que preserva as permissões. As duas checam
+permissão por dentro, mas a migration revoga de `public` e `anon` mesmo assim: o
+padrão deste banco não é deixar a porta destrancada porque há um cadeado atrás.
+
+### Ainda pendente
+`src/lib/database.types.ts` foi atualizado **à mão** nas duas assinaturas novas,
+conferido contra `pg_get_function_arguments`. O gerador de tipos vivia num
+diretório temporário que foi limpo; precisa ser recriado, ou usar
+`supabase gen types` (que exige Docker, ausente nesta máquina).
+
+## [0.19.5] — 30/09/2026 — O nº de operadores volta a ser pedido, e dá para apagar
+- Status: **Implementado** — aplicada no Supabase (projeto de testes) em 30/09/2026
+- Commit/PR: PR #23
+- Migration: `supabase/migrations/20260930120000_apagar_numero_de_operadores.sql`
+- Testes: `supabase/tests/06_meta_por_lotacao.sql` — **18 casos, 18 passando**
+- Decisões: **D52 (nova)**, D48, D47, D12
+
+### O que estava errado
+Quando as três bases entraram (D47), o campo "nº de operadores" passou a aparecer
+**só** nas máquinas cuja meta depende da lotação. Nas outras vinte, o número
+deixou de ser coletado — e com ele o indicador de presença do time (**D12**).
+
+E não dava para **apagar**: `save_production_record` usava
+`coalesce(p_operator_count, operator_count)`. Quem digitasse 3 por engano e
+limpasse o campo não desfazia, porque a tela mandava "nada" e "nada" queria dizer
+"mantenha o que está lá".
+
+### Alterado
+- O campo volta em **todas** as máquinas. Onde não muda a meta, o texto de ajuda diz isso.
+- `save_production_record` passa a distinguir três casos, reusando o que a D48 decidiu (**zero é "não informado"**):
+
+| O que chega | O que acontece |
+|---|---|
+| nada (nulo) | mantém o que estava |
+| zero | apaga (grava nulo) |
+| um número | grava |
+
+- A tela manda **zero** quando o campo está vazio, em vez de omitir o parâmetro.
+
+### Por que grava nulo e não zero
+Nulo é o que o resto do banco entende como ausência — a view já usa
+`nullif(operator_count, 0)`. Dois valores significando a mesma coisa em lugares
+diferentes é pedir confusão.
+
+### Removido
+- Nada. Só a função muda; nenhum dado é tocado.
+
+### Conferido
+2.507 apontamentos intactos. O caso 17 da suíte foi escrito para reprovar
+primeiro e acusou `RECUSOU: 0` sem a migration — o banco guardava zero onde
+devia guardar ausência.
+
+## [0.19.4] — 30/09/2026 — Aposentadoria do `_consolidado.sql` e higiene
+- Status: **Implementado** (sem mudança de schema — o banco continua na 0.19.3)
+- Commit/PR: PR #23
+- Decisões: **D50 (nova)**, **D51 (nova)**
+
+### Removido
+- **`supabase/migrations/_consolidado.sql`** (D51). Ele se anunciava como "schema completo" e tinha parado na **v0.13.0**, seis versões atrás. O problema não era estar desatualizado, era **mentir**: quem confiasse nele montaria um banco sem a meta por operador, sem as três bases e sem a área de preparo — e o script roda sem erro nenhum, então ninguém descobriria.
+
+### Adicionado
+- Seção **"Como montar um projeto novo"** em `docs/database/README.md`: rodar as migrations em ordem de nome, o seed estrutural e o `bootstrap_admin`.
+- **D50** — migration que aponta para uma máquina específica usa o **id**, não o nome. A 0022 usou o nome e funcionou, mas este projeto renomeia máquinas (a 0014 renomeou dezessete de uma vez): um nome trocado faria a migration não achar nada **sem dar erro**. Quando o nome for inevitável, a migration tem de falhar alto.
+
+### Corrigido
+- **`docs/database/README.md` estava truncado.** Um recorte meu no commit `5e8d511` usou um índice `-1` quando o marcador não foi encontrado e comeu **45 das 54 linhas** do arquivo, sem aviso. Restaurado a partir de `69d20c4`, com as mudanças de cabeçalho reaplicadas.
+- Comentário de `toProdRecord` em `adapters.ts` dizia que o `??` cobria bancos sem a migration 0021 — o que deixou de ser verdade quando a 0021 foi aplicada. Hoje ele cobre a linha em que a view não soube calcular a meta.
+
+### Conferido
+A 0022 fez o que devia: o degrau `per_shift_prorated` existe para os ids 1 e 2, com meta 10.000 e vigência de 27/09/2026. A migration **não foi editada** — reescrever migration aplicada é pior que conviver com ela.
+
+## [0.19.3] — 30/09/2026 — Teto na meta rateada pela lotação
+- Status: **Implementado** — aplicada no Supabase (projeto de testes) em 30/09/2026
+- Commit/PR: PR #23
+- Migration: `supabase/migrations/20260930110000_teto_na_meta_rateada.sql`
+- Testes: `supabase/tests/06_meta_por_lotacao.sql` — **13 casos, 13 passando**; `src/test/metas.test.ts` — 14 casos
+- Decisões: **D49 (nova)**, D47, D48
+
+### O que estava errado
+A base `per_shift_prorated` rateava a meta pela lotação **sem limite**. Numa
+horizontal com lotação padrão de 4, um turno que rodasse com 5 pessoas gerava
+meta de 12.500 em vez de 10.000 — bastava um reforço para a meta subir sozinha.
+
+### A regra nova
+> meta efetiva = meta × **menor(pessoas, lotação padrão)** ÷ lotação padrão
+
+Com meta 10.000 e lotação 4: três pessoas dão 7.500, quatro dão 10.000, oito dão
+10.000. Gente a **menos** continua reduzindo proporcionalmente.
+
+O teto é no **número de pessoas**, não no valor da meta: trocar a meta para
+15.000 não muda a regra, só a escala. E se a lotação padrão mudar, o teto se
+move junto, porque a regra lê o cadastro da máquina.
+
+### Alterado
+- View `production_summary`: `effective_target` ganha `least(operator_count, standard_operator_count)` no caso `per_shift_prorated`.
+- `src/lib/metas.ts`: o mesmo teto, com `Math.min`. **As duas mudam juntas (D48)** — divergirem significa a tela mostrar um número e o relatório outro.
+
+### Removido
+- Nada. Só a view muda; a conta é feita na leitura e nenhum dado é tocado.
+
+### Deixado de fora de propósito
+As colunas `adjusted_target` e `staffing_ratio`, da D12, têm fórmula parecida e
+**não são lidas por nenhuma tela** hoje — só aparecem nos tipos gerados e numa
+fixture de teste. Mexer nelas seria mudar um indicador que ninguém está usando.
+Candidatas a serem aposentadas numa limpeza futura.
+
+### Conferido na aplicação
+Antes e depois: **20.519.500** de metas efetivas e **2.507** apontamentos,
+idênticos. Nenhum apontamento do histórico tem lotação acima da padrão, então o
+teto não mudou número nenhum do passado — ele passa a valer daqui para frente.
+
+### Os testes foram escritos para reprovar primeiro
+No banco, o caso 13 acusou `RECUSOU: 15000` sem a migration (uma horizontal com
+6 das 4 pessoas). No app, o teste acusou `expected 12500 to be 10000`. Com as
+duas mudanças, passam. Um teste que passa antes e depois não prova nada.
+## [0.19.2] — 30/09/2026 — A importação grava a base da meta
+- Status: **Implementado** — aplicada no Supabase (projeto de testes) em 30/09/2026
+- Commit/PR: PR #23
+- Migration: `supabase/migrations/20260930100000_importacao_grava_a_base.sql`
+- Testes: `supabase/tests/05_carga_importacao.sql` — **14 casos, 14 passando** (o caso 14 é novo)
+- Decisões: D46, D47, D35
+
+### O que estava errado
+A carga da planilha criava o apontamento com a meta daquele dia, mas **sem
+dizer como ler essa meta**. Como `production_records.target_basis` tem valor
+padrão `per_shift`, toda linha importada nascia "meta do turno".
+
+Para o histórico já carregado isso está certo e **não se mexe** (D46): aqueles
+2.507 apontamentos são anteriores à regra das três bases. O problema era a
+**próxima** importação — um turno de A Granél entraria como meta fixa em vez
+de por pessoa, e o atingimento dela sairia errado sem ninguém perceber.
+
+### Alterado
+- `carregar_lote_importacao` passa a gravar `target_basis` com a base vigente **na data do apontamento**, pela `machine_target_basis_on` — do mesmo jeito que a meta já vem da linha do tempo. Sem base conhecida, vale `per_shift`.
+
+### Removido
+- Nada. Nenhuma tabela, coluna ou dado foi tocado; só a função mudou.
+
+### Conferido na aplicação
+Antes e depois: **2.507 apontamentos**, todos ainda `per_shift`. O histórico
+não se mexeu.
+
+### O teste foi escrito para reprovar primeiro
+O caso 14 confere que todo apontamento importado tem a base que a
+`machine_target_basis_on` devolve para a data dele. Rodado **sem** a migration,
+ele reprova com a mensagem certa: *"2 fora da linha do tempo, máquina 1 =
+per_shift"* — a Horizontal N°1 é `per_shift_prorated` desde 27/09/2026. Com a
+migration, passa. Um teste que passa antes e depois não prova nada.
+
+## [0.19.1] — 27/09/2026 — Zero operadores é "não informado"
+- Status: **Desenhado** — ainda não aplicado. Aplicar no SQL Editor e rodar `supabase/tests/06_meta_por_lotacao.sql` (agora 14 casos).
+- Commit/PR: revisão da PR 23 (branch `claude/pr23-review-issues-a800d3`)
+- Migration: `supabase/migrations/20260927120000_zero_pessoas_nao_informado.sql`
+- Decisões: D48 (nova), D46, D47
+
+### Alterado
+- `production_summary.effective_target` e `adjusted_target`: `operator_count = 0` passa a valer como "não informado" e cai na lotação padrão. Antes a view multiplicava por zero, a meta virava 0 ("não conta para meta") e o turno sumia do atingimento. Uma lotação padrão 0 também é ignorada (a meta por pessoa vale × 1).
+- Nenhuma linha alterada; colunas iguais, na mesma ordem.
+
+### Impacto no frontend
+- `src/lib/metas.ts` segue a mesma regra: `valor` nunca é nulo (é o número da view) e o novo `estimada` diz quando não há nem pessoas nem lotação padrão. A tela de apontamento usa `estimada` para pedir o nº de operadores.
+- Testes dos dois lados: `src/test/metas.test.ts` e casos 13–14 da suíte 06.
+
+## [0.19.0] — 27/09/2026 — Onde a lotação muda a meta: granel e horizontais
+- Status: **Implementado** — aplicada no Supabase (projeto de testes) em 27/09/2026, pela sessão local (pooler IPv4 + `pg`; a Management API não está disponível nela, e o contêiner que escreveu a migration não alcançava o banco).
+- Commit/PR: branch `claude/ui-oficial-transicao`
+- Migration: `supabase/migrations/20260927110000_meta_depende_da_lotacao.sql`
+- Testes: `supabase/tests/06_meta_por_lotacao.sql` — **12 casos, 12 passando** contra o banco real, em transação desfeita. Suítes anteriores depois de aplicar: 01 (24/24), 02 (23/23), 03 (9/9), 04 (12/12). A 05 foi reescrita para montar o próprio lote (13/13) — ver a nota no fim desta entrada.
+- Decisões: D47 (nova), D39, D46, D12
+
+### O que o gestor esclareceu
+O nº de operadores do posto só muda a meta em **dois** lugares, e por motivos
+diferentes:
+
+| Posto | Por quê | Base |
+|---|---|---|
+| Bancada Embalagem A Granél | trabalho manual: cada pessoa embala | `per_operator` — 25.000 **por pessoa** |
+| Embaladoras Horizontais N°1 e N°2 | a linha precisa de 4 pessoas para render 10.000 no turno | `per_shift_prorated` — 10.000 **com a lotação padrão**, rateado |
+| todas as outras | o ritmo é da máquina; mais gente não faz sair mais peça | `per_shift` — fixa |
+
+Com 3 das 4 pessoas, a meta da horizontal passa a ser 7.500 — render isso é o
+esperado, não um fracasso. A conta é a que a **D12** já calculava em
+`adjusted_target` desde 20/09 e ninguém usava; agora vale como meta, **só onde a
+base disser**.
+
+### Alterado
+- `machine_targets.basis` e `production_records.target_basis` aceitam um terceiro valor, `per_shift_prorated`. As restrições de CHECK foram recriadas (nenhuma linha alterada) e agora têm nome explícito.
+- `production_summary.effective_target` resolve as três bases.
+- **`save_machine_targets` preserva a base** — ver abaixo.
+- Horizontais N°1 e N°2 recebem um **degrau novo** de meta a partir de hoje: mesmo número (10.000), base `per_shift_prorated`. Os turnos anteriores continuam lidos com a régua antiga (mesmo princípio da D46).
+
+### Corrigido: a tela de metas apagava a base, sem avisar
+`save_machine_targets` gravava a meta nova **sem** `basis`, e a coluna tem default
+`per_shift`. Bastava o gestor corrigir o número de A Granél na tela para o "por
+pessoa" virar "por turno" e o atingimento voltar a mentir — sem erro, sem aviso.
+A função passa a carregar a base que a máquina já tinha naquela data: **mudar o
+número nunca muda a regra de leitura**.
+
+### Impacto no frontend
+- `src/lib/metas.ts` (novo) — as três regras num lugar só, com teste (`src/test/metas.test.ts`, 9 casos). A D39 rejeitou "cada tela lembra da exceção"; este arquivo é o outro caminho.
+- `src/components/ProductionEntry.tsx` — o campo *nº de operadores* passa a aparecer **só** nos postos onde a lotação muda a meta, com a conta à vista (`10.000 com 4 · 3 pessoas no turno`).
+- `src/components/MetasTab.tsx` — as etiquetas agora são duas: **por pessoa** e **conforme a lotação**, cada uma com a sua explicação.
+- `machines.standard_operator_count` passa a chegar às telas (`Machine.standardOperatorCount`): é o divisor da meta rateada.
+
+---
+
+
+### Conferido na aplicação (27/09/2026)
+
+O invariante que mais importava: **o histórico importado não mudou de número**.
+Soma das metas efetivas antes e depois: **20.519.500** nos dois casos; produção
+**17.618.667**; **2.507** apontamentos. Cada apontamento guarda a foto da base do
+seu dia, então mudar a base de hoje não reescreve o passado — mesma ideia da meta
+desde a D08.
+
+As três bases, provadas com número pela suíte 06:
+
+| Caso | Conta |
+|---|---|
+| A Granél com 3 pessoas | 25.000 × 3 = **75.000** |
+| Horizontal com 3 das 4 pessoas | 10.000 × 3 ÷ 4 = **7.500** |
+| Horizontal sem lotação informada | cai na lotação padrão → **meta cheia** |
+| Vertical com 5 pessoas | **10.000** — a lotação não muda a meta |
+
+O terceiro caso importa para o histórico: os apontamentos importados têm
+`operator_count` vazio, porque a planilha nunca registrou quantas pessoas
+trabalharam no turno. A conta cai em
+`coalesce(operator_count, standard_operator_count, 1)`.
+
+### A suíte 05 deixou de rodar (não é regressão)
+
+O caso `admin carrega o lote` falha com "Lote não encontrado ou já carregado":
+o lote real foi carregado em 26/09 e está com estado `loaded`, e a suíte precisa
+de um lote em `draft`. **O teste não roda mais porque o trabalho que ele testa já
+foi feito.** Nada a ver com a 0.18.0 ou a 0.19.0.
+
+**Corrigido em 27/09/2026:** a suíte passou a montar o próprio lote de rascunho,
+com cinco linhas escolhidas para cobrir o que a carga precisa saber fazer (duas
+chaves diferentes, uma produção e um retrabalho na mesma chave, uma parada e um
+descarte), em datas de 2027 para nunca esbarrar no histórico real. São **13
+casos, 13 passando**, e ela roda duas vezes seguidas dando o mesmo resultado.
+
+Custo assumido: ela não exercita mais a carga das 2.507 linhas reais, só a
+mecânica. A conferência do volume real é outra coisa — é o passo 4 da
+importação, o relatório para o gestor.
+
+### `database.types.ts` estava incompleto
+
+A sessão que escreveu a 0021 não alcançava o banco e escreveu os tipos dela **à
+mão**, deixando um aviso no arquivo para conferir na próxima regeneração com
+acesso. Feito: os tipos escritos à mão conferem, mas faltavam **188 linhas** — as
+tabelas `import_batches` e `import_rows` e as funções `carregar_lote_importacao`,
+`reverter_lote_importacao`, `pode_importar` e `sincronizar_permissoes_dos_papeis`
+não estavam no arquivo. Regenerado do banco: 20 relações, 24 funções, 33 chaves
+estrangeiras. `tsc --noEmit` limpo.
+
+
+## [0.18.0] — 27/09/2026 — A meta por operador entra no cálculo
+- Status: **Implementado** — aplicada no Supabase (projeto de testes) em 27/09/2026, antes da 0.19.0. Ensaiada duas vezes na mesma transação desfeita (é repetível) e conferida: nenhum dos 2.507 apontamentos mudou de número, porque todos nasceram com `target_basis = per_shift` pelo valor padrão.
+- Commit/PR: branch `claude/ui-oficial-transicao`
+- Migration: `supabase/migrations/20260927100000_meta_por_operador.sql`
+- Decisões: D46 (nova), D39 (implementada agora no cálculo), D08, D12
+
+### O problema
+A Bancada Embalagem A Granél é medida em **25.000 peças por pessoa** no turno, e
+a meta dela já estava gravada assim desde 25/09 (`machine_targets.basis =
+'per_operator'`, 0.11.0). Só que **nada lia esse campo**: o apontamento copiava
+25.000 e o dashboard comparava a produção do turno inteiro com esse número. Três
+pessoas na bancada, 75.000 peças, apareciam como **300% de atingimento**.
+
+### Adicionado
+- `production_records.target_basis` — a base da meta **congelada no apontamento**, ao lado da meta que já era congelada (D08). Default `per_shift`, então nenhum apontamento que já existe mudou de comportamento.
+- `machine_target_basis_on(máquina, data)` — a base vigente numa data, com a mesma regra da `machine_target_on` (inclusive o caso D32, de datas anteriores ao histórico).
+- `production_summary.effective_target` — **a meta com que comparar a produção**: `per_shift` → a própria meta; `per_operator` → meta × pessoas do apontamento. É a coluna que as telas passaram a usar.
+- `production_summary.target_basis` — para quem lê a view saber como o número foi formado.
+
+### Alterado
+- `save_production_record` congela a base junto com a meta, na criação do apontamento.
+- `production_summary.adjusted_target` (a meta corrigida pela lotação, D12) estava errada para máquina por operador: a conta antiga — meta × pessoas ÷ lotação padrão — devolvia 25.000 de novo, porque a lotação real já está embutida na multiplicação. Agora repete a meta efetiva nesse caso.
+- Comentário da `machine_target_on` avisa que o número dela é cru e precisa ser lido junto com a base.
+
+### Não alterado, de propósito
+- **Nenhum apontamento existente.** Os 2.507 do histórico importado (D35) ficaram `per_shift`: a planilha nunca distinguiu meta por turno de meta por pessoa, e inventar a distinção mudaria a história com base num palpite. O atingimento histórico de A Granél segue inflado, e é reversível por `update` quando o gestor decidir. Ver D46.
+
+### Impacto no frontend
+- `src/lib/repositories/supabase/adapters.ts` — a meta do apontamento passa a vir de `effective_target`, com queda para `target_quantity` em banco que ainda não recebeu esta migration.
+- `src/lib/repositories/supabase/catalog.ts` + `types.ts` + `AuthContext.tsx` — `metasInfo` ganha `basis`, para as telas saberem quando o número é por pessoa.
+- `src/components/MetasTab.tsx` — as linhas por operador ganham a etiqueta **por pessoa**, e o rodapé explica o que isso muda.
+- `src/components/ProductionEntry.tsx` — a meta aparece com a conta acontecendo (`25.000 × 3 pessoas = 75.000`); sem o nº de operadores informado a tela pede o campo em vez de mostrar um número errado, e o % do turno não é calculado. Corrigido também um `replace(/D/g, ...)` que deveria ser `/\D/g`: o campo de operadores aceitava letras, e o valor virava `NaN` — passou a importar de verdade agora que a meta depende dele.
+- `src/lib/database.types.ts` — as três adições foram escritas **à mão** (sem acesso ao banco para regenerar); conferir na próxima regeneração.
+
+### Pendência que é dado, não código
+A lotação padrão de A Granél está cadastrada como **1 pessoa**. Enquanto for
+assim, apontamento sem operadores informados continua valendo 25.000. Ou a equipe
+informa as pessoas do turno, ou o gestor corrige a lotação padrão
+(`update machines set standard_operator_count = <n> where id = 7;`).
+
+---
+
+## [0.17.1] — 26/09/2026 — Recuperação de senha por e-mail
+- Status: **Em uso** — implementado no app e **verificado de ponta a ponta em 27/09/2026**: o dono do projeto configurou a *Site URL* e as *Redirect URLs*, pediu o link, recebeu o e-mail, definiu a senha nova e entrou com ela. O fluxo inteiro funciona.
+- Commit/PR: branch `claude/ui-oficial-transicao`
+- Migration: **nenhuma — o schema não mudou.** A versão sobe só para registrar a mudança de configuração do projeto; quem conferir o banco não vai achar diferença nenhuma em relação à 0.17.0.
+- Decisões: D45 (nova), D44.1 (item 4 — era o único bloqueio para usar o sistema)
+
+### O que mudou
+Quem esquecia a senha no modo Supabase não tinha saída: a tela dizia "fale com o
+administrador", e o administrador também não podia fazer nada — o Supabase Auth
+guarda só o hash da senha. Agora existe recuperação por e-mail, usando o que o
+Supabase Auth já oferece (`resetPasswordForEmail` + `updateUser`): **sem tabela,
+função ou coluna nova**.
+
+### Impacto no frontend
+- `src/lib/repositories/types.ts` — a interface de dados ganha `requestPasswordReset` e `setNewPassword`.
+- `src/lib/repositories/supabase/auth.ts` — implementa as duas.
+- `src/lib/repositories/gas.ts` — responde com "fale com o administrador": no Apps Script não há e-mail.
+- `src/pages/LoginPage.tsx` — o cartão passa a ter quatro telas (entrar, criar conta, pedir o e-mail, definir a senha nova) e um link "Recuperar por e-mail" que só aparece no modo Supabase.
+- `src/lib/recovery.ts` (novo) + `src/main.tsx` — tratam a chegada pelo link antes de a tela montar. O app usa `HashRouter`, e o token do Supabase vem no hash, que é onde mora a rota: sem isso o link cairia na página "não encontrada". Testes em `src/test/recovery.test.ts`.
+
+### O que ainda falta (painel do Supabase, não versionável)
+
+> **Atenção (27/09/2026):** o repositório foi renomeado de `Dash-v2` para
+> `Dashboard-Tomadas`, e o caminho base do app acompanhou. O GitHub redireciona
+> o endereço antigo do repositório, mas **não** o caminho do site publicado: com
+> o base antigo, o app no GitHub Pages pediria os arquivos em `/Dash-v2/` num
+> site servido em `/Dashboard-Tomadas/` e abriria em branco. Os endereços a
+> liberar no painel do Supabase são os novos.
+
+1. **Authentication → URL Configuration:** incluir em *Site URL* e *Redirect URLs* os endereços do app (`http://localhost:<porta>/Dashboard-Tomadas/*` (8080 é o padrão do projeto; no computador do dono roda em 8081 — libere a que for usada) e a URL publicada). Fora da lista, o Supabase devolve o link **sem** token e a tela mostra "o link expirou ou já foi usado".
+2. **Authentication → Emails → SMTP próprio:** o e-mail embutido do Supabase é de teste — poucos envios por hora e, em projetos novos, entrega só para os endereços da equipe do projeto. **Enquanto não houver SMTP, a recuperação não serve para a fábrica.**
+3. Opcional: traduzir o template *Reset Password* para português.
+
+---
+
 ## [0.17.0] — 26/09/2026 — Histórico carregado
 - Status: **Implementado** — aplicado no Supabase (projeto de testes) em 26/09/2026. O histórico real está no banco.
 - Commit/PR: PR #15

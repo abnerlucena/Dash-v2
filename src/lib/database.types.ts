@@ -138,6 +138,161 @@ export type Database = {
           },
         ]
       }
+      import_batches: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          description: string | null
+          error_message: string | null
+          id: string
+          loaded_at: string | null
+          reverted_at: string | null
+          source_file: string
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          error_message?: string | null
+          id?: string
+          loaded_at?: string | null
+          reverted_at?: string | null
+          source_file: string
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          error_message?: string | null
+          id?: string
+          loaded_at?: string | null
+          reverted_at?: string | null
+          source_file?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "import_batches_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      import_rows: {
+        Row: {
+          batch_id: string
+          created_at: string
+          discard_reason: string | null
+          downtime_id: string | null
+          error_message: string | null
+          id: number
+          kind: string
+          machine_id: number | null
+          notes: string | null
+          operator_count: number | null
+          production_date: string | null
+          production_record_id: string | null
+          quantity: number | null
+          raw_machine: string
+          raw_value: string | null
+          shift_id: number | null
+          source_cell: string
+          source_sheet: string
+          status: string
+          target_quantity: number | null
+          target_source: string | null
+          work_mode: string | null
+        }
+        Insert: {
+          batch_id: string
+          created_at?: string
+          discard_reason?: string | null
+          downtime_id?: string | null
+          error_message?: string | null
+          id?: never
+          kind: string
+          machine_id?: number | null
+          notes?: string | null
+          operator_count?: number | null
+          production_date?: string | null
+          production_record_id?: string | null
+          quantity?: number | null
+          raw_machine: string
+          raw_value?: string | null
+          shift_id?: number | null
+          source_cell: string
+          source_sheet: string
+          status?: string
+          target_quantity?: number | null
+          target_source?: string | null
+          work_mode?: string | null
+        }
+        Update: {
+          batch_id?: string
+          created_at?: string
+          discard_reason?: string | null
+          downtime_id?: string | null
+          error_message?: string | null
+          id?: never
+          kind?: string
+          machine_id?: number | null
+          notes?: string | null
+          operator_count?: number | null
+          production_date?: string | null
+          production_record_id?: string | null
+          quantity?: number | null
+          raw_machine?: string
+          raw_value?: string | null
+          shift_id?: number | null
+          source_cell?: string
+          source_sheet?: string
+          status?: string
+          target_quantity?: number | null
+          target_source?: string | null
+          work_mode?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "import_rows_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "import_batches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "import_rows_downtime_id_fkey"
+            columns: ["downtime_id"]
+            isOneToOne: false
+            referencedRelation: "machine_downtimes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "import_rows_machine_id_fkey"
+            columns: ["machine_id"]
+            isOneToOne: false
+            referencedRelation: "machines"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "import_rows_production_record_id_fkey"
+            columns: ["production_record_id"]
+            isOneToOne: false
+            referencedRelation: "production_records"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "import_rows_shift_id_fkey"
+            columns: ["shift_id"]
+            isOneToOne: false
+            referencedRelation: "shifts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       machine_downtimes: {
         Row: {
           created_at: string
@@ -411,11 +566,14 @@ export type Database = {
           created_at: string
           created_by: string | null
           id: string
+          import_batch_id: string | null
           machine_id: number
           notes: string | null
           operator_count: number | null
           production_date: string
           shift_id: number
+          source_ref: string | null
+          target_basis: string
           target_quantity: number
           updated_at: string
           updated_by: string | null
@@ -425,11 +583,14 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           id?: string
+          import_batch_id?: string | null
           machine_id: number
           notes?: string | null
           operator_count?: number | null
           production_date: string
           shift_id: number
+          source_ref?: string | null
+          target_basis?: string
           target_quantity: number
           updated_at?: string
           updated_by?: string | null
@@ -439,11 +600,14 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           id?: string
+          import_batch_id?: string | null
           machine_id?: number
           notes?: string | null
           operator_count?: number | null
           production_date?: string
           shift_id?: number
+          source_ref?: string | null
+          target_basis?: string
           target_quantity?: number
           updated_at?: string
           updated_by?: string | null
@@ -455,6 +619,13 @@ export type Database = {
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "production_records_import_batch_id_fkey"
+            columns: ["import_batch_id"]
+            isOneToOne: false
+            referencedRelation: "import_batches"
             referencedColumns: ["id"]
           },
           {
@@ -717,6 +888,7 @@ export type Database = {
           counts_toward_target: boolean | null
           created_at: string | null
           created_by: string | null
+          effective_target: number | null
           good_quantity: number | null
           id: string | null
           is_excluded_day: boolean | null
@@ -730,6 +902,7 @@ export type Database = {
           shift_id: number | null
           shift_name: string | null
           staffing_ratio: number | null
+          target_basis: string | null
           target_quantity: number | null
           total_quantity: number | null
           updated_at: string | null
@@ -783,12 +956,19 @@ export type Database = {
         }
         Returns: boolean
       }
+      carregar_lote_importacao: {
+        Args: {
+          p_lote: string
+        }
+        Returns: Json
+      }
       create_machine: {
         Args: {
           p_name: string
           p_initial_target?: number
           p_has_target?: boolean
           p_standard_operator_count?: number
+          p_basis?: string
         }
         Returns: number
       }
@@ -832,6 +1012,13 @@ export type Database = {
           full_name: string
         }[]
       }
+      machine_target_basis_on: {
+        Args: {
+          p_machine_id: number
+          p_date: string
+        }
+        Returns: string
+      }
       machine_target_on: {
         Args: {
           p_machine_id: number
@@ -843,10 +1030,21 @@ export type Database = {
         Args: never
         Returns: string[]
       }
+      pode_importar: {
+        Args: never
+        Returns: boolean
+      }
+      reverter_lote_importacao: {
+        Args: {
+          p_lote: string
+        }
+        Returns: Json
+      }
       save_machine_targets: {
         Args: {
           p_targets: Json
           p_valid_from?: string
+          p_bases?: Json
         }
         Returns: number
       }
@@ -862,6 +1060,10 @@ export type Database = {
           p_replace_orders?: boolean
         }
         Returns: string
+      }
+      sincronizar_permissoes_dos_papeis: {
+        Args: never
+        Returns: number
       }
       update_production_record: {
         Args: {

@@ -51,6 +51,15 @@ Status possíveis: `Aprovada` · `Assumida` (sem confirmação explícita) · `S
 | D42 | Tempo útil por turno guardado no banco | Aprovada | 25/09/2026 |
 | D43 | Destino do histórico das máquinas renomeadas e divididas | Aprovada | 25/09/2026 |
 | D44 | A UI de `prototype/` é a interface oficial | Aprovada | 26/09/2026 |
+| D45 | Recuperação de senha pelo e-mail do Supabase Auth | Aprovada | 26/09/2026 |
+| D46 | Onde a meta por operador é resolvida (base congelada, conta na leitura) | Aprovada | 27/09/2026 |
+| D47 | Onde a lotação do posto muda a meta: granel e horizontais | Aprovada | 27/09/2026 |
+| D48 | Zero operadores é "não informado", e a regra da meta é uma só (tela = banco) | Aprovada | 27/09/2026 |
+| D49 | Teto na meta rateada pela lotação | Aprovada | 30/09/2026 |
+| D50 | Migration encontra máquina por id, não por nome | Aprovada | 30/09/2026 |
+| D51 | Aposentar o `_consolidado.sql` | Aprovada | 30/09/2026 |
+| D52 | Nº de operadores em todo apontamento, e dá para apagar | Aprovada | 30/09/2026 |
+| D53 | A base da meta é definida pelo app, junto com o valor | Aprovada | 30/09/2026 |
 
 ---
 
@@ -180,12 +189,12 @@ Status possíveis: `Aprovada` · `Assumida` (sem confirmação explícita) · `S
 - **Quando o TURNO 3 virar regular:** nada muda na estrutura — os apontamentos novos simplesmente deixam de ser marcados como `overtime`, e o passado continua verdadeiro.
 
 ### D28 — Recriar `shifts` no banco que estava vazio
-- **Status:** Aprovada em 21/09/2026. O projeto Supabase usado nesta etapa é um **projeto de testes**. O projeto oficial será montado depois com `supabase/migrations/_consolidado.sql` + `supabase/seed/01_estrutural.sql` (sem o seed de demonstração).
+- **Status:** Aprovada em 21/09/2026. O projeto Supabase usado nesta etapa é um **projeto de testes**. O projeto oficial será montado depois rodando as migrations de `supabase/migrations/` **em ordem de nome**, seguidas de `supabase/seed/01_estrutural.sql` (sem o seed de demonstração). *Atualizado em 30/09/2026: o `_consolidado.sql` foi aposentado — ver D51.*
 - **Contexto:** a documentação registrava `shifts` como criada em 16/09/2026, mas o banco apontado pelo arquivo de segredos estava com o schema `public` **vazio**, sem nenhum rastro de criação ou remoção da tabela. Detalhes em [notas/2026-09-20-verificacao-inicial.md](notas/2026-09-20-verificacao-inicial.md).
 - **Decisão:** aplicar as duas migrations versionadas de `shifts` sem nenhuma alteração, antes das demais.
 - **Alternativas rejeitadas:** trabalhar só offline (atrasaria toda a verificação real); reescrever a migration de `shifts` (mudaria o histórico versionado).
 - **Por que é seguro:** a ação é só aditiva. Se `shifts` existir em outro projeto, ele não é tocado.
-- **A confirmar:** qual é o projeto oficial. Se for outro, basta rodar `supabase/migrations/_consolidado.sql` nele.
+- **A confirmar:** qual é o projeto oficial. Se for outro, basta rodar as migrations em ordem nele.
 
 ### D29 — Criação e remoção de contas
 - **Status:** Aprovada em 21/09/2026 (as duas partes).
@@ -524,3 +533,361 @@ script de extração e carga em lote reversível.
    valem antes: a **recuperação de senha** (não existe, e é o único que bloqueia
    o uso hoje) e a **meta por operador** da Bancada A Granél, que hoje aparece
    como 25.000 em vez de 25.000 × pessoas (D39).
+   > **Atualização de 26/09/2026:** a recuperação de senha está feita no app
+   > (**D45**); falta a configuração no painel do Supabase, que só o dono do
+   > projeto pode fazer. A meta por operador continua pendente.
+
+### D45 — Recuperação de senha pelo e-mail do Supabase Auth
+- **Status:** Aprovada (26/09/2026) e **em uso desde 27/09/2026** — painel configurado e fluxo percorrido inteiro: pedir o link, receber o e-mail, definir a senha nova e entrar com ela.
+- **Contexto:** no modo Supabase, quem esquecia a senha não tinha saída. A tela
+  de login dizia "fale com o administrador", e o administrador também não tinha
+  o que fazer: o Supabase Auth guarda só o hash da senha, e trocá-la exige ou a
+  chave de administrador do projeto (`service_role`) ou o próprio usuário. Era o
+  item apontado em **D44.1** como o único que bloqueava o uso hoje.
+- **Decisão:** usar a recuperação por e-mail **do próprio Supabase Auth**
+  (`resetPasswordForEmail` para pedir o e-mail, `updateUser` para gravar a senha
+  nova). **Nenhuma tabela, função ou coluna nova** — o schema não muda.
+- **Como fica para quem usa:** o cartão de login passa a ter quatro telas —
+  entrar, criar conta, *pedir o e-mail de recuperação* e *definir a senha nova*.
+  O link do e-mail abre direto na terceira. Depois de salvar, a pessoa entra com
+  a senha nova, que assim é testada na hora.
+- **Privacidade:** a resposta ao pedido é **sempre a mesma**, exista a conta ou
+  não ("se existir uma conta com esse e-mail, o link foi enviado"). Dizer "essa
+  conta não existe" contaria a qualquer estranho quem tem acesso ao sistema.
+- **Detalhe técnico que custou código:** o app usa `HashRouter`, então o hash do
+  endereço **é a rota**. O Supabase devolve o token no hash
+  (`#access_token=...&type=recovery`), que não é rota nenhuma — sem tratamento, o
+  link cairia na página "não encontrada". E quem lê o token é o `supabase-js`, no
+  instante em que o cliente é criado. Por isso a chegada pelo link é resolvida em
+  `src/lib/recovery.ts`, **antes de a tela montar** (chamado em `src/main.tsx`):
+  ele cria o cliente de propósito, deixa o token ser lido, apaga o token do
+  endereço e do histórico do navegador, e devolve o hash que o roteador espera.
+  Também descarta o login antigo guardado neste navegador — senão o app abriria o
+  dashboard e a tela de senha nova nunca apareceria.
+- **Configuração feita em 27/09/2026** pelo dono do projeto, com os endereços de
+  `/Dashboard-Tomadas/` (o repositório foi renomeado; ver o commit do caminho base).
+  O fluxo foi percorrido inteiro e funciona.
+- **O que exige configuração no painel do Supabase** (não dá para versionar, e
+  sem isso a recuperação não funciona):
+  1. **Authentication → URL Configuration:** a *Site URL* e a lista de *Redirect
+     URLs* precisam incluir os endereços do app — `http://localhost:<porta>/Dashboard-Tomadas/*` (8080 é o padrão do projeto; no computador do dono roda em 8081 — libere a que for usada)
+     em desenvolvimento e a URL publicada (`https://<usuario>.github.io/Dashboard-Tomadas/*`).
+     Endereço fora da lista faz o Supabase devolver o link **sem** o token, e a
+     tela mostra "o link expirou ou já foi usado".
+  2. **SMTP próprio (Authentication → Emails):** o serviço de e-mail embutido do
+     Supabase é só para teste — poucos e-mails por hora e, em projetos novos,
+     entrega apenas para os endereços da equipe do projeto. **Enquanto não houver
+     SMTP próprio, a recuperação não serve para a fábrica.**
+  3. Opcional: traduzir para português o template *Reset Password*.
+- **Modo `gas`:** não existe recuperação por e-mail — o Apps Script guarda a
+  senha na planilha e não envia e-mail. A tela continua mandando falar com o
+  administrador, e a camada de dados responde com esse mesmo aviso se alguém
+  chamar a operação. Fingir que existe seria pior do que dizer a verdade.
+- **Alternativas rejeitadas:**
+  - **código de recuperação próprio numa tabela** — reinventa o que o Auth já
+    faz e passa a guardar mais um segredo no banco;
+  - **o gestor define a senha nova de quem pediu** — exigiria a chave
+    `service_role` dentro do navegador, ou seja, a chave de administrador do
+    banco na mão de quem abrir o DevTools. Inaceitável;
+  - **só o dono trocar pelo painel** — não escala e deixa a fábrica dependendo
+    de uma pessoa estar disponível.
+- **Custo assumido:** o e-mail não é do sistema, é do Supabase. Entrega, spam e
+  limite de envio passam a depender do SMTP configurado.
+
+### D46 — Onde a meta por operador é resolvida
+- **Status:** Aprovada (27/09/2026). Implementa no cálculo a **D39**, que só havia
+  criado o campo.
+- **Contexto:** desde 25/09 a meta da Bancada Embalagem A Granél está gravada
+  como `basis = 'per_operator'` — 25.000 peças **por pessoa** no turno. Nenhuma
+  parte do sistema lia esse campo: o apontamento copiava 25.000 e o dashboard
+  comparava a produção do turno inteiro com esse número. Três pessoas na bancada
+  produzindo 75.000 peças apareciam como **300% de atingimento**.
+- **Decisão:** duas partes.
+  1. **A base fica congelada no apontamento** (`production_records.target_basis`),
+     ao lado da meta que já era congelada (D08). Apontamento antigo continua
+     sendo lido como era, mesmo que a meta mude de base depois.
+  2. **A multiplicação acontece na leitura**, na view `production_summary`
+     (coluna nova `effective_target`). Se alguém corrigir o nº de operadores
+     depois, a meta efetiva se corrige sozinha.
+- **Quando o nº de operadores não foi informado:** cai na lotação padrão da
+  máquina (D39); sem lotação padrão cadastrada, multiplica por 1 — o número cru,
+  que é o menor palpite possível. Nunca por zero: meta zero significa "não conta
+  para meta" no resto do sistema, e seria uma mentira diferente.
+- **O histórico não foi recalculado.** Os 2.507 apontamentos importados (D35) e
+  qualquer apontamento anterior a esta migration ficaram `per_shift`, que é o
+  default da coluna nova. A planilha nunca distinguiu meta por turno de meta por
+  pessoa, e inventar a distinção agora mudaria a história com base num palpite.
+  **Custo assumido:** o atingimento histórico de A Granél continua inflado. É
+  reversível — um `update` futuro corrige, se o gestor decidir qual era a
+  intenção de cada mês.
+- **Consequência que é dado, não código:** a lotação padrão de A Granél está
+  cadastrada como **1 pessoa**. Enquanto for assim, o apontamento que não
+  informar operadores continuará valendo 25.000. Ou a equipe informa quantas
+  pessoas trabalharam — a tela de apontamento agora mostra a conta acontecendo
+  (`25.000 × 3 = 75.000`) e cobra o campo quando está vazio —, ou o gestor
+  corrige a lotação padrão da bancada.
+- **Alternativas rejeitadas:**
+  - **multiplicar na hora de salvar** (gravar 75.000 no apontamento): a conta
+    fica velha assim que alguém corrige o nº de operadores, e a meta gravada
+    deixa de ser comparável com a meta cadastrada;
+  - **multiplicar em cada tela:** é exatamente o que a D39 rejeitou — cada
+    leitor precisaria lembrar da exceção, e quem esquecesse mostraria 300% de
+    novo;
+  - **descobrir a base pela máquina, sem congelar:** um apontamento de março
+    passaria a ser lido com a base de hoje;
+  - **recalcular o histórico:** mudaria números já apresentados, sem ter como
+    saber o que a planilha queria dizer.
+
+### D47 — Onde a lotação do posto muda a meta
+- **Status:** Aprovada (27/09/2026), pelo gestor, com a fábrica na frente.
+- **Contexto:** a D39 tinha criado uma distinção só (meta por turno × meta por
+  pessoa) e a D46 a colocou no cálculo. Ao revisar, o gestor esclareceu que a
+  regra real tem **três** casos, e que o nº de operadores só interessa em dois
+  postos:
+  - **Bancada Embalagem A Granél** — trabalho manual: cada pessoa embala. Dobrar
+    as pessoas dobra a produção, e a meta acompanha.
+  - **Embaladoras Horizontais N°1 e N°2** — a linha precisa das 4 pessoas da
+    lotação padrão para render as 10.000 do turno. Com 3 pessoas, render 7.500 é
+    o esperado, **não um fracasso**.
+  - **Todas as outras** — quem dita o ritmo é a máquina. Mais gente na volta não
+    faz sair mais peça, e cobrar meta maior por isso seria errado.
+- **Decisão:** `machine_targets.basis` (e a foto dela no apontamento) passa a ter
+  **três** valores:
+
+  | Base | O número gravado é | Meta do turno |
+  |---|---|---|
+  | `per_shift` | a meta do turno | o próprio número (padrão) |
+  | `per_shift_prorated` | a meta do turno **com a lotação padrão** | número × pessoas ÷ lotação padrão |
+  | `per_operator` | a meta de **cada pessoa** | número × pessoas |
+
+  A conta do meio é a que a **D12** já calculava em `adjusted_target` desde
+  20/09, como informação que ninguém usava. Agora ela vale como meta — **só onde
+  a base disser**. É por isso que a base ganhou um terceiro valor em vez de a
+  conta passar a valer para todas as máquinas.
+- **Consequência na tela de apontamento:** o campo *nº de operadores* passa a
+  aparecer **somente** nesses postos, e com a conta à vista
+  (`10.000 com 4 · 3 pessoas no turno` → meta 7.500). Nos outros o campo sai da
+  tela: perguntar algo que não muda nada só ocupa o operador.
+- **Buraco consertado no caminho:** `save_machine_targets` — a função do botão
+  *Salvar Metas* — gravava a meta nova **sem a base**, e a coluna tem default
+  `per_shift`. Bastava o gestor corrigir o número de A Granél na tela para o
+  "por pessoa" virar "por turno", sem aviso, e o atingimento voltar a mentir. A
+  função passa a carregar a base que a máquina já tinha: **mudar o número nunca
+  muda a regra de leitura.** Trocar a base é ato deliberado, e não tem tela.
+- **Quando o nº de operadores não é informado:** cai na lotação padrão do posto,
+  como na D39. Para a meta rateada isso dá exatamente a meta cheia — o palpite
+  certo, porque "não informaram" não é "trabalharam sozinhos".
+- **O passado não foi remendado:** as horizontais recebem um **degrau novo** de
+  meta, válido de hoje em diante, com o mesmo número (10.000) e a base nova. Os
+  turnos anteriores foram medidos com a régua antiga e continuam sendo lidos
+  assim — mesmo princípio da D46.
+- **Alternativas rejeitadas:**
+  - **ratear a meta de toda máquina pela lotação** (usar `adjusted_target` para
+    todos): puniria o posto onde o ritmo é da máquina — dois operadores numa
+    máquina de um não produzem o dobro, e a meta cairia à metade quando um
+    faltasse;
+  - **transformar a meta das horizontais em "por pessoa" (2.500)**: o número que
+    a fábrica conhece é 10.000 do turno; trocá-lo por 2.500 mudaria a conversa
+    de todo mundo para ganhar nada;
+  - **um campo novo em `machines`** (por exemplo `staffing_sensitive`): criaria
+    duas fontes de verdade sobre como ler a meta, e a base já é a resposta dessa
+    pergunta;
+  - **pedir o nº de operadores em todas as máquinas** (o que a D12 permitia):
+    dado que ninguém usa, num campo a mais na tela que a fábrica usa todo dia.
+
+- **Como o app usa (30/09/2026):** a tela de apontamento busca a meta e a base
+  **pela data apontada**, não pelas de hoje. Quem lança um turno atrasado teria
+  gravado a foto errada — e foto de meta não se reescreve, então o erro ficaria
+  para sempre. A consulta é `targets.getMetasEm(data)` na camada de dados; no
+  modo Apps Script, que não guarda histórico de metas, devolve as de hoje.
+
+### D48 — Zero operadores é "não informado", e a regra da meta é uma só
+- **Data:** 27/09/2026 · **Status:** Aprovada · **Migration:** `20260927120000_zero_pessoas_nao_informado.sql` (0023)
+- **Contexto:** a revisão da PR 23 achou a tela de apontamento (`src/lib/metas.ts`)
+  e a view (`production_summary.effective_target`) fazendo contas diferentes:
+  com **0 operadores**, a tela usava a lotação padrão e a view multiplicava por
+  zero. Meta 0 quer dizer "não conta para meta", e o turno sumia do atingimento
+  sem aviso. A coluna aceita 0 (`check >= 0`), então o caso acontece de verdade.
+  Em outro caso-limite (meta por pessoa sem lotação padrão) a tela devolvia
+  "desconhecida" e o banco multiplicava por 1.
+- **Decisão:** uma regra só, igual nos dois lados, com teste nos dois lados
+  (`src/test/metas.test.ts` e casos 13–14 de `supabase/tests/06`):
+  pessoas = informadas **> 0**, senão lotação padrão **> 0**, senão nenhuma.
+  Sem ninguém para contar, a meta por pessoa vale × 1 e a rateada vale cheia. A
+  tela recebe o mesmo número, com a marca `estimada`, e continua pedindo o dado.
+- **Alternativas rejeitadas:**
+  - **proibir 0 com `check (operator_count > 0)`**: mudaria dados antigos da
+    importação e recusaria um salvamento que hoje funciona;
+  - **meta nula quando não há pessoas**: o app cai em `target_quantity` quando a
+    coluna é nula, e o resultado seria o mesmo × 1, só que escondido.
+
+### D49 — Teto na meta rateada pela lotação
+- **Status:** Aprovada (30/09/2026).
+- **Contexto:** a base `per_shift_prorated` (D47) rateia a meta do turno pela
+  lotação: `meta × pessoas ÷ lotação padrão`. A fórmula não tinha limite. Numa
+  horizontal com lotação padrão de 4, um turno com 5 pessoas gerava meta de
+  12.500 em vez de 10.000 — bastava um reforço para a meta subir sozinha.
+- **Decisão:** a meta para de crescer na lotação padrão.
+
+  > meta efetiva = meta × **menor(pessoas, lotação padrão)** ÷ lotação padrão
+
+  Com meta 10.000 e lotação 4: três pessoas dão 7.500, quatro dão 10.000, oito
+  dão 10.000. Gente a **menos** continua reduzindo proporcionalmente; gente a
+  **mais** não soma.
+- **Por quê:** quem limita a produção é a **máquina**, não a quantidade de
+  gente. Pôr uma quinta pessoa numa embaladora não a faz embalar mais rápido.
+- **O teto é no número de pessoas, não no valor da meta.** Trocar a meta de
+  10.000 para 15.000 não muda a regra, só a escala: três de quatro passam a dar
+  11.250. E se a lotação padrão mudar de 4 para 5, o teto se move junto, porque
+  a regra lê `machines.standard_operator_count`.
+- **Não vale para `per_operator`.** Ali cada pessoa embala por conta própria (A
+  Granél), então mais gente é mesmo mais meta, sem limite.
+- **Alternativa rejeitada:** deixar sem teto. Faria sentido se a máquina não
+  fosse o gargalo e pôr gente a mais realmente aumentasse o que sai — não é o
+  caso das embaladoras.
+- **Onde a regra vive:** em dois lugares, e eles mudam juntos (D48) — o `least`
+  na view `production_summary` e o `Math.min` em `src/lib/metas.ts`, que é o que
+  a tela usa para mostrar a meta antes de salvar. Divergirem significa a tela
+  mostrar um número e o relatório outro.
+- **Deixado de fora de propósito:** as colunas `adjusted_target` e
+  `staffing_ratio`, da D12, que têm fórmula parecida e **não são lidas por
+  nenhuma tela** hoje. Mexer nelas seria mudar o significado de um indicador que
+  ninguém está usando. Candidatas a serem aposentadas numa limpeza futura.
+
+### D50 — Migration encontra máquina por id, não por nome
+- **Status:** Aprovada (30/09/2026).
+- **Contexto:** a migration 0022 (D47) criou o degrau de meta das horizontais
+  procurando-as pelo **nome**: `where name = 'EMBALADORA HORIZONTAL N°1'`.
+  Funcionou, e está aplicada — mas é frágil de um jeito silencioso: se alguém
+  renomear a máquina, a migration não encontra nada, **não dá erro**, e a meta
+  simplesmente não é criada. Ninguém descobre até o indicador sair errado.
+- **Agrava o risco:** este projeto **renomeia máquinas**. A migration 0014
+  renomeou dezessete centros de uma vez, e a D43 prevê que isso volte a
+  acontecer quando a fábrica reorganizar postos.
+- **Decisão:** migration que precise apontar para uma máquina específica usa o
+  **id**. O id é gerado pelo banco e nunca muda (D01); o nome é rótulo de tela e
+  muda quando a fábrica muda.
+- **Quando o nome for inevitável** — por exemplo, um dado externo que só traz o
+  nome, como a importação da planilha —, a migration precisa **falhar alto** se
+  não encontrar, em vez de seguir em silêncio:
+
+  ```sql
+  if not found then
+    raise exception 'Máquina % não encontrada: a migration não pode continuar.', p_nome;
+  end if;
+  ```
+
+- **A 0022 não se edita.** Já está aplicada, e reescrever migration aplicada é
+  pior que conviver com ela. Conferido em 30/09/2026 que ela fez o que devia: o
+  degrau `per_shift_prorated` existe para os ids 1 e 2, com meta 10.000 e
+  vigência de 27/09/2026.
+- **Alternativa rejeitada:** nada fazer. O custo de lembrar é zero enquanto
+  alguém lembra; a decisão existe para quando ninguém lembrar.
+
+### D51 — Aposentar o `_consolidado.sql`
+- **Status:** Aprovada (30/09/2026).
+- **Contexto:** `supabase/migrations/_consolidado.sql` juntava todas as migrations
+  num arquivo só, para colar no SQL Editor e montar um projeto novo de uma vez.
+  A geração era **manual**: cada migration nova precisava ser acrescentada a ele
+  à mão, e ninguém lembrava. Ele parou na **v0.13.0** enquanto o schema chegou à
+  **v0.19.3** — seis versões atrás.
+- **O problema não é estar desatualizado, é mentir.** O arquivo se anuncia como
+  "schema completo". Quem confiasse nele montaria um banco sem a meta por
+  operador, sem as três bases, sem a área de preparo da importação — e acharia
+  que estava certo, porque o script roda sem erro nenhum.
+- **Decisão:** apagar o arquivo. Projeto novo se monta rodando as migrations de
+  `supabase/migrations/` **em ordem de nome**, seguidas do seed estrutural. O
+  `README.md` da pasta de documentação ganhou a seção com o passo a passo.
+- **Por que isso já funciona:** o nome de cada migration começa com data e hora,
+  então a ordem é óbvia; e todas são idempotentes, então rodar de novo não
+  quebra. É o mesmo caminho que esta sessão usou para aplicar as 0021 a 0025.
+- **Alternativa rejeitada:** gerar por script, juntando as migrations em ordem.
+  Manteria a conveniência de um arquivo só, ao custo de mais um script para
+  manter e lembrar de rodar — exatamente o tipo de passo que foi esquecido e
+  produziu o problema atual. Um arquivo que ninguém regenera é pior que arquivo
+  nenhum.
+- **Consequência:** quem tinha o hábito de colar um arquivo só passa a colar
+  vários. É mais trabalho uma vez por projeto novo, que acontece raramente.
+
+### D52 — O nº de operadores é pedido em todo apontamento, e dá para apagar
+- **Status:** Aprovada (30/09/2026). Ajusta a **D47**, que tinha escondido o campo.
+- **Contexto:** quando as três bases entraram (D47), o campo "nº de operadores"
+  passou a aparecer **só** nas máquinas cuja meta depende da lotação — A Granél e
+  as horizontais. A ideia era não ocupar a tela do operador com uma pergunta que
+  não muda nada. O efeito colateral: nas outras vinte máquinas o número deixou de
+  ser coletado, e com ele o indicador de presença do time (**D12**), que compara
+  quantas pessoas estavam no posto com a lotação padrão.
+- **Decisão:** o campo volta em **todas** as máquinas. Onde a meta depende da
+  lotação, ele muda o número; onde não depende, fica registrado — e o texto de
+  ajuda diz isso, para ninguém achar que digitar ali mexe na meta.
+- **Custo assumido:** mais um campo para preencher em todo turno. Continua
+  opcional: vazio não impede salvar.
+- **E dá para apagar.** `save_production_record` gravava com
+  `coalesce(p_operator_count, operator_count)`: quem digitasse 3 por engano e
+  limpasse o campo não conseguia desfazer, porque a tela mandava "nada" e "nada"
+  queria dizer "mantenha o que está lá".
+- **Como o nó foi desatado:** um valor só — nulo — precisava dizer duas coisas
+  diferentes. A saída usa o que a **D48** já tinha decidido, que **zero é "não
+  informado"**:
+
+  | O que chega | O que acontece |
+  |---|---|
+  | nada (nulo) | mantém o que estava |
+  | zero | apaga |
+  | um número | grava |
+
+  A tela manda **zero** quando o campo está vazio, em vez de omitir o parâmetro.
+- **Por que grava nulo e não zero:** nulo é o que o resto do banco entende como
+  ausência — a view já usa `nullif(operator_count, 0)`. Deixar dois valores
+  significando a mesma coisa em lugares diferentes é pedir confusão.
+- **Alternativa rejeitada:** um parâmetro à parte, tipo `p_apagar_operadores`.
+  Resolveria, ao custo de mais um argumento numa função que já tem oito, e de
+  uma regra a mais para lembrar. Reusar o zero aproveita uma decisão que já
+  existia.
+
+### D53 — A base da meta é definida pelo app, junto com o valor
+- **Status:** Aprovada (30/09/2026).
+- **Contexto:** as três bases (D47) existiam no banco desde a 0022, mas **só
+  mudavam por SQL**. Máquina nova sempre nascia `per_shift`, e trocar a base de
+  uma existente exigia alguém com acesso ao banco escrevendo um `insert` à mão.
+  A aba Metas já edita o valor e já respeita a vigência ("vale a partir de") —
+  falta uma coluna ao lado, com as três opções.
+- **Decisão:** a base entra como parâmetro **opcional** da
+  `save_machine_targets`, a mesma função que o botão "Revisar e salvar" já
+  chama. A `create_machine` ganha o mesmo parâmetro, para máquina nova já nascer
+  com a base certa.
+- **Por que junto, e não numa função separada:** meta e base mudam na mesma
+  vigência. Numa chamada só elas entram na mesma transação, e não existe o
+  estado intermediário de "a meta mudou mas a base ainda não" — que seria uma
+  meta lida do jeito errado até a segunda chamada chegar.
+- **Quem não informar base não muda nada.** Máquina que não aparecer no
+  parâmetro mantém a base que tinha. Era o buraco que a 0022 tapou: antes,
+  bastava o gestor editar a meta de A Granél para ela deixar de ser por pessoa,
+  sem aviso nenhum.
+- **Mudar a base cria um degrau novo**, com a data em que passa a valer (D13).
+  O passado nunca é reescrito: os apontamentos antigos guardam a base que valia
+  no dia deles (D46). E salvar um valor idêntico ao atual **não** cria degrau —
+  isso encheria o histórico de metas de movimento sem nada ter acontecido.
+- **Continua exigindo `targets.manage`**, como qualquer mudança de meta.
+- **Alternativas rejeitadas:** uma RPC `set_machine_target_basis` separada (duas
+  chamadas para uma mudança só, com estado intermediário errado); e mudar o
+  formato do parâmetro de metas para `{"1": {"meta": 500, "base": "..."}}`, que
+  quebraria quem já chama.
+
+#### D53.1 — Armadilha do PostgreSQL encontrada aqui
+Acrescentar um parâmetro **com valor padrão** a uma função **não a substitui**:
+cria uma segunda, com outra assinatura. As duas passam a existir, e a chamada
+antiga vira erro:
+
+```
+function public.save_machine_targets(jsonb, date) is not unique
+```
+
+Toda migration que acrescentar parâmetro precisa **derrubar a assinatura antiga**
+antes (`drop function if exists ... (tipos antigos)`).
+
+E função criada do zero nasce executável por **qualquer um, inclusive anônimo** —
+diferente do `create or replace`, que preserva as permissões. As duas funções
+checam permissão por dentro, então uma chamada anônima falharia; mas deixar a
+porta destrancada porque há um cadeado atrás dela não é o padrão deste banco. A
+migration revoga de `public` e `anon`, e concede a `authenticated`.
