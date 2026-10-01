@@ -35,6 +35,7 @@ import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { TextArea, TextField } from "@/components/ui/TextField";
 import { DateField } from "@/components/ui/DateField";
 import { Tooltip } from "@/components/ui/Tooltip";
+import { useAccess } from "@/features/access/AccessContext";
 
 const PLANT_TARGET = MACHINES.reduce((s, m) => s + m.target, 0);
 const DAILY_TARGET = PLANT_TARGET / WORKING_DAYS;
@@ -59,6 +60,12 @@ type Dialog =
 
 export function HistoryPage({ notify }: { notify: Notify }) {
   const [orders, setOrders] = useState<ProductionOrder[]>(ALL_ORDERS);
+  // O que cada perfil pode corrigir (a tela esconde; quem barra de verdade é o banco)
+  const { can, session } = useAccess();
+  const canEdit = (o: ProductionOrder) => can("production.edit") || (can("production.edit_own") && o.operator === session?.nome);
+  const canDelete = can("production.delete");
+  const canBulkEdit = can("production.bulk_edit");
+  const canBulkDelete = can("production.bulk_delete");
   // Dia aberto (data completa: o calendário navega entre os meses da janela de dados)
   const [date, setDate] = useState<Date>(DATA_END);
   const year = date.getFullYear();
@@ -251,30 +258,37 @@ export function HistoryPage({ notify }: { notify: Notify }) {
       srHeader: "Ações",
       align: "end",
       className: "w-500 pr-150",
-      cell: (o) => (
-        <Menu>
-          <MenuTrigger asChild>
-            <IconButton icon={MoreHorizontal} label={`Ações para ${o.opId}`} spacing="compact" showTooltip={false} />
-          </MenuTrigger>
-          <MenuContent align="end">
-            <MenuItem
-              icon={Pencil}
-              onSelect={() =>
-                setDialog({ kind: "edit", order: o, draft: { qty: String(o.quantity), shift: o.shift, rework: o.rework, note: o.note?.text ?? "" } })
-              }
-            >
-              Editar
-            </MenuItem>
-            <MenuItem icon={CalendarPlus} onSelect={() => setDialog({ kind: "move", ids: [o.id], day: "" })}>
-              Mover para outra data
-            </MenuItem>
-            <MenuSeparator />
-            <MenuItem icon={Trash2} onSelect={() => setDialog({ kind: "delete", ids: [o.id] })}>
-              Excluir
-            </MenuItem>
-          </MenuContent>
-        </Menu>
-      ),
+      cell: (o) =>
+        canEdit(o) || canDelete ? (
+          <Menu>
+            <MenuTrigger asChild>
+              <IconButton icon={MoreHorizontal} label={`Ações para ${o.opId}`} spacing="compact" showTooltip={false} />
+            </MenuTrigger>
+            <MenuContent align="end">
+              {canEdit(o) && (
+                <>
+                  <MenuItem
+                    icon={Pencil}
+                    onSelect={() =>
+                      setDialog({ kind: "edit", order: o, draft: { qty: String(o.quantity), shift: o.shift, rework: o.rework, note: o.note?.text ?? "" } })
+                    }
+                  >
+                    Editar
+                  </MenuItem>
+                  <MenuItem icon={CalendarPlus} onSelect={() => setDialog({ kind: "move", ids: [o.id], day: "" })}>
+                    Mover para outra data
+                  </MenuItem>
+                </>
+              )}
+              {canEdit(o) && canDelete && <MenuSeparator />}
+              {canDelete && (
+                <MenuItem icon={Trash2} onSelect={() => setDialog({ kind: "delete", ids: [o.id] })}>
+                  Excluir
+                </MenuItem>
+              )}
+            </MenuContent>
+          </Menu>
+        ) : null,
     },
   ];
 
@@ -399,29 +413,35 @@ export function HistoryPage({ notify }: { notify: Notify }) {
               <div role="toolbar" aria-label="Ações em lote" className="flex flex-wrap items-center gap-100 rounded-large bg-selected px-150 py-100">
                 <span className="font-medium text-selected">{selected.size} {selected.size === 1 ? "selecionado" : "selecionados"}</span>
                 <span className="mx-050 h-200 border-l border-selected" aria-hidden />
-                <Menu>
-                  <MenuTrigger asChild>
-                    <Button appearance="subtle" spacing="compact" iconBefore={Repeat}>
-                      Alterar turno
-                    </Button>
-                  </MenuTrigger>
-                  <MenuContent>
-                    <MenuLabel>Mover para o turno</MenuLabel>
-                    <MenuRadioGroup value="" onValueChange={(v) => changeShift(ids, Number(v) as Shift)}>
-                      {SHIFTS.map((s) => (
-                        <MenuRadioItem key={s} value={String(s)}>
-                          {SHIFT_META[s].label} · {SHIFT_META[s].hours}
-                        </MenuRadioItem>
-                      ))}
-                    </MenuRadioGroup>
-                  </MenuContent>
-                </Menu>
-                <Button appearance="subtle" spacing="compact" iconBefore={CalendarPlus} onClick={() => setDialog({ kind: "move", ids, day: "" })}>
-                  Mover para outra data
-                </Button>
-                <Button appearance="subtle" spacing="compact" iconBefore={Trash2} onClick={() => setDialog({ kind: "delete", ids })}>
-                  Excluir
-                </Button>
+                {canBulkEdit && (
+                  <Menu>
+                    <MenuTrigger asChild>
+                      <Button appearance="subtle" spacing="compact" iconBefore={Repeat}>
+                        Alterar turno
+                      </Button>
+                    </MenuTrigger>
+                    <MenuContent>
+                      <MenuLabel>Mover para o turno</MenuLabel>
+                      <MenuRadioGroup value="" onValueChange={(v) => changeShift(ids, Number(v) as Shift)}>
+                        {SHIFTS.map((s) => (
+                          <MenuRadioItem key={s} value={String(s)}>
+                            {SHIFT_META[s].label} · {SHIFT_META[s].hours}
+                          </MenuRadioItem>
+                        ))}
+                      </MenuRadioGroup>
+                    </MenuContent>
+                  </Menu>
+                )}
+                {canBulkEdit && (
+                  <Button appearance="subtle" spacing="compact" iconBefore={CalendarPlus} onClick={() => setDialog({ kind: "move", ids, day: "" })}>
+                    Mover para outra data
+                  </Button>
+                )}
+                {canBulkDelete && (
+                  <Button appearance="subtle" spacing="compact" iconBefore={Trash2} onClick={() => setDialog({ kind: "delete", ids })}>
+                    Excluir
+                  </Button>
+                )}
                 <IconButton icon={X} label="Cancelar seleção" spacing="compact" className="ml-auto" onClick={() => setSelected(new Set())} />
               </div>
             )}
@@ -433,6 +453,8 @@ export function HistoryPage({ notify }: { notify: Notify }) {
               getRowId={(o) => o.id}
               getRowLabel={(o) => `${o.opId}, ${machineById(o.machineId).name}, ${SHIFT_META[o.shift].label}, ${formatNumber(o.quantity)} unidades`}
               state={dayOrders.length ? "ready" : "empty"}
+              // Seleção só serve para ações em lote
+              selectable={canBulkEdit || canBulkDelete}
               selectedIds={selected}
               onSelectionChange={setSelected}
               footerLead={shiftFilter === "all" ? plural(dayOrders.length) : `${plural(dayOrders.length)} no ${SHIFT_META[shiftFilter].label.toLowerCase()}`}

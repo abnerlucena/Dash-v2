@@ -10,6 +10,7 @@ import {
   FlaskConical,
   History,
   LayoutDashboard,
+  Lock,
   LogOut,
   MessageSquare,
   Monitor,
@@ -24,6 +25,7 @@ import {
   Trophy,
   Tv,
   UserRound,
+  Users,
   type LucideIcon,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
@@ -69,6 +71,12 @@ import { OpsProvider } from "@/features/ops/OpsProvider";
 import { ReportsPage } from "@/features/reports/ReportsPage";
 import { TvMode } from "@/features/tv/TvMode";
 import { HelpPage } from "@/features/help/HelpPage";
+import { AccessPage } from "@/features/access/AccessPage";
+import { useAccess } from "@/features/access/AccessContext";
+import { AccessProvider } from "@/features/access/AccessProvider";
+import { accessLabel } from "@/features/access/permissions";
+import { UsersPage } from "@/features/access/UsersPage";
+import { Spinner } from "@/components/ui/Spinner";
 import { useColorMode, type ColorModePreference } from "@/lib/hooks";
 import { cn, plural, readToken, storageGet, storageSet, type Notify } from "@/lib/utils";
 
@@ -109,6 +117,11 @@ const NAV_SECTIONS: Array<{ title: string; items: NavEntry[] }> = [
       { id: "turno-3", label: "Turno 3", dot: "bg-chart-categorical-3" },
     ],
   },
+  {
+    // Só aparece para quem aprova cadastros (users.approve)
+    title: "Administração",
+    items: [{ id: "usuarios", label: "Usuários", icon: Users }],
+  },
 ];
 const ALL_NAV = [...NAV_MAIN, ...NAV_SECTIONS.flatMap((s) => s.items), { id: "tv", label: "Modo TV" }, { id: "ajuda", label: "Ajuda" }];
 
@@ -140,8 +153,6 @@ const SHIFT_ROUTES: Record<string, { title: string; breadcrumbs: string[]; prese
 const SECTION_LABEL = "Tomadas & Interruptores · Itajaí";
 
 
-const USER = { name: "Rafael Souza", role: "Gestor" };
-
 /** "#/feedbacks/4510000" → rota "feedbacks", parâmetro "4510000" */
 function useHashRoute() {
   const read = () => decodeURIComponent(window.location.hash.replace(/^#\/?/, "")) || "dashboard";
@@ -157,6 +168,44 @@ function useHashRoute() {
 
 export default function App() {
   return (
+    <AccessProvider
+      fallback={
+        <div className="flex min-h-dvh items-center justify-center bg-surface-sunken">
+          <Spinner label="Carregando o Dash de Produção" />
+        </div>
+      }
+    >
+      <Gate />
+    </AccessProvider>
+  );
+}
+
+/**
+ * Porta de entrada: sem sessão válida, só a tela de acesso. Tela de TV
+ * (conta "display") só abre o Modo TV. Esconder na tela é conveniência;
+ * quem barra de verdade é o banco (RLS).
+ */
+function Gate() {
+  const { session, logout, canOpen } = useAccess();
+  const { route, param } = useHashRoute();
+  if (!session)
+    return (
+      <TooltipProvider>
+        <AccessPage />
+      </TooltipProvider>
+    );
+  if (session.accountType === "display" || (route === "tv" && canOpen("tv")))
+    return (
+      <OpsProvider>
+        <TooltipProvider>
+          <TvMode
+            scope={route === "tv" ? param : undefined}
+            onExit={() => (session.accountType === "display" ? logout() : (window.location.hash = "/dashboard"))}
+          />
+        </TooltipProvider>
+      </OpsProvider>
+    );
+  return (
     <OpsProvider>
       <Shell />
     </OpsProvider>
@@ -164,7 +213,11 @@ export default function App() {
 }
 
 function Shell() {
-  const { route, param } = useHashRoute();
+  const { route: rawRoute, param } = useHashRoute();
+  const { canOpen } = useAccess();
+  // Início: o Dashboard; quem não pode vê-lo cai na primeira tela liberada
+  const home = [...NAV_MAIN, ...NAV_SECTIONS.flatMap((s) => s.items)].find((n) => canOpen(n.id))?.id ?? "ajuda";
+  const route = rawRoute === "dashboard" && !canOpen("dashboard") ? home : rawRoute;
   const { unread } = useOps();
   const colorMode = useColorMode();
   const [search, setSearch] = useState("");
@@ -186,13 +239,6 @@ function Shell() {
   }, [demoState]);
 
 
-  // Modo TV ocupa a tela inteira, sem navegação
-  if (route === "tv")
-    return (
-      <TooltipProvider>
-        <TvMode scope={param} onExit={() => (window.location.hash = "/dashboard")} />
-      </TooltipProvider>
-    );
   const current = ALL_NAV.find((n) => n.id === route);
 
   return (
@@ -239,7 +285,7 @@ function Shell() {
           <SideNav header={<SectionBrand />}>
             <SideNavBody>
               <SideNavSection>
-                {NAV_MAIN.map((n) => (
+                {NAV_MAIN.filter((n) => canOpen(n.id)).map((n) => (
                   <SideNavItem
                     key={n.id}
                     href={`#/${n.id}`}
@@ -250,23 +296,25 @@ function Shell() {
                   />
                 ))}
               </SideNavSection>
-              {NAV_SECTIONS.map((section) => (
-                <SideNavSection key={section.title} title={section.title}>
-                  {section.items.map((n) => (
-                    <SideNavItem
-                      key={n.id}
-                      href={`#/${n.id}`}
-                      label={n.label}
-                      icon={n.icon}
-                      isCurrent={route === n.id}
-                      elemBefore={n.dot && <span className={cn("size-dot rounded-full", n.dot)} />}
-                    />
-                  ))}
-                </SideNavSection>
-              ))}
+              {NAV_SECTIONS.map((section) => ({ ...section, items: section.items.filter((n) => canOpen(n.id)) }))
+                .filter((section) => section.items.length > 0)
+                .map((section) => (
+                  <SideNavSection key={section.title} title={section.title}>
+                    {section.items.map((n) => (
+                      <SideNavItem
+                        key={n.id}
+                        href={`#/${n.id}`}
+                        label={n.label}
+                        icon={n.icon}
+                        isCurrent={route === n.id}
+                        elemBefore={n.dot && <span className={cn("size-dot rounded-full", n.dot)} />}
+                      />
+                    ))}
+                  </SideNavSection>
+                ))}
             </SideNavBody>
             <SideNavFooter>
-              <SideNavItem href="#/tv" label="Modo TV" icon={Tv} isCurrent={route === "tv"} />
+              {canOpen("tv") && <SideNavItem href="#/tv" label="Modo TV" icon={Tv} isCurrent={route === "tv"} />}
               <SideNavItem href="#/ajuda" label="Ajuda" icon={CircleHelp} isCurrent={route === "ajuda"} />
               <SideNavUser />
             </SideNavFooter>
@@ -274,7 +322,17 @@ function Shell() {
         }
       >
         <Main>
-          {route === "dashboard" || LINE_ROUTES[route] || SHIFT_ROUTES[route] ? (
+          {current && !canOpen(route) ? (
+            <div className="px-200 pt-300 m:px-400">
+              <h1 className="font-heading-large text-default">{current.label}</h1>
+              <EmptyState
+                icon={Lock}
+                title="Sem permissão para esta tela"
+                hint="O seu perfil não inclui esta área. Se precisar dela para o seu trabalho, peça ao gestor para liberar a permissão."
+                action={{ label: "Ir para o início", icon: LayoutDashboard, onClick: () => (window.location.hash = `/${home}`) }}
+              />
+            </div>
+          ) : route === "dashboard" || LINE_ROUTES[route] || SHIFT_ROUTES[route] ? (
             <MachinesPage
               key={route}
               {...(LINE_ROUTES[route] ?? SHIFT_ROUTES[route] ?? {})}
@@ -300,6 +358,8 @@ function Shell() {
             <OpsPage notify={notify} />
           ) : route === "relatorios" ? (
             <ReportsPage notify={notify} />
+          ) : route === "usuarios" ? (
+            <UsersPage notify={notify} />
           ) : route === "ajuda" ? (
             <HelpPage notify={notify} />
           ) : (
@@ -553,13 +613,16 @@ function DemoMenu({ value, onChange }: { value: DemoState; onChange: (s: DemoSta
 }
 
 function UserMenuItems() {
+  const { session, logout } = useAccess();
   return (
     <>
-      <MenuLabel>{USER.name}</MenuLabel>
+      <MenuLabel>{session?.nome}</MenuLabel>
       <MenuItem icon={UserRound}>Perfil</MenuItem>
       <MenuItem icon={Settings}>Preferências</MenuItem>
       <MenuSeparator />
-      <MenuItem icon={LogOut}>Sair</MenuItem>
+      <MenuItem icon={LogOut} onSelect={() => logout()}>
+        Sair
+      </MenuItem>
     </>
   );
 }
@@ -573,15 +636,16 @@ interface UserMenuProps {
 
 function UserMenu({ colorMode, onColorModeChange, demoState, onDemoStateChange }: UserMenuProps) {
   const { isMedium } = useLayout();
+  const name = useAccess().session?.nome ?? "";
   return (
     <Menu>
       <MenuTrigger asChild>
         <button
           type="button"
-          aria-label={`Conta de ${USER.name}`}
+          aria-label={`Conta de ${name}`}
           className="ds-pressable ml-050 flex size-control items-center justify-center rounded-full hover:bg-neutral-subtle-hovered"
         >
-          <Avatar name={USER.name} />
+          <Avatar name={name} />
         </button>
       </MenuTrigger>
       <MenuContent align="end">
@@ -612,12 +676,14 @@ function UserMenu({ colorMode, onColorModeChange, demoState, onDemoStateChange }
 
 function SideNavUser() {
   const L = useLayout();
+  const { session } = useAccess();
+  if (!session) return null;
   return (
     <div className="mt-100 flex items-center gap-100 rounded-medium px-050 py-050">
-      <Avatar name={USER.name} size="medium" />
+      <Avatar name={session.nome} size="medium" />
       <span className="flex min-w-0 flex-1 flex-col">
-        <span className="truncate font-medium text-default">{USER.name}</span>
-        <span className="truncate font-body-small text-subtlest">{USER.role}</span>
+        <span className="truncate font-medium text-default">{session.nome}</span>
+        <span className="truncate font-body-small text-subtlest">{accessLabel(session)}</span>
       </span>
       <Menu onOpenChange={L.setSideNavMenuOpen}>
         <MenuTrigger asChild>
