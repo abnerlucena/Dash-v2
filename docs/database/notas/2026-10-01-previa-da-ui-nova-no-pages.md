@@ -28,9 +28,14 @@ flowchart LR
 - **O app antigo nunca é bloqueado.** O passo da UI nova tem `continue-on-error`.
   Se ele falhar, o deploy sai sem `/nova/` e o log mostra um aviso. Os passos do app
   antigo ficaram como estavam.
-- **Nenhuma credencial é usada.** O passo da UI nova força `VITE_DATA_SOURCE` vazio.
-  Assim ele cai na fonte de demonstração (`prototype/src/features/access/demoClient.ts`),
-  mesmo que vocês ponham variáveis do Supabase no job do app antigo na virada.
+- **Demonstração por padrão.** O passo da UI nova só liga o banco quando a variável do
+  repositório `NOVA_DATA_SOURCE` vale `supabase`. Fora isso, ele cai na fonte de demonstração
+  (`prototype/src/features/access/demoClient.ts`), mesmo que o job do app antigo ganhe
+  variáveis do Supabase na virada. Qualquer outro valor também cai na demonstração, nunca no
+  Apps Script.
+
+  > **Atualizado no mesmo dia:** a prévia pode ler o banco de verdade, só para leitura. O
+  > detalhe está em [`2026-10-01-adaptador-de-leitura-da-ui-nova.md`](2026-10-01-adaptador-de-leitura-da-ui-nova.md).
 - **Uma janela não atrapalha a outra.** A UI nova roteia por `#/` e guarda tudo em
   chaves `dash-proto.*` do `localStorage`. O app antigo usa `prod_session_v3`. Não
   há service worker. Os dois ficam na mesma origem sem se pisar.

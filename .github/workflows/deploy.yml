@@ -31,14 +31,19 @@ jobs:
       - name: Build
         run: npm run build
 
-      # Prévia da UI nova (prototype/) em /nova/, só com dados de demonstração.
+      # Prévia da UI nova (prototype/) em /nova/.
       # Isolada: se falhar, o app antigo sai do mesmo jeito, sem /nova/.
+      # Dados: demonstração, a menos que a variável do repositório NOVA_DATA_SOURCE
+      # seja "supabase" (Settings → Secrets and variables → Actions). Aí a prévia lê o
+      # banco, só leitura, com os segredos VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY.
+      # Qualquer outro valor cai na demonstração (nunca no Apps Script).
       - name: Build da UI nova (prévia)
         id: proto
         continue-on-error: true
         env:
-          # Nunca liga a um backend real, mesmo que o job ganhe variáveis do Supabase
-          VITE_DATA_SOURCE: ""
+          VITE_DATA_SOURCE: ${{ vars.NOVA_DATA_SOURCE == 'supabase' && 'supabase' || '' }}
+          VITE_SUPABASE_URL: ${{ vars.NOVA_DATA_SOURCE == 'supabase' && secrets.VITE_SUPABASE_URL || '' }}
+          VITE_SUPABASE_ANON_KEY: ${{ vars.NOVA_DATA_SOURCE == 'supabase' && secrets.VITE_SUPABASE_ANON_KEY || '' }}
         run: npm run proto:build
 
       - name: Copiar a prévia para dist/nova

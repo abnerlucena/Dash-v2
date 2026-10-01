@@ -61,6 +61,20 @@ assim que o gestor ligar uma variável no GitHub.
   - Metas: metas reais com `basis` e `getMetasEm`, etapa seguinte.
   - OPs e Feedbacks: não há tabela de OP nem de mensagens (lacuna 3).
 
+### Sessão separada do app antigo
+
+No Pages os dois apps ficam na mesma origem (`/` e `/nova/`). Até a virada, o antigo fala
+com o Apps Script. Por isso a UI nova **deixou de usar `prod_session_v3`** e guarda a sessão
+em `dash-proto.session.<fonte>`. Com a mesma chave, entrar num app derrubava a sessão do
+outro.
+
+O login do Supabase em si (`sb-…-auth-token`, do supabase-js) continua compartilhado, e
+isso é coerente: mesmo banco, mesma pessoa. Fica um efeito colateral pequeno do lado de
+vocês, sem pressa. `supabase/helpers.ts` e `recovery.ts` chamam `clearSession()`, que
+apaga a chave do app antigo mesmo quando quem chamou foi a UI nova. Antes da virada isso
+pode tirar alguém do app antigo, caso dê erro de token na prévia. Se quiserem, a função
+pode receber a chave como parâmetro.
+
 ## O que a interface pede ao banco
 
 1. **De acordo com as mudanças em `machines.ts`** (itens 1 a 4 acima). Se preferirem
