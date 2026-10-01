@@ -3,10 +3,9 @@
 Esta pasta é a **fonte oficial** sobre o banco de dados do Dash de Produção (Supabase / PostgreSQL).
 Ela registra **o que existe, como funciona, por que foi decidido assim e o que mudou**.
 
-> **Estado atual do schema:** `v0.19.0` — **desenhada, ainda não aplicada**. O banco (projeto de testes) está na `v0.17.1`, com o histórico real carregado: 2.507 apontamentos de 20/12/2025 a 21/09/2026, 17.627.977 peças. Migrations em `supabase/migrations/`; importação em `supabase/import/`.
-> A `0.17.1` não mexeu no schema: registra a **recuperação de senha por e-mail** (D45), que usa o Supabase Auth e depende de configuração no painel do projeto.
-> A `0.18.0` e a `0.19.0` põem a **meta que depende da lotação** no cálculo (D39/D46/D47) e esperam ser aplicadas, **nesta ordem**:
-> `20260927100000_meta_por_operador.sql` e `20260927110000_meta_depende_da_lotacao.sql`.
+> **Estado atual do schema:** `v0.20.0` — **implementado** no Supabase (projeto de testes), com o histórico real carregado: 2.507 apontamentos de 20/12/2025 a 21/09/2026, 17.627.977 peças.
+> A `0.17.1` não mexeu no schema: registra a **recuperação de senha por e-mail** (D45), hoje **em uso**.
+> A `0.18.0` e a `0.19.0` puseram a **meta que depende da lotação** no cálculo (D39/D46/D47): três bases — meta do turno, meta do turno rateada pela lotação, e meta por pessoa. A `0.19.3` pôs **teto** no rateio (D49).
 > O sistema em produção continua sendo Google Sheets + Google Apps Script (`Main.gs`).
 
 ## Os documentos
@@ -18,6 +17,24 @@ Ela registra **o que existe, como funciona, por que foi decidido assim e o que m
 | [03-decisoes.md](03-decisoes.md) | Todos | Registro de decisões (ADR): contexto, escolha e consequências |
 | [CHANGELOG.md](CHANGELOG.md) | Todos | Ata de mudanças do schema, versão por versão |
 | [cadernos/](cadernos/README.md) | Quem quer entender sem ser técnico | Seis PDFs curtos com analogias e diagramas, uma área do banco por caderno |
+
+## Como montar um projeto novo
+
+Rode, no SQL Editor do Supabase:
+
+1. **as migrations de `supabase/migrations/`, em ordem de nome.** O nome começa
+   com a data e a hora justamente para a ordem ser óbvia. Todas são idempotentes:
+   rodar de novo não quebra nada.
+2. **`supabase/seed/01_estrutural.sql`** — papéis, permissões, turnos, os 22
+   centros de trabalho e as metas reais.
+3. **`select public.bootstrap_admin('seu.email@empresa.com');`** depois de se
+   cadastrar pela tela, para existir o primeiro administrador. Sem isso não há
+   quem aprove ninguém.
+
+> **Não existe mais um arquivo único com o schema inteiro.** O
+> `_consolidado.sql` foi aposentado em 30/09/2026 (**D51**): ele prometia ser o
+> schema completo e tinha parado seis versões atrás, o que é pior do que não
+> existir — quem confiasse nele montaria um banco errado achando que estava certo.
 
 ## Normas de manutenção
 
@@ -43,7 +60,7 @@ Estas regras valem para pessoas **e** para o Claude Code (ver `CLAUDE.md` na rai
 - Chave liga/desliga: `VITE_DATA_SOURCE` = `gas` (padrão, Apps Script) ou `supabase`. Ver `src/lib/repositories/index.ts`.
 - `src/lib/repositories/` — uma operação por ação do Apps Script; `gas.ts` repassa ao `api()` atual, `supabase/` usa as views e RPCs deste schema. Adaptadores em `supabase/adapters.ts` (produção boa como produção, meta zerada para hora extra e dia anulado).
 - `src/lib/database.types.ts` — tipos do schema. **Regenerar após cada migration** (`npx supabase gen types typescript --project-id <ref>`, com login na CLI; ou o script de introspecção usado em 20/09/2026, que tem o mesmo formato).
-- Pastas do banco: `supabase/migrations/` (+ `_consolidado.sql`), `supabase/seed/`, `supabase/tests/` (verificação SQL com `rollback`).
+- Pastas do banco: `supabase/migrations/`, `supabase/seed/`, `supabase/tests/` (verificação SQL com `rollback`), `supabase/import/`.
 - Teste de ponta a ponta da camada: `npm run test:integration` (precisa de `.env.local` e das variáveis `TEST_*` de usuários de teste).
 
 ## Convenções de nomenclatura (resumo)

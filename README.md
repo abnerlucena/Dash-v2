@@ -28,9 +28,20 @@ o sistema que a fábrica usa. A chave liga/desliga é a variável
 
 ```bash
 npm ci
-npm run dev            # app atual        → http://localhost:8080/Dash-v2/
+npm run dev            # app atual        → http://localhost:8080/Dashboard-Tomadas/
 npm run proto:dev      # interface nova   → http://localhost:8090/
 ```
+
+Para construir telas **sem banco nenhum**, use o modo de demonstração — só
+funciona em `npm run dev`; um build de produção ignora a variável e cai no `gas`:
+
+```
+VITE_DATA_SOURCE=mock
+```
+
+Ele simula a área de acesso inteira (login, crachá, cadastro pendente, aprovação,
+bloqueio, recuperação de senha) com contas fictícias listadas em
+`src/lib/repositories/mock/contas.ts`, todas com a senha `123456`.
 
 Para o modo Supabase, crie um `.env.local` (não versionado):
 

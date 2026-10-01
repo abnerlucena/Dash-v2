@@ -20,12 +20,17 @@ export type BaseDaMeta = "per_shift" | "per_shift_prorated" | "per_operator";
 
 export interface MetaDoTurno {
   /**
-   * A meta do turno, ou `null` quando ela depende de gente e ninguém disse
-   * quantas pessoas eram — nem a máquina tem lotação padrão cadastrada. Nulo
-   * significa "desconhecida": é para a tela pedir o dado, nunca para mostrar
-   * zero nem o número cru como se fosse a meta.
+   * A meta do turno — o MESMO número que a view entrega em `effective_target`
+   * (migration 0023, D48). A regra é uma só dos dois lados: mudou aqui, muda lá,
+   * junto com os dois testes (src/test/metas.test.ts e supabase/tests/06).
    */
-  valor: number | null;
+  valor: number;
+  /**
+   * `true` quando a meta depende de gente e ninguém disse quantas pessoas eram
+   * — nem a máquina tem lotação padrão. O valor é o palpite do banco (× 1, ou a
+   * meta cheia); a tela deve pedir o dado em vez de mostrá-lo como certo.
+   */
+  estimada: boolean;
   /** O número como está cadastrado, sem conta nenhuma. */
   cadastrada: number;
   base: BaseDaMeta;
@@ -62,23 +67,34 @@ export function metaDoTurno({ cadastrada, base, pessoas, lotacaoPadrao }: Entrad
 
   if (baseFinal === "per_shift") {
     return {
-      valor: cadastrada, cadastrada, base: baseFinal,
+      valor: cadastrada, estimada: false, cadastrada, base: baseFinal,
       pessoas: pessoasInformadas, lotacaoPadrao: lotacao, dependeDaLotacao: false,
     };
   }
 
-  // "Não informaram" não é "trabalharam sozinhos": cai na lotação padrão.
+  // "Não informaram" (vazio ou 0) não é "trabalharam sozinhos": cai na lotação
+  // padrão. Sem nenhuma das duas, a conta é um palpite — o mesmo da view.
   const usadas = pessoasInformadas || lotacao || 0;
-  const comum = { cadastrada, base: baseFinal, pessoas: usadas, lotacaoPadrao: lotacao, dependeDaLotacao: true };
+  const comum = {
+    cadastrada, base: baseFinal, pessoas: usadas, lotacaoPadrao: lotacao,
+    dependeDaLotacao: true, estimada: usadas === 0,
+  };
 
-  if (!usadas) return { ...comum, valor: null };
-
-  if (baseFinal === "per_operator") return { ...comum, valor: cadastrada * usadas };
+  // Por pessoa: × pessoas; sem ninguém para contar, × 1 (a view faz o mesmo).
+  if (baseFinal === "per_operator") return { ...comum, valor: cadastrada * (usadas || 1) };
 
   // per_shift_prorated: sem lotação padrão não há do que ratear — a meta
   // cadastrada já é a do turno, e é o melhor que se pode dizer.
   if (!lotacao) return { ...comum, valor: cadastrada };
-  return { ...comum, valor: Math.round((cadastrada * usadas) / lotacao) };
+
+  // Teto na lotação padrão (D49): gente A MAIS não aumenta a meta, porque quem
+  // limita a produção é a máquina, não a quantidade de pessoas. Gente A MENOS
+  // continua reduzindo proporcionalmente.
+  //
+  // Esta linha tem de ser a MESMA do `least(...)` na view production_summary
+  // (D48). Se as duas divergirem, a tela mostra um número e o relatório outro.
+  const contadas = Math.min(usadas, lotacao);
+  return { ...comum, valor: Math.round((cadastrada * contadas) / lotacao) };
 }
 
 /** Texto curto da base, para etiqueta de tela. */

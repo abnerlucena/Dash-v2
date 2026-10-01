@@ -4,20 +4,48 @@
     {
       "name": "dash-supabase",
       "runtimeExecutable": "npx",
-      "runtimeArgs": ["vite", "--mode", "supabase", "--port", "8081", "--strictPort"],
+      "runtimeArgs": [
+        "vite",
+        "--mode",
+        "supabase",
+        "--port",
+        "8081",
+        "--strictPort"
+      ],
       "port": 8081
     },
     {
       "name": "dash-gas",
       "runtimeExecutable": "npx",
-      "runtimeArgs": ["vite", "--port", "8080", "--strictPort"],
+      "runtimeArgs": [
+        "vite",
+        "--port",
+        "8080",
+        "--strictPort"
+      ],
       "port": 8080
     },
     {
       "name": "prototype",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "proto:dev"],
+      "runtimeArgs": [
+        "run",
+        "proto:dev"
+      ],
       "port": 8090
+    },
+    {
+      "name": "dash-mock",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "vite",
+        "--mode",
+        "mock",
+        "--port",
+        "8082",
+        "--strictPort"
+      ],
+      "port": 8082
     }
   ]
 }

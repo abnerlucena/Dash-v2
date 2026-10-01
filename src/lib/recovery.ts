@@ -3,8 +3,8 @@
 // pelo servidor do Supabase e volta para este app já com a permissão de trocar
 // a senha no endereço — de duas formas possíveis:
 //
-//   fluxo implícito  .../Dash-v2/?recuperar=1#access_token=...&type=recovery
-//   fluxo PKCE       .../Dash-v2/?recuperar=1&code=...
+//   fluxo implícito  .../Dashboard-Tomadas/?recuperar=1#access_token=...&type=recovery
+//   fluxo PKCE       .../Dashboard-Tomadas/?recuperar=1&code=...
 //
 // O `?recuperar=1` é nosso (vem do `redirectTo`, em repositories/supabase/auth.ts);
 // o resto é o Supabase que acrescenta.
@@ -22,11 +22,38 @@
 //
 // Por isso `prepararRecuperacaoDeSenha()` roda em main.tsx, antes do render.
 import { clearSession } from "./api";
-import { isSupabase } from "./repositories";
+import { isMock, isSupabase } from "./repositories";
 import { getSupabase } from "./supabase";
 
 const LINK_INVALIDO =
   "O link de recuperação expirou ou já foi usado. Peça um novo e-mail.";
+
+const LINK_DEMOROU =
+  "O servidor demorou para responder. Tente de novo ou peça um novo e-mail.";
+
+/**
+ * Quanto se espera pelo Supabase antes de desistir e mostrar a tela.
+ *
+ * Oito segundos é o meio-termo: tempo de sobra para uma conexão lenta de
+ * fábrica, e curto o bastante para ninguém achar que o app travou. O risco
+ * assumido é um link VÁLIDO numa rede muito ruim cair na tela de "peça outro
+ * e-mail" — pedir de novo resolve, e é melhor do que uma tela branca sem saída.
+ */
+const LIMITE_MS = 8000;
+
+/** Estourou o tempo de espera — separado para a mensagem poder ser outra. */
+class DemorouDemais extends Error {}
+
+/** Devolve a promessa, ou estoura `DemorouDemais` se ela passar do tempo. */
+function comLimiteDeTempo<T>(promessa: PromiseLike<T>, ms: number): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const alarme = setTimeout(() => reject(new DemorouDemais()), ms);
+    promessa.then(
+      v => { clearTimeout(alarme); resolve(v); },
+      e => { clearTimeout(alarme); reject(e); },
+    );
+  });
+}
 
 /** O que o endereço trazia. */
 export type PedidoDeRecuperacao =
@@ -100,7 +127,7 @@ export function recuperacaoEmAndamento(): EstadoRecuperacao | null {
 export async function prepararRecuperacaoDeSenha(): Promise<void> {
   // No modo Apps Script não existe recuperação por e-mail, e criar o cliente do
   // Supabase ali não faria sentido nenhum.
-  if (!isSupabase) return;
+  if (!isSupabase && !isMock) return;
 
   let pedido: PedidoDeRecuperacao | null = null;
   try {
@@ -121,19 +148,62 @@ export async function prepararRecuperacaoDeSenha(): Promise<void> {
     return;
   }
 
+  // Modo de demonstração: não há token de verdade. O link que o mock escreve no
+  // console (`?recuperar=1&code=mock`) vale como link válido; a senha nova só é
+  // aceita se um pedido de recuperação foi feito antes (ver mock/acesso.ts).
+  if (isMock) {
+    estado = { tela: "novaSenha" };
+    normalizarEndereco();
+    return;
+  }
+
+  // A sessão Supabase que este navegador já tinha também sai, ANTES de o cliente
+  // nascer. Sem isso, um link inválido deixava a sessão antiga no lugar,
+  // `getSession()` a devolvia, e a tela de senha nova abria — trocando a senha
+  // de quem estava logado antes, não de quem pediu o e-mail.
+  apagarSessaoSupabaseGuardada(window.localStorage);
+
   try {
     // Criar o cliente é o que faz o supabase-js ler o token do endereço;
-    // `getSession()` espera essa leitura terminar. Sessão em mãos = o link
-    // valia, e a troca de senha pode acontecer.
-    const { data } = await getSupabase().auth.getSession();
-    estado = data.session
+    // `getSession()` espera essa leitura terminar. Como a sessão antiga já foi
+    // apagada, sessão em mãos só pode ter vindo do link.
+    //
+    // O limite de tempo existe porque esta chamada acontece ANTES de a tela
+    // montar (ver main.tsx): sem ele, rede ruim ou Supabase fora do ar deixam
+    // a pessoa olhando uma tela branca, sem mensagem nem botão.
+    const sessao = await comLimiteDeTempo(
+      getSupabase().auth.getSession().then(r => r.data.session),
+      LIMITE_MS,
+    );
+    estado = sessao
       ? { tela: "novaSenha" }
       : { tela: "recuperar", erro: LINK_INVALIDO };
-  } catch {
-    // Supabase sem configuração, ou sem rede: a tela pede outro e-mail.
-    estado = { tela: "recuperar", erro: LINK_INVALIDO };
+  } catch (e) {
+    // Sem rede, sem configuração, ou demorou demais: a tela pede outro e-mail.
+    // Preferir uma tela com instrução a uma tela branca.
+    estado = {
+      tela: "recuperar",
+      erro: e instanceof DemorouDemais ? LINK_DEMOROU : LINK_INVALIDO,
+    };
   }
   normalizarEndereco();
+}
+
+/**
+ * Apaga a sessão que o supabase-js guardou (`sb-<projeto>-auth-token`). Mantém
+ * o `...-auth-token-code-verifier`: no fluxo PKCE é ele que troca o `code` do
+ * link pela sessão nova, e apagá-lo quebraria a recuperação. Exportada para teste.
+ */
+export function apagarSessaoSupabaseGuardada(storage: Storage | undefined): void {
+  try {
+    if (!storage) return;
+    const chaves: string[] = [];
+    for (let i = 0; i < storage.length; i++) {
+      const chave = storage.key(i);
+      if (chave && /^sb-.+-auth-token$/.test(chave)) chaves.push(chave);
+    }
+    chaves.forEach(chave => storage.removeItem(chave));
+  } catch { /* sem localStorage: não há sessão guardada para vazar */ }
 }
 
 /**

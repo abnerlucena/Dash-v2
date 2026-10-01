@@ -66,10 +66,12 @@ export const supabaseTargets: DataSource["targets"] = {
     return { metas, metasInfo };
   },
 
-  async saveMetas(metas, vigenciaInicio) {
+  async saveMetas(metas, vigenciaInicio, _session, bases) {
     const { error } = await getSupabase().rpc("save_machine_targets", {
       p_targets: metas,
       p_valid_from: vigenciaInicio || undefined,
+      // Sem bases, a função preserva a que cada máquina já tinha.
+      p_bases: bases && Object.keys(bases).length ? bases : undefined,
     });
     if (error) throw toError(error);
   },
@@ -90,6 +92,46 @@ export const supabaseTargets: DataSource["targets"] = {
       createdBy: (t.created_by && names.get(t.created_by)) || "",
       createdAt: t.created_at,
     }));
+  },
+
+  /**
+   * A meta e a base que valiam NUMA DATA. É a mesma regra da view
+   * `current_machine_targets`, só que para o dia pedido em vez de hoje: de
+   * todos os degraus da máquina que já começaram naquela data, vale o mais
+   * recente.
+   *
+   * Feito no app e não no banco porque a tabela é pequena (algumas dezenas de
+   * linhas) e qualquer usuário ativo pode lê-la — não vale uma função nova no
+   * banco para isso.
+   */
+  async getMetasEm(date) {
+    const sb = getSupabase();
+    const [{ data, error }, names] = await Promise.all([
+      sb.from("machine_targets")
+        .select("machine_id, quantity_per_shift, valid_from, created_by, created_at, basis")
+        .lte("valid_from", date)
+        .order("valid_from", { ascending: false }),
+      loadProfileNames(sb),
+    ]);
+    if (error) throw toError(error);
+
+    const metas: Record<number, number> = {};
+    const metasInfo: Record<number, MetaInfoRaw> = {};
+    // Vem ordenado do mais recente para o mais antigo: a primeira linha de
+    // cada máquina é o degrau vigente naquela data. As seguintes são passado.
+    for (const t of data || []) {
+      if (t.machine_id == null || metas[t.machine_id] !== undefined) continue;
+      metas[t.machine_id] = t.quantity_per_shift ?? 0;
+      metasInfo[t.machine_id] = {
+        updatedBy: (t.created_by && names.get(t.created_by)) || "carga inicial",
+        updatedAt: t.created_at ?? "",
+        vigenciaInicio: t.valid_from ?? "",
+        basis: t.basis === "per_operator" || t.basis === "per_shift_prorated"
+          ? t.basis
+          : "per_shift",
+      };
+    }
+    return { metas, metasInfo };
   },
 };
 

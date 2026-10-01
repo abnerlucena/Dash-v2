@@ -34,6 +34,8 @@ data.users.listUsers(session)            // gestão
 data.users.approveUser(userId, roleId, session)
 data.users.listRoles(session)
 data.users.toggleUser(target, session)
+
+isMock, isSupabase, usaAcessoPorEmail   // qual fonte está ligada
 ```
 
 A sessão que volta do login:
@@ -103,9 +105,31 @@ desmarca permissão a permissão.
 - Se precisar de algo que o contrato não tem, **proponha o tipo** (uma linha em
   `types.ts` no seu PR, ou um recado nesta pasta) em vez de inventar um formato
   na tela. Quem cuida do banco implementa do outro lado.
-- Se quiser rodar sem Supabase, peça à sessão do banco uma **fonte de mentira**
-  para autenticação (todos os estados: pendente, bloqueado, conta compartilhada,
-  link expirado). É trabalho dela, não da interface.
+- **Para rodar sem Supabase, já existe o modo de demonstração**:
+  `VITE_DATA_SOURCE=mock` no `.env.local` (só em `npm run dev` — o build de
+  produção ignora). Contas em `src/lib/repositories/mock/contas.ts`, todas com a
+  senha `123456`:
+
+  | E-mail | Estado | Serve para testar |
+  |---|---|---|
+  | `operador@demo.local` | ativo, Operador | menu mínimo |
+  | `tecnico@demo.local` | ativo, Técnico | dashboard, máquinas, calendário |
+  | `gestor@demo.local` | ativo, Gestor | aprovar cadastros, alterar metas |
+  | `pendente@demo.local` | aguardando aprovação | mensagem de pendente |
+  | `bloqueado@demo.local` | bloqueado | mensagem de bloqueado |
+  | `admin@demo.local` | conta compartilhada | pedido de crachá — use `1001` ou `1002` |
+  | `tv@demo.local` | conta de exibição | só o Modo TV |
+
+  Recuperação de senha: o "e-mail" sai no **console do navegador** como um link
+  `?recuperar=1&code=mock`. Abrir o endereço com `?recuperar=1` **sem** pedir
+  antes simula o link expirado.
+
+  O mock segue as mesmas mensagens e regras do modo Supabase — está em teste
+  (`src/test/mock-acesso.test.ts`). Se a tela precisar de um estado que o mock
+  não tem, peça à sessão do banco: um mock que promete o que o sistema real não
+  faz deixa a tela pronta para um mundo que não existe.
+- As outras áreas (produção, máquinas, metas, calendário) devolvem vazio no mock,
+  de propósito: a UI nova já tem os próprios dados de demonstração para elas.
 
 ## Divisão, para não haver conflito
 

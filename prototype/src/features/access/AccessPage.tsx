@@ -20,7 +20,8 @@ const MIN_PASSWORD = 6;
 
 export function AccessPage() {
   const { client, login, adopt, recovery, clearRecovery, notice } = useAccess();
-  const isGas = client.kind === "gas";
+  // Formato do login: e-mail (Supabase, mock, demonstração) ou nome (Apps Script)
+  const isGas = !client.emailAccess;
   const isDemo = client.kind === "demo";
 
   const [view, setView] = useState<View>(recovery?.tela === "novaSenha" ? "novaSenha" : recovery ? "recuperar" : "entrar");

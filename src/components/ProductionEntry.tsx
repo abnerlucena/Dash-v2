@@ -1,6 +1,6 @@
-import { useState, useMemo, useRef } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import { Save, Check, MessageSquare, X, Search, ChevronDown, ChevronUp, Plus } from "lucide-react";
-import { useAuth, type OrdemProducao } from "@/contexts/AuthContext";
+import { useAuth, type MetaInfo, type OrdemProducao } from "@/contexts/AuthContext";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { TURNOS, today, pctColor } from "@/lib/api";
 import { data, isSupabase } from "@/lib/repositories";
@@ -29,6 +29,32 @@ const ProductionEntry = () => {
   const { user, machines, metas, metasInfo, silentRefresh } = useAuth();
 
   const [selectedDate, setSelectedDate]     = useState(today());
+
+  // A meta e a base VALEM POR DATA (D13, D47). O apontamento guarda uma foto
+  // da meta do seu dia (D08), e quem lança um turno atrasado precisa da meta
+  // daquele dia — usar a de hoje gravaria uma foto errada, que nunca mais é
+  // corrigida porque meta antiga não se reescreve.
+  //
+  // Enquanto a data for hoje, valem as metas que o contexto já carregou; para
+  // qualquer outra data, busca-se as de lá.
+  const [metasDoDia, setMetasDoDia] = useState<{
+    metas: Record<number, number>;
+    metasInfo: Record<number, MetaInfo>;
+  } | null>(null);
+
+  useEffect(() => {
+    if (selectedDate === today()) { setMetasDoDia(null); return; }
+    let cancelado = false;
+    data.targets.getMetasEm(selectedDate, user)
+      .then(r => { if (!cancelado) setMetasDoDia(r as { metas: Record<number, number>; metasInfo: Record<number, MetaInfo> }); })
+      // Sem as metas daquele dia é melhor cair nas de hoje do que travar a
+      // tela: o número aparece, e quem aponta segue trabalhando.
+      .catch(() => { if (!cancelado) setMetasDoDia(null); });
+    return () => { cancelado = true; };
+  }, [selectedDate, user]);
+
+  const metasVigentes = metasDoDia?.metas ?? metas;
+  const infoVigente = metasDoDia?.metasInfo ?? metasInfo;
   const [selectedTurno, setSelectedTurno]   = useState(TURNOS[0]);
   // Só modo Supabase (D27): hora extra fica fora do cálculo de meta.
   const [workMode, setWorkMode]             = useState<"regular" | "overtime">("regular");
@@ -121,8 +147,8 @@ const ProductionEntry = () => {
   function metaDoTurno(machineId: number) {
     const machine = machines.find(m => m.id === machineId);
     return calcularMeta({
-      cadastrada: metas[machineId] ?? machine?.defaultMeta ?? 0,
-      base: metasInfo[machineId]?.basis,
+      cadastrada: metasVigentes[machineId] ?? machine?.defaultMeta ?? 0,
+      base: infoVigente[machineId]?.basis,
       pessoas: entries[machineId]?.operadores,
       lotacaoPadrao: machine?.standardOperatorCount ?? null,
     });
@@ -170,7 +196,10 @@ const ProductionEntry = () => {
             savedBy: user?.nome || "",
             savedAt: nowBR,
             obs: e.obs || "",
-            ...(isSupabase && e.operadores ? { operatorCount: Number(e.operadores) } : {}),
+            // Campo vazio vira ZERO, não "não mandar nada" (D52). Sem isto,
+            // quem digitasse 3 por engano não conseguiria apagar: "nada" quer
+            // dizer "mantenha o que está lá", e o 3 ficaria para sempre.
+            ...(isSupabase ? { operatorCount: Number(e.operadores) || 0 } : {}),
           };
         });
 
@@ -338,7 +367,7 @@ const ProductionEntry = () => {
                         ? `${meta.cadastrada.toLocaleString("pt-BR")} com ${meta.lotacaoPadrao} · ${pessoasTxt} no turno`
                         : `${pessoasTxt} no turno · lotação padrão não cadastrada`;
                     const metaLabel = meta.dependeDaLotacao ? (
-                      meta.valor !== null ? (
+                      !meta.estimada ? (
                         <>
                           Meta: <strong>{meta.valor.toLocaleString("pt-BR")}</strong>{" "}
                           <span className="text-muted-foreground/80">({contaTxt})</span>
@@ -366,15 +395,20 @@ const ProductionEntry = () => {
                       </button>
                     );
 
-                    // D47: nas outras máquinas quem dita o ritmo é a máquina, e
-                    // perguntar o nº de pessoas só ocuparia a tela do operador.
-                    const operadoresInput = isSupabase && meta.dependeDaLotacao ? (
+                    // O campo aparece em TODAS as máquinas. Nas que a meta
+                    // depende da lotação ele muda o número; nas outras, serve
+                    // para saber quantas pessoas estavam no posto — que é o que
+                    // a D12 mede e deixaria de existir se só perguntássemos
+                    // onde muda a meta.
+                    const operadoresInput = isSupabase ? (
                       <input
                         value={entry.operadores ?? ""}
                         onChange={e => updateOperadores(machine.id, e.target.value)}
                         inputMode="numeric"
                         placeholder="Nº oper."
-                        title={`Nº de operadores neste posto no turno — muda a meta${meta.lotacaoPadrao ? ` (vazio = lotação padrão, ${meta.lotacaoPadrao})` : ""}`}
+                        title={meta.dependeDaLotacao
+                          ? `Nº de operadores neste posto no turno — muda a meta${meta.lotacaoPadrao ? ` (vazio = lotação padrão, ${meta.lotacaoPadrao})` : ""}`
+                          : "Nº de operadores neste posto no turno — aqui não muda a meta, fica só registrado"}
                         className="h-9 w-24 px-2 text-xs font-semibold rounded-md border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/30 placeholder:text-muted-foreground/50"
                         style={{ borderRadius: 6 }}
                       />

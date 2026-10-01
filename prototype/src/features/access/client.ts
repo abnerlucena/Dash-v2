@@ -1,5 +1,5 @@
 import type { Session } from "../../../../src/lib/api";
-import type { DataSource } from "../../../../src/lib/repositories/types";
+import type { DataSource, DataSourceKind } from "../../../../src/lib/repositories/types";
 import type { EstadoRecuperacao } from "../../../../src/lib/recovery";
 
 /*
@@ -8,14 +8,20 @@ import type { EstadoRecuperacao } from "../../../../src/lib/recovery";
  * implementação.
  *
  * Qual fonte:
- * - VITE_DATA_SOURCE definido ("supabase" ou "gas", no .env.local da raiz):
- *   a camada de dados real, carregada sob demanda (o Supabase não entra no
- *   pacote de quem não usa).
- * - Sem configuração: a fonte de demonstração (demoClient.ts), para o protótipo
- *   continuar abrindo sozinho, como as outras telas.
+ * - VITE_DATA_SOURCE definido ("supabase", "gas" ou "mock", no .env.local da
+ *   raiz): a camada de dados da sessão do banco, carregada sob demanda. O
+ *   "mock" dela só liga em desenvolvimento (nunca num build).
+ * - Sem configuração: a fonte de demonstração desta pasta (demoClient.ts), para
+ *   o protótipo — inclusive o HTML único, que é um build — abrir sozinho.
  */
 export interface AccessClient {
-  kind: "demo" | "gas" | "supabase";
+  kind: DataSourceKind | "demo";
+  /**
+   * Login por e-mail, cadastro com aprovação e permissões (D19–D23)? É a
+   * pergunta certa para o formato da tela — não "é Supabase?": o modo de
+   * demonstração também entra por e-mail (nota de 01/10, § 6).
+   */
+  emailAccess: boolean;
   auth: Pick<
     DataSource["auth"],
     "login" | "register" | "logout" | "isSessionValid" | "watchSession" | "requestPasswordReset" | "setNewPassword"
@@ -30,16 +36,20 @@ export interface AccessClient {
 export const configuredSource = import.meta.env.VITE_DATA_SOURCE as string | undefined;
 
 export async function loadAccessClient(): Promise<AccessClient> {
-  if (configuredSource === "supabase" || configuredSource === "gas") {
-    const [{ data }, api, rec] = await Promise.all([
+  if (configuredSource === "supabase" || configuredSource === "gas" || configuredSource === "mock") {
+    const [repo, api, rec] = await Promise.all([
       import("../../../../src/lib/repositories"),
       import("../../../../src/lib/api"),
       import("../../../../src/lib/recovery"),
     ]);
-    // Precisa rodar antes da primeira tela: tira o token do endereço (ver recovery.ts)
+    // Antes da primeira tela: liga o mock (se for o caso) e tira o token do endereço
+    await repo.carregarModoDemonstracao();
     await rec.prepararRecuperacaoDeSenha();
+    // `repo.data` é ligação viva: lida depois do carregamento, já é o mock
+    const { data } = repo;
     return {
       kind: data.kind,
+      emailAccess: repo.usaAcessoPorEmail,
       auth: data.auth,
       users: data.users,
       store: { load: api.loadSession, save: api.saveSession, clear: api.clearSession },

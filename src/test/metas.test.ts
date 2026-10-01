@@ -27,11 +27,46 @@ describe("a meta do turno conforme a base (D39, D47)", () => {
     expect(m.lotacaoPadrao).toBe(4);
   });
 
-  it("per_shift_prorated: com a lotação cheia é a meta cheia, e com gente a mais sobe", () => {
+  it("per_shift_prorated: com a lotação cheia é a meta cheia", () => {
     expect(metaDoTurno({ cadastrada: 10000, base: "per_shift_prorated", pessoas: 4, lotacaoPadrao: 4 }).valor)
       .toBe(10000);
-    expect(metaDoTurno({ cadastrada: 10000, base: "per_shift_prorated", pessoas: 6, lotacaoPadrao: 4 }).valor)
+  });
+
+  // D49: o teto. Quem limita a produção é a máquina, não a quantidade de gente
+  // — pôr uma quinta pessoa numa embaladora não a faz embalar mais rápido.
+  it("per_shift_prorated: gente ACIMA da lotação padrão não aumenta a meta", () => {
+    for (const pessoas of [5, 6, 8, 20]) {
+      expect(metaDoTurno({ cadastrada: 10000, base: "per_shift_prorated", pessoas, lotacaoPadrao: 4 }).valor)
+        .toBe(10000);
+    }
+  });
+
+  it("per_shift_prorated: gente a MENOS continua reduzindo proporcionalmente", () => {
+    expect(metaDoTurno({ cadastrada: 10000, base: "per_shift_prorated", pessoas: 2, lotacaoPadrao: 4 }).valor)
+      .toBe(5000);
+    expect(metaDoTurno({ cadastrada: 10000, base: "per_shift_prorated", pessoas: 1, lotacaoPadrao: 4 }).valor)
+      .toBe(2500);
+  });
+
+  // O teto é no NÚMERO DE PESSOAS, não no valor da meta: trocar a meta só muda
+  // a escala. E o teto acompanha a lotação padrão, que vem do cadastro.
+  it("per_shift_prorated: a regra não depende do valor da meta nem da lotação", () => {
+    expect(metaDoTurno({ cadastrada: 15000, base: "per_shift_prorated", pessoas: 3, lotacaoPadrao: 4 }).valor)
+      .toBe(11250);
+    expect(metaDoTurno({ cadastrada: 15000, base: "per_shift_prorated", pessoas: 9, lotacaoPadrao: 4 }).valor)
       .toBe(15000);
+    // Lotação padrão 5: o teto se move junto.
+    expect(metaDoTurno({ cadastrada: 15000, base: "per_shift_prorated", pessoas: 5, lotacaoPadrao: 5 }).valor)
+      .toBe(15000);
+    expect(metaDoTurno({ cadastrada: 15000, base: "per_shift_prorated", pessoas: 4, lotacaoPadrao: 5 }).valor)
+      .toBe(12000);
+  });
+
+  // O teto vale só para a base rateada. Por pessoa, mais gente É mais meta:
+  // ali cada pessoa embala por conta própria (A Granél).
+  it("per_operator NÃO tem teto: cada pessoa acrescenta", () => {
+    expect(metaDoTurno({ cadastrada: 25000, base: "per_operator", pessoas: 5, lotacaoPadrao: 1 }).valor)
+      .toBe(125000);
   });
 
   it("sem pessoas informadas, cai na lotação padrão — não em uma pessoa", () => {
@@ -45,8 +80,23 @@ describe("a meta do turno conforme a base (D39, D47)", () => {
 
   it("meta desconhecida: depende de gente, e não há nem pessoas nem lotação", () => {
     const m = metaDoTurno({ cadastrada: 25000, base: "per_operator", pessoas: "", lotacaoPadrao: null });
-    expect(m.valor).toBeNull();
+    // Mesmo palpite da view: × 1 — mas marcado, para a tela pedir o dado.
+    expect(m.valor).toBe(25000);
+    expect(m.estimada).toBe(true);
     expect(m.cadastrada).toBe(25000);
+    const h = metaDoTurno({ cadastrada: 10000, base: "per_shift_prorated", pessoas: null, lotacaoPadrao: null });
+    expect(h.valor).toBe(10000);
+    expect(h.estimada).toBe(true);
+  });
+
+  // Espelha os casos 13 e 14 de supabase/tests/06_meta_por_lotacao.sql (D48):
+  // 0 pessoas nunca vira meta 0, que tiraria o turno do atingimento.
+  it("0 pessoas é não informado: cai na lotação padrão, igual à view", () => {
+    expect(metaDoTurno({ cadastrada: 25000, base: "per_operator", pessoas: 0, lotacaoPadrao: 1 }).valor)
+      .toBe(25000);
+    const h = metaDoTurno({ cadastrada: 10000, base: "per_shift_prorated", pessoas: "0", lotacaoPadrao: 4 });
+    expect(h.valor).toBe(10000);
+    expect(h.estimada).toBe(false);
   });
 
   it("texto inválido no campo de pessoas conta como não informado", () => {

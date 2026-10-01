@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { lerRecuperacaoDoEndereco } from "@/lib/recovery";
+import { apagarSessaoSupabaseGuardada, lerRecuperacaoDoEndereco } from "@/lib/recovery";
 
 // O que chega no endereço quando alguém abre o link de recuperação do e-mail.
 // A leitura desse endereço é o ponto frágil da recuperação: o app usa
@@ -49,5 +49,37 @@ describe("leitura do link de recuperação de senha", () => {
       tipo: "erro",
       mensagem: "O link de recuperação expirou ou já foi usado. Peça um novo e-mail.",
     });
+  });
+});
+
+// Revisão da PR 23: com um link inválido, a sessão antiga do navegador
+// continuava guardada e a tela de senha nova abria para a conta errada.
+describe("a sessão antiga sai antes de ler o link", () => {
+  function storage(inicial: Record<string, string>): Storage {
+    const m = new Map(Object.entries(inicial));
+    return {
+      get length() { return m.size; },
+      key: (i: number) => [...m.keys()][i] ?? null,
+      getItem: (k: string) => m.get(k) ?? null,
+      setItem: (k: string, v: string) => { m.set(k, v); },
+      removeItem: (k: string) => { m.delete(k); },
+      clear: () => m.clear(),
+    };
+  }
+
+  it("apaga a sessão do Supabase e mantém o code-verifier do PKCE", () => {
+    const s = storage({
+      "sb-abc-auth-token": "{sessao do usuario A}",
+      "sb-abc-auth-token-code-verifier": "verificador",
+      "outra-coisa": "fica",
+    });
+    apagarSessaoSupabaseGuardada(s);
+    expect(s.getItem("sb-abc-auth-token")).toBeNull();
+    expect(s.getItem("sb-abc-auth-token-code-verifier")).toBe("verificador");
+    expect(s.getItem("outra-coisa")).toBe("fica");
+  });
+
+  it("sem storage não quebra", () => {
+    expect(() => apagarSessaoSupabaseGuardada(undefined)).not.toThrow();
   });
 });

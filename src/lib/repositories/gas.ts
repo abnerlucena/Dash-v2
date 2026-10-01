@@ -2,7 +2,7 @@
 // Repassa cada operação para o api() atual com EXATAMENTE o mesmo payload que
 // as telas enviavam antes da camada de dados existir. É o modo padrão.
 import { api, type Session } from "../api";
-import type { DataSource } from "./types";
+import type { DataSource, MetaInfoRaw } from "./types";
 
 /**
  * A sessão como o Apps Script devolve. `onboardingDone` chega como booleano ou
@@ -89,6 +89,16 @@ export const gasDataSource: DataSource = {
     getMetas: (session) => api("getMetas", {}, session),
     async saveMetas(metas, vigenciaInicio, session) { await api("saveMetas", { metas, vigenciaInicio }, session); },
     async getHistory() { return []; },
+    // A planilha do Apps Script guarda uma meta só por máquina, sem data de
+    // vigência: não há passado para consultar. Devolver as de hoje é o mais
+    // perto da verdade que este modo consegue chegar.
+    async getMetasEm(_date, session) {
+      const r = await api("getMetas", {}, session) as {
+        metas?: Record<number, number>;
+        metasInfo?: Record<number, MetaInfoRaw>;
+      };
+      return { metas: r.metas ?? {}, metasInfo: r.metasInfo ?? {} };
+    },
   },
 
   calendar: {

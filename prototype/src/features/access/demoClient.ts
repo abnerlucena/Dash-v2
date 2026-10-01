@@ -180,6 +180,7 @@ const KEY = "dash-proto.session";
 
 export const demoClient: AccessClient = {
   kind: "demo",
+  emailAccess: true,
   auth: {
     async login(identifier, password, badgeNumber) {
       await wait();
