@@ -1,9 +1,9 @@
 import type { Session } from "../../../../src/lib/api";
-import type { AdminUser, RoleOption } from "../../../../src/lib/repositories/types";
+import type { AdminUser, RoleOption, UserPermission } from "../../../../src/lib/repositories/types";
 import type { EstadoRecuperacao } from "../../../../src/lib/recovery";
 import { storageGet, storageSet } from "@/lib/utils";
 import type { AccessClient } from "./client";
-import type { Permission } from "./permissions";
+import { PERMISSION_LABEL, type Permission } from "./permissions";
 
 /*
  * Fonte de DEMONSTRAÇÃO da área de acesso: roda sem Supabase, em memória.
@@ -86,6 +86,12 @@ interface DemoUser {
   badgeNumber: string | null;
   roleId: number | null;
   status: "ativo" | "bloqueado" | "pendente";
+  /**
+   * Permissões DESTA conta, com o rastro (D22): a aprovação copia o modelo do
+   * perfil, e daí em diante vale esta lista, ajustável uma a uma. Ausente =
+   * ainda não aprovada; cai no modelo do perfil.
+   */
+  grants?: UserPermission[];
 }
 
 /** Senha de todas as contas de demonstração */
@@ -139,6 +145,16 @@ const users: DemoUser[] = [
 const wait = (ms = 450) => new Promise((r) => window.setTimeout(r, ms));
 const roleOf = (u: DemoUser) => ROLES.find((r) => r.id === u.roleId);
 
+// Contas que já existiam: permissões copiadas do perfil sem autor (como as do
+// seed no banco); o que for aprovado ou ajustado daqui em diante leva autor
+const SEEDED_AT = new Date(2026, 1, 2, 8, 0).toISOString();
+for (const u of users) {
+  const r = roleOf(u);
+  if (u.status !== "pendente" && r) u.grants = r.permissions.map((code) => ({ code, grantedBy: "", grantedAt: SEEDED_AT }));
+}
+const permsOf = (u: DemoUser): string[] => (u.grants ? u.grants.map((g) => g.code) : (roleOf(u)?.permissions ?? []));
+const canApprove = (s: Session | null) => !!s?.permissions?.some((p) => p === "users.approve" || p === "system.admin");
+
 class DemoBadgeRequired extends Error {
   code = "BADGE_REQUIRED" as const;
   constructor() {
@@ -152,10 +168,11 @@ function sessionFor(u: DemoUser, operator?: DemoUser): Session {
     token: `demo-${u.id}-${Date.now()}`,
     // Conta compartilhada: quem aponta é a pessoa do crachá
     nome: operator ? operator.nome : u.nome,
-    role: role.permissions.includes("system.admin") || role.permissions.includes("users.approve") ? "admin" : "user",
+    role: permsOf(u).includes("system.admin") || permsOf(u).includes("users.approve") ? "admin" : "user",
     source: "supabase",
     userId: u.id,
-    permissions: role.permissions,
+    permissions: permsOf(u),
+    roleName: role.name,
     accountType: role.accountType ?? "personal",
   };
 }
@@ -167,7 +184,7 @@ const toAdmin = (u: DemoUser): AdminUser => ({
   badgeNumber: u.badgeNumber,
   roleName: roleOf(u)?.name ?? null,
   accountType: roleOf(u)?.accountType ?? "personal",
-  role: roleOf(u)?.permissions.includes("users.approve") ? "admin" : "user",
+  role: permsOf(u).includes("users.approve") ? "admin" : "user",
 });
 
 /* Simulação do link do e-mail de recuperação (só na demonstração) */
@@ -240,12 +257,41 @@ export const demoClient: AccessClient = {
     async listRoles() {
       return ROLES.map(({ id, code, name }) => ({ id, code, name }));
     },
-    async approveUser(userId, roleId) {
+    async approveUser(userId, roleId, session) {
       await wait();
       const u = users.find((x) => x.id === userId);
       if (!u) throw new Error("Usuário não encontrado.");
       u.roleId = roleId;
       u.status = "ativo";
+      // Como a approve_user do banco: copia o modelo do perfil, com quem aprovou como autor
+      const at = new Date().toISOString();
+      u.grants = (roleOf(u)?.permissions ?? []).map((code) => ({ code, grantedBy: session?.nome ?? "", grantedAt: at }));
+    },
+    async listPermissions() {
+      await wait(200);
+      return (Object.keys(PERMISSION_LABEL) as Permission[]).sort().map((code) => ({ code, description: PERMISSION_LABEL[code] }));
+    },
+    async getPermissions(userId, session) {
+      await wait(300);
+      const u = users.find((x) => x.id === userId);
+      if (!u) throw new Error("Usuário não encontrado.");
+      // A RLS do banco: as próprias, ou de qualquer um com users.approve
+      if (u.id !== session?.userId && !canApprove(session)) throw new Error("Você não tem permissão para ver as permissões de outro usuário.");
+      return [...(u.grants ?? permsOf(u).map((code) => ({ code, grantedBy: "", grantedAt: "" })))].sort((a, b) => a.code.localeCompare(b.code));
+    },
+    async setPermissions(userId, permissions, session) {
+      await wait();
+      if (!canApprove(session)) throw new Error("Você não tem permissão para alterar permissões de usuários.");
+      const u = users.find((x) => x.id === userId);
+      if (!u) throw new Error("Usuário não encontrado.");
+      const invalid = permissions.find((c) => !(c in PERMISSION_LABEL));
+      if (invalid) throw new Error(`Permissão desconhecida: "${invalid}".`);
+      // Lista COMPLETA; só o que mudou ganha autor e data novos (o rastro do resto fica)
+      const want = new Set(permissions);
+      const kept = (u.grants ?? []).filter((g) => want.has(g.code));
+      const had = new Set(kept.map((g) => g.code));
+      const at = new Date().toISOString();
+      u.grants = [...kept, ...[...want].filter((c) => !had.has(c)).map((code) => ({ code, grantedBy: session?.nome ?? "", grantedAt: at }))];
     },
     async toggleUser(target) {
       await wait();
