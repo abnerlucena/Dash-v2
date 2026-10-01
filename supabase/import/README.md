@@ -48,9 +48,42 @@ Gera `supabase/import/preparo.sql` (não versionado — é derivado da planilha)
 imprime um resumo. Depois, rode esse SQL no banco; ele vem dentro de uma
 transação, então dá para conferir e desistir com `rollback`.
 
-O id do lote é derivado do nome e do tamanho do arquivo: rodar de novo produz
-o mesmo id, e carregar duas vezes é impossível — a chave `(lote, aba, célula)`
-recusa a segunda.
+O id do lote é derivado do nome, do tamanho do arquivo e da janela (abaixo):
+rodar de novo com os mesmos argumentos produz o mesmo id, e carregar duas vezes
+é impossível — a chave `(lote, aba, célula)` recusa a segunda.
+
+### Carga incremental: `--desde` e `--ate`
+
+Para acrescentar ao banco só o que a planilha ganhou desde a última carga:
+
+```bash
+node supabase/import/extrair.cjs planilha.xlsx saida.sql --desde=2026-09-22
+```
+
+E para parar na data do congelamento, de modo que linha digitada depois do
+corte não entre sem ninguém ter visto:
+
+```bash
+node supabase/import/extrair.cjs planilha.xlsx saida.sql --desde=2026-09-22 --ate=2026-10-09
+```
+
+Duas coisas importantes sobre a janela:
+
+1. **O corte vale para o que é EMITIDO, não para o que é lido.** A planilha
+   arrasta a última meta conhecida para a frente (item 9 da D35), então as metas
+   continuam sendo lidas da planilha inteira. Cortar a leitura cedo faria os
+   dias novos nascerem sem meta.
+2. **Descubra antes qual é o último dia já no banco**, e comece no dia seguinte:
+
+```sql
+select max(production_date) from public.production_records;
+```
+
+   Começar no mesmo dia duplicaria os apontamentos daquele dia — a proteção da
+   chave `(lote, aba, célula)` vale **dentro** de um lote, e um lote novo tem id
+   novo. Se o último dia do banco estiver pela metade (a exportação foi tirada
+   no meio do turno), isso aparece como dia incompleto e precisa ser resolvido
+   à parte, não pelo `--desde`.
 
 ## O que a extração produziu (planilha de 21/09/2026)
 

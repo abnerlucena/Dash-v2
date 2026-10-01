@@ -2,6 +2,7 @@
 // Extrator do histórico da planilha → área de preparo
 //
 //   node supabase/import/extrair.cjs <planilha.xlsx> [saida.sql]
+//        [--desde=AAAA-MM-DD] [--ate=AAAA-MM-DD]
 //
 // PASSO 2 de 4 da importação (D35). Lê a planilha e escreve um arquivo SQL
 // que enche a área de preparo. NÃO se conecta ao banco: o repositório é
@@ -10,6 +11,17 @@
 // É reproduzível: rodar de novo na mesma planilha dá exatamente o mesmo
 // arquivo, com o mesmo id de lote. Carregar duas vezes é impossível — o id do
 // lote é fixo e a chave (lote, aba, célula) recusa a segunda.
+//
+// JANELA (--desde / --ate): emite só os apontamentos dentro dela. O --desde
+// serve para acrescentar o que a planilha ganhou desde a última carga; o --ate
+// serve para parar na data do congelamento, para que linha digitada depois do
+// corte não entre sem ninguém ter visto.
+//
+// CARGA INCREMENTAL (--desde): emite só os apontamentos a partir daquela data,
+// para acrescentar ao banco o que a planilha ganhou desde a última carga. As
+// metas continuam sendo lidas da planilha INTEIRA — a planilha arrasta a última
+// meta conhecida para a frente, e cortar a leitura cedo faria os dias novos
+// nascerem sem meta. O corte vale para o que é EMITIDO, não para o que é lido.
 //
 // O que ele NÃO faz: não decide nada. Toda decisão está em mapa.cjs, que é a
 // tradução do relatório revisado pelo gestor.
@@ -27,10 +39,26 @@ try {
   process.exit(2);
 }
 
-const arquivo = process.argv[2];
-const saida = process.argv[3] || path.join(__dirname, 'preparo.sql');
+const args = process.argv.slice(2);
+const flagDesde = args.find((a) => a.startsWith('--desde='));
+const flagAte = args.find((a) => a.startsWith('--ate='));
+const posicionais = args.filter((a) => !a.startsWith('--'));
+const arquivo = posicionais[0];
+const saida = posicionais[1] || path.join(__dirname, 'preparo.sql');
+const desde = flagDesde ? flagDesde.slice('--desde='.length) : null;
+const ate = flagAte ? flagAte.slice('--ate='.length) : null;
 if (!arquivo) {
-  console.error('Uso: node supabase/import/extrair.cjs <planilha.xlsx> [saida.sql]');
+  console.error('Uso: node supabase/import/extrair.cjs <planilha.xlsx> [saida.sql] [--desde=AAAA-MM-DD] [--ate=AAAA-MM-DD]');
+  process.exit(2);
+}
+for (const [nome, valor] of [['--desde', desde], ['--ate', ate]]) {
+  if (valor !== null && !/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(valor)) {
+    console.error(`${nome} precisa ser uma data AAAA-MM-DD (recebi "${valor}").`);
+    process.exit(2);
+  }
+}
+if (desde && ate && ate < desde) {
+  console.error(`--ate (${ate}) e anterior a --desde (${desde}): a janela esta vazia.`);
   process.exit(2);
 }
 
@@ -105,6 +133,8 @@ const retrabalhoDe = (aba, celula) => RETRABALHO.find((c) => c.aba === aba && c.
   const metaDaLinha = {};
   const naoReconhecidos = new Set();
   let semResultado = 0;
+  let anteriores = 0;
+  let posteriores = 0;
 
   for (const ws of wb.worksheets) {
     const aba = ws.name.trim();
@@ -152,7 +182,11 @@ const retrabalhoDe = (aba, celula) => RETRABALHO.find((c) => c.aba === aba && c.
       if (r < 6) return;
       const dv = cru(row.getCell(1));
       let data = dv instanceof Date ? dv.toISOString().slice(0, 10) : null;
-      const rotulo = texto(row.getCell(2)).trim().toUpperCase();
+      // Espacos internos normalizados, nao so as pontas: a planilha de
+      // setembro trouxe "HORA EXTRA  1" com espaco duplo, e um .trim() so
+      // nao alcanca isso. Um sabado inteiro de hora extra se perdia por um
+      // espaco a mais.
+      const rotulo = texto(row.getCell(2)).split(' ').filter(Boolean).join(' ').trim().toUpperCase();
       if (!data && rotulo && ultimaData && !/^(META|M[EÉ]DIA|TOTAL)/i.test(rotulo)) data = ultimaData;
       if (data) ultimaData = data;
       if (!data) return;
@@ -179,6 +213,11 @@ const retrabalhoDe = (aba, celula) => RETRABALHO.find((c) => c.aba === aba && c.
         if (typeof v === 'number' && v > 0) for (const nome of col.grupo) metaAqui[nome] = v;
       }
 
+      // CORTE DA CARGA INCREMENTAL. As metas acima ja foram lidas: o arrasto
+      // da ultima meta conhecida continua enxergando a planilha inteira. Daqui
+      // para baixo e emissao, e e so dela que o corte trata.
+      if (desde && data < desde) { anteriores++; return; }
+      if (ate && data > ate) { posteriores++; return; }
       for (const col of colunas) {
         if (col.meta) continue;
         const celula = `${col.letra}${r}`;
@@ -276,13 +315,16 @@ const retrabalhoDe = (aba, celula) => RETRABALHO.find((c) => c.aba === aba && c.
 
   // ─── Id do lote: derivado do arquivo, para ser sempre o mesmo ─────────────
   const digest = crypto.createHash('sha256')
-    .update(path.basename(arquivo) + '|' + fs.statSync(arquivo).size)
+    .update(path.basename(arquivo) + '|' + fs.statSync(arquivo).size
+            + (desde ? '|desde=' + desde : '') + (ate ? '|ate=' + ate : ''))
     .digest('hex');
   const lote = [digest.slice(0, 8), digest.slice(8, 12), '4' + digest.slice(13, 16),
     '8' + digest.slice(17, 20), digest.slice(20, 32)].join('-');
 
   // ─── Escreve o SQL ────────────────────────────────────────────────────────
+  const datas = linhas.map((l) => l.data).filter(Boolean).sort();
   const esc = (s) => (s === null || s === undefined ? 'null' : `'${String(s).replace(/'/g, "''")}'`);
+  const br = (d) => (d ? d.slice(8, 10) + '/' + d.slice(5, 7) + '/' + d.slice(0, 4) : '?');
   const num = (n) => (n === null || n === undefined ? 'null' : String(n));
   const partes = [];
   partes.push(`-- Gerado por supabase/import/extrair.cjs a partir de ${path.basename(arquivo)}`);
@@ -290,7 +332,9 @@ const retrabalhoDe = (aba, celula) => RETRABALHO.find((c) => c.aba === aba && c.
   partes.push('');
   partes.push('begin;');
   partes.push(`insert into public.import_batches (id, source_file, description)`);
-  partes.push(`values ('${lote}', ${esc(path.basename(arquivo))}, 'Histórico 20/12/2025 a 21/09/2026');`);
+  const janela = datas.length ? `${br(datas[0])} a ${br(datas[datas.length - 1])}` : 'sem linhas';
+  const descricao = (desde || ate ? 'Carga incremental ' : 'Histórico ') + janela;
+  partes.push(`values ('${lote}', ${esc(path.basename(arquivo))}, ${esc(descricao)});`);
   partes.push('');
 
   for (let i = 0; i < linhas.length; i += 500) {
@@ -324,6 +368,9 @@ const retrabalhoDe = (aba, celula) => RETRABALHO.find((c) => c.aba === aba && c.
   const pecas = linhas.filter((l) => l.kind === 'production').reduce((s, l) => s + (l.qtd || 0), 0);
   console.log(`Lote ${lote}`);
   console.log(`Arquivo gerado: ${saida}  (${linhas.length} linhas)`);
+  if (datas.length) console.log(`Janela: ${datas[0]} a ${datas[datas.length - 1]}`);
+  if (desde) console.log(`Corte: --desde=${desde}  (${anteriores} linhas da planilha ficaram de fora, por serem anteriores)`);
+  if (ate) console.log(`Corte: --ate=${ate}  (${posteriores} linhas da planilha ficaram de fora, por serem posteriores)`);
   console.log('');
   for (const [k, v] of Object.entries(por).sort((a, b) => b[1] - a[1])) {
     console.log(`  ${k.padEnd(12)} ${String(v).padStart(6)}`);

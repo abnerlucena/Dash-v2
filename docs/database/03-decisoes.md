@@ -420,6 +420,65 @@ destino, as datas de entrada em operação estão confirmadas e os casos
 especiais foram revisados um a um. O que falta é construir — área de preparo,
 script de extração e carga em lote reversível.
 
+#### D35.4 — Carga incremental, e o que o ensaio de 01/10/2026 encontrou
+
+A primeira carga trouxe nove meses de uma só vez. A virada para produção pede
+outra coisa: acrescentar o que a planilha ganhou **desde** a última carga, sem
+reescrever o que já está no banco.
+
+- **Decisão:** o extrator ganha `--desde` e `--ate`. O corte vale para o que é
+  **emitido**, nunca para o que é **lido** — a planilha arrasta a última meta
+  conhecida para a frente (item 9 da D35), e cortar a leitura cedo faria os dias
+  novos nascerem sem meta. O id do lote passa a incluir a janela, para que dois
+  recortes da mesma planilha sejam dois lotes distintos e reproduzíveis.
+- **A descrição do lote passa a contar a janela real.** Estava fixa no período da
+  primeira carga, o que fazia um lote incremental se descrever como se trouxesse
+  os nove meses inteiros.
+
+##### Rótulo de turno: espaços internos normalizados
+
+Setembro/26 passou a escrever `"HORA EXTRA  1°"` — com **espaço duplo** e o turno
+no fim. O rótulo era lido com `.trim()`, que só alcança as pontas, e a linha
+inteira caía como "turno não reconhecido": **um sábado de hora extra, 18.144
+peças em quatro centros, perdido por um espaço a mais**.
+
+Agora os espaços internos são normalizados antes da consulta, e `HORA EXTRA 1°`
+e `HORA EXTRA 2°` entram no mapa. Significam o mesmo que `HORA EXTRA` e
+`EXTRA 1°T`, que o gestor já havia revisado.
+
+##### Duas linhas da planilha que o ensaio recusou
+
+No pé da aba `SET 26` há sobras de edição. Duas delas têm números de verdade e
+**não dá para carregar sem o gestor dizer o que são**:
+
+| Linha | Data na planilha | Conteúdo | O problema |
+|---|---|---|---|
+| L53 | **vazia** | T1, 16 números, 237.912 peças | Sem data, o extrator repete a última vista acima — que eram linhas vazias de **25/08**. As peças iriam para agosto. |
+| L54 | 29/09 | T2, 15 números, 107.381 peças | O 29/09 T2 **já está** na L48, com 216.385. Carregar as duas conta o turno duas vezes. |
+
+Repetir a data para baixo é proposital (abril escreve a data só na linha do T1),
+e por isso não é a regra que está errada — é a planilha que tem linha órfã.
+
+**Decisão:** a carga de 01/10/2026 foi feita com `--desde=2026-09-22
+--ate=2026-09-28`, deixando o dia 29 de fora. 133 apontamentos, 927.624 peças.
+O dia 29/09 e as duas linhas ficam pendentes de resposta do gestor.
+
+##### Três divergências entre a planilha de hoje e o banco
+
+O ensaio comparou dia a dia tudo o que já estava carregado. Fora da janela nova,
+três dias não batem:
+
+| Dia | Planilha | Banco | Leitura |
+|---|---|---|---|
+| 27/04 | 10 | **11** | o banco tem um apontamento que a planilha não produz mais |
+| 25/08 | **45** | 30 | os 15 excedentes são a L53 sem data, acima — **não são produção de agosto** |
+| 21/09 | **30** | 17 | o banco tem só o T1: a exportação anterior foi tirada no meio do dia |
+
+O 21/09 é o mais relevante: um dia pela metade é um dia errado em todo
+relatório. Os 13 que faltam são o **T2**, turno diferente do que está lá, então
+completá-lo é puramente aditivo. Não foi feito nesta carga porque `--desde` é um
+corte por dia e incluir o 21/09 reemitiria os 17 do T1, duplicando-os.
+
 ### D36 — Atingimento × disponibilidade (máquinas contínuas e sob demanda)
 - **Status:** Proposta (21/09/2026) — opção escolhida pelo usuário; **a classificação das máquinas precisa ser revisada pelo gestor**.
 - **Contexto:** um turno com produção zero pode ser parada (máquina contínua) ou simplesmente falta de pedido (máquina sob demanda). Contar todo zero no atingimento castiga as máquinas sob demanda; ignorar todo zero esconde as paradas das contínuas.

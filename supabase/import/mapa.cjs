@@ -57,6 +57,10 @@ const TURNOS = {
   'EXTRA 2°T':   { turno: 2, modo: 'overtime' },
   'HORA EXTRA':  { turno: 1, modo: 'overtime' },
   'H. EXTRA':    { turno: 1, modo: 'overtime' },
+  // Setembro/26 passou a escrever o turno depois de "HORA EXTRA". Mesmo
+  // significado dos rotulos acima, que o gestor ja revisou.
+  'HORA EXTRA 1°': { turno: 1, modo: 'overtime' },
+  'HORA EXTRA 2°': { turno: 2, modo: 'overtime' },
 };
 
 // A aba "10 de Jan 26" é um sábado lançado à parte, com o rótulo "T1". O
