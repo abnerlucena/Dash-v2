@@ -1,6 +1,6 @@
-import { Info, RotateCcw, Send, Undo2 } from "lucide-react";
+import { ArrowLeftRight, Info, RotateCcw, Undo2 } from "lucide-react";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { cn, formatNumber, plural, readToken, storageGet, storageSet, type Notify } from "@/lib/utils";
+import { cn, formatNumber, plural, storageGet, storageSet, type Notify } from "@/lib/utils";
 import { CapacityBars } from "@/components/echarts";
 import { DataTable, type Column } from "@/components/data/DataTable";
 import { KpiStrip, type KpiItem } from "@/components/data/KpiStrip";
@@ -10,7 +10,6 @@ import { Lozenge } from "@/components/ui/Lozenge";
 import { Modal } from "@/components/ui/Modal";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { TextField } from "@/components/ui/TextField";
-import { DateField } from "@/components/ui/DateField";
 import { Tooltip } from "@/components/ui/Tooltip";
 import {
   BASELINE,
@@ -27,6 +26,7 @@ import {
   type ShiftSchedule,
 } from "./capacityModel";
 import { NumberField } from "./NumberField";
+import { capacitiesOf, type Capacity } from "@/features/metas/metaBase";
 
 const STORAGE_KEY = "dash-proto.capacity-scenario.v2";
 const clone = (s: Scenario): Scenario => JSON.parse(JSON.stringify(s));
@@ -106,23 +106,22 @@ function diff(s: Scenario): Change[] {
 
 interface CapacitySimulatorProps {
   notify: Notify;
-  /** Publicar muda as metas vigentes: exige targets.manage */
-  canPublish: boolean;
-  /** Chamado ao publicar: vira uma entrada no histórico das metas vigentes */
-  onPublished?: (summary: string, effectiveFrom: string) => void;
+  /**
+   * Manda a capacidade por turno (máquina → peças) para a aba de metas COMPARAR
+   * com a meta acordada. Não grava nada: a capacidade é teto, não meta (D40), e
+   * publicá-la sobrescreveria as metas confirmadas pelo gestor (nota de 01/10, § 5).
+   */
+  onCompare: (capacityPerShift: Record<string, Capacity>) => void;
 }
 
 /**
  * Simulador de capacidade (aba da página Metas): parâmetros da planilha
  * Capacidade vs Pessoas editáveis, com meta por turno e capacidade recalculadas.
  */
-export function CapacitySimulator({ notify, onPublished, canPublish }: CapacitySimulatorProps) {
+export function CapacitySimulator({ notify, onCompare }: CapacitySimulatorProps) {
   const [scenario, setScenario] = useState<Scenario>(() => storageGet(STORAGE_KEY, clone(BASELINE)));
   const [tab, setTab] = useState("resumo");
   const [confirmReset, setConfirmReset] = useState(false);
-  const [publishing, setPublishing] = useState(false);
-  const [publishLoading, setPublishLoading] = useState(false);
-  const [effective, setEffective] = useState("2026-10-01");
   const [bulkEff, setBulkEff] = useState<Record<Area, number | null>>({ montagem: 60, embalagem: 70 });
 
   useEffect(() => storageSet(STORAGE_KEY, scenario), [scenario]);
@@ -137,9 +136,6 @@ export function CapacitySimulator({ notify, onPublished, canPublish }: CapacityS
   const totals = useMemo(() => computeTotals(scenario), [scenario]);
   const base = useMemo(() => computeTotals(BASELINE), []);
   const changes = useMemo(() => diff(scenario), [scenario]);
-  const metaChanges = scenario.processes
-    .map((p, i) => ({ p, now: computeProcess(scenario, p).perShift, before: computeProcess(BASELINE, BASELINE.processes[i]).perShift }))
-    .filter((x) => Math.abs(x.now - x.before) >= 0.5);
 
   const kpis: KpiItem[] = [
     {
@@ -362,22 +358,8 @@ export function CapacitySimulator({ notify, onPublished, canPublish }: CapacityS
     );
   };
 
-  const publish = () => {
-    setPublishLoading(true);
-    window.setTimeout(() => {
-      setPublishLoading(false);
-      setPublishing(false);
-      const when = effective.split("-").reverse().join("/");
-      notify("Metas publicadas", `${metaChanges.length} ${metaChanges.length === 1 ? "meta passa" : "metas passam"} a valer em ${when}.`);
-      onPublished?.(
-        `Simulador de capacidade: ${plural(metaChanges.length, "meta por turno recalculada", "metas por turno recalculadas")} (${metaChanges
-          .slice(0, 3)
-          .map((m) => m.p.name)
-          .join(", ")}${metaChanges.length > 3 ? "…" : ""})`,
-        when,
-      );
-    }, readToken("--ds-motion-duration-skeleton") / 2);
-  };
+  /** Capacidade por turno de cada processo com taxa, no cenário atual */
+  const compare = () => onCompare(capacitiesOf(scenario));
 
   const card = (title: string, children: ReactNode, extra?: ReactNode) => (
     <section className="flex min-w-0 flex-1 basis-chart-card-min flex-col gap-200 rounded-large bg-surface-raised p-250 shadow-raised">
@@ -396,12 +378,10 @@ export function CapacitySimulator({ notify, onPublished, canPublish }: CapacityS
           <Button appearance="subtle" iconBefore={RotateCcw} isDisabled={changes.length === 0} onClick={() => setConfirmReset(true)}>
             Restaurar planilha
           </Button>
-          {/* Simular é livre; publicar muda as metas de todo mundo */}
-          {canPublish && (
-            <Button appearance="primary" iconBefore={Send} isDisabled={metaChanges.length === 0} onClick={() => setPublishing(true)}>
-              Publicar metas
-            </Button>
-          )}
+          {/* Propor, não publicar: a meta acordada é decisão do gestor na aba de metas */}
+          <Button appearance="primary" iconBefore={ArrowLeftRight} onClick={compare}>
+            Comparar com as metas acordadas
+          </Button>
         </PageActions>
       </div>
 
@@ -685,35 +665,6 @@ export function CapacitySimulator({ notify, onPublished, canPublish }: CapacityS
         {changes.length === 1 ? "A alteração do cenário volta" : `As ${changes.length} alterações do cenário voltam`} aos valores da planilha (revisão 01).
       </Modal>
 
-      <Modal
-        open={publishing}
-        onOpenChange={setPublishing}
-        title="Publicar novas metas?"
-        primary={{ label: "Publicar metas", onClick: publish, isLoading: publishLoading }}
-        cancelLabel="Voltar"
-      >
-        <p className="text-default">
-          A meta por turno de cada processo passa a ser a capacidade com eficiência deste cenário.
-        </p>
-        <DateField
-          label="Vale a partir de"
-          min="2026-09-26"
-          value={effective}
-          onChange={setEffective}
-          isRequired
-          className="mt-200 w-column-name"
-        />
-        <ul className="mt-200 flex flex-col gap-075">
-          {metaChanges.map((m) => (
-            <li key={m.p.id} className="flex flex-wrap items-center justify-between gap-100 rounded-medium bg-neutral px-150 py-100">
-              <span className="font-medium">{m.p.name}</span>
-              <span className="tabular-nums text-subtle">
-                {formatNumber(round(m.before))} → <strong className="font-semibold text-default">{formatNumber(round(m.now))}</strong> por turno
-              </span>
-            </li>
-          ))}
-        </ul>
-      </Modal>
     </>
   );
 }

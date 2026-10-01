@@ -29,6 +29,7 @@ import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { TagGroup } from "@/components/ui/Tag";
 import { TextArea, TextField } from "@/components/ui/TextField";
 import { DateField } from "@/components/ui/DateField";
+import { baseLabel, crewOf, shiftMeta, useBases } from "@/features/metas/metaBase";
 
 /* ---------- Modelo do formulário ---------- */
 interface OpRow {
@@ -43,6 +44,11 @@ interface MachineEntry {
   noteOpen: boolean;
   /** já existia apontamento salvo para esta data/turno */
   existing: boolean;
+  /**
+   * Nº de operadores no posto, em TODA máquina (D12, D52). Vazio = não
+   * informado; ao salvar vira 0, que é o que apaga um valor gravado antes.
+   */
+  people: string;
 }
 type Form = Record<string, MachineEntry>;
 
@@ -61,6 +67,8 @@ function loadForm(date: string, shift: Shift): Form {
       note: orders.find((o) => o.note)?.note?.text ?? "",
       noteOpen: orders.some((o) => o.note),
       existing: orders.length > 0,
+      // Demonstração: os apontamentos de mentira não guardam o nº de pessoas
+      people: "",
     };
   }
   return form;
@@ -139,6 +147,8 @@ export function EntryPage({ notify }: EntryPageProps) {
       return;
     }
     setSaving(true);
+    // Com o backend: data.production.saveEntries(...), com operatorCount = operatorCountFor(entry.people)
+    // em cada máquina (./payload.ts: vazio manda 0, que apaga)
     window.setTimeout(() => {
       setSaving(false);
       setDirty(false);
@@ -347,7 +357,19 @@ function MachineEntryRow({
   // OPs liberadas para esta máquina: o campo sugere os números
   const openOps = ops.filter((op) => op.machineId === m.id && (op.stage === "running" || op.stage === "paused"));
   const listId = `ops-${m.id}`;
-  const meta = m.hasTarget ? metaPerShift(m) : 0;
+  // Meta do turno pela base vigente e pelas pessoas informadas — a conta é a de src/lib/metas.ts (teto D49)
+  const bases = useBases();
+  const base = bases[m.id] ?? "per_shift";
+  const turn = shiftMeta(m.id, m.hasTarget ? metaPerShift(m) : 0, base, entry.people);
+  const meta = m.hasTarget ? turn.valor : 0;
+  const crew = crewOf(m.id);
+  const peopleHelp = !m.hasTarget
+    ? "Só registra a presença: centro por demanda, sem meta."
+    : !turn.dependeDaLotacao
+      ? "Só registra a presença: a meta desta máquina não muda com o nº de pessoas."
+      : base === "per_operator"
+        ? `A meta é por pessoa: ${formatNumber(turn.cadastrada)} × pessoas.`
+        : `A meta acompanha o nº de pessoas${crew ? `, até a lotação padrão de ${crew}` : ""}. Gente a mais não aumenta a meta.`;
   const percent = meta ? Math.round((total / meta) * 100) : 0;
   const status = statusFor(percent);
   const tooHigh = m.hasTarget && total > meta * 2;
@@ -373,8 +395,11 @@ function MachineEntryRow({
             </div>
             <p className="font-body-small text-subtlest">
               <span className="font-semibold tabular-nums text-default">{formatNumber(total)}</span> de{" "}
-              <span className="tabular-nums">{formatNumber(meta)}</span> (meta do turno)
+              <span className="tabular-nums">{formatNumber(meta)}</span> (meta do turno
+              {turn.dependeDaLotacao && ` · ${baseLabel(base).toLowerCase()}, ${turn.pessoas} ${turn.pessoas === 1 ? "pessoa" : "pessoas"}`}
+              {base === "per_shift_prorated" && crew && turn.pessoas > crew && `, conta até ${crew}`})
             </p>
+            {turn.estimada && <p className="font-body-small text-warning">Informe o nº de operadores: a meta deste posto depende dele.</p>}
           </>
         ) : (
           <p className="mt-050 font-body-small text-subtlest">
@@ -402,6 +427,16 @@ function MachineEntryRow({
             </option>
           ))}
         </datalist>
+        <TextField
+          label="Nº de operadores"
+          inputMode="numeric"
+          placeholder={turn.dependeDaLotacao && crew ? String(crew) : "–"}
+          value={entry.people}
+          onChange={(e) => onChange((x) => ({ ...x, people: e.target.value.replace(/\D/g, "").slice(0, 2) }))}
+          helper={peopleHelp}
+          inputClassName="text-right tabular-nums"
+          className="mt-050"
+        />
         {tooHigh && (
           <p className="font-body-small text-warning">Acima de 2× a meta do turno. Confira as quantidades.</p>
         )}
