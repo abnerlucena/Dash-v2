@@ -114,6 +114,9 @@ export const gasDataSource: DataSource = {
     async resetPassword(targetNome, novaSenha, session) { await api("resetPassword", { targetNome, novaSenha }, session); },
     generateInviteCode: (session) => api("generateInviteCode", {}, session),
     async approveUser() { throw new Error("Aprovação de cadastro só existe no modo Supabase."); },
+    async listPermissions() { throw new Error("Permissões por usuário só existem no modo Supabase."); },
+    async getPermissions() { throw new Error("Permissões por usuário só existem no modo Supabase."); },
+    async setPermissions() { throw new Error("Permissões por usuário só existem no modo Supabase."); },
     async listRoles() { return []; },
   },
 

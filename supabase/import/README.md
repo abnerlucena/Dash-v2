@@ -48,9 +48,75 @@ Gera `supabase/import/preparo.sql` (não versionado — é derivado da planilha)
 imprime um resumo. Depois, rode esse SQL no banco; ele vem dentro de uma
 transação, então dá para conferir e desistir com `rollback`.
 
-O id do lote é derivado do nome e do tamanho do arquivo: rodar de novo produz
-o mesmo id, e carregar duas vezes é impossível — a chave `(lote, aba, célula)`
-recusa a segunda.
+O id do lote é derivado do nome, do tamanho do arquivo e da janela (abaixo):
+rodar de novo com os mesmos argumentos produz o mesmo id, e carregar duas vezes
+é impossível — a chave `(lote, aba, célula)` recusa a segunda.
+
+### Carga incremental: `--desde` e `--ate`
+
+Para acrescentar ao banco só o que a planilha ganhou desde a última carga:
+
+```bash
+node supabase/import/extrair.cjs planilha.xlsx saida.sql --desde=2026-09-22
+```
+
+E para parar na data do congelamento, de modo que linha digitada depois do
+corte não entre sem ninguém ter visto:
+
+```bash
+node supabase/import/extrair.cjs planilha.xlsx saida.sql --desde=2026-09-22 --ate=2026-10-09
+```
+
+Duas coisas importantes sobre a janela:
+
+1. **O corte vale para o que é EMITIDO, não para o que é lido.** A planilha
+   arrasta a última meta conhecida para a frente (item 9 da D35), então as metas
+   continuam sendo lidas da planilha inteira. Cortar a leitura cedo faria os
+   dias novos nascerem sem meta.
+2. **Descubra antes qual é o último dia já no banco**, e comece no dia seguinte:
+
+```sql
+select max(production_date) from public.production_records;
+```
+
+   Começar no mesmo dia reemitiria os apontamentos daquele dia, e a carga
+   abortaria na restrição `unique (machine_id, production_date, shift_id,
+   work_mode)`. Nada se perde — a transação inteira é desfeita —, mas também
+   nada entra.
+
+### `--turno`: completar um dia que entrou pela metade
+
+Quando a exportação anterior foi tirada no meio do expediente, o último dia do
+banco tem só o primeiro turno. Um dia pela metade é um dia errado em todo
+relatório, e `--desde` não resolve porque corta por dia.
+
+```bash
+node supabase/import/extrair.cjs planilha.xlsx saida.sql --desde=2026-09-21 --ate=2026-09-21 --turno=2
+```
+
+Antes de usar, confira quais turnos já estão lá:
+
+```sql
+select shift_id, count(*) from public.production_records
+ where production_date = '2026-09-21' group by 1;
+```
+
+### Linhas com a data errada na planilha
+
+A data de uma linha vem da coluna A, e quando falta o extrator repete a de cima
+(abril escreve a data só na linha do T1, de propósito). Isso faz com que uma
+linha órfã herde a data errada e leve a produção para outro mês.
+
+A correção vai na lista `DATAS` de `mapa.cjs`, **por linha**, depois de alguém
+conferir contra a planilha aberta:
+
+```js
+const DATAS = [
+  { aba: 'SET 26', linha: 53, data: '2026-09-30' },
+];
+```
+
+O extrator avisa quantas linhas corrigiu em cada rodada.
 
 ## O que a extração produziu (planilha de 21/09/2026)
 

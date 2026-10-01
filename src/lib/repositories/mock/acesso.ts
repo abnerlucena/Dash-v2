@@ -13,7 +13,7 @@ import type { Session } from "../../api";
 import type { AdminUser, DataSource, LoginResponse, RoleOption } from "../types";
 import { BadgeRequiredError } from "../supabase/auth";
 import {
-  CRACHAS_DA_CONTA_COMPARTILHADA, PERFIS, contasIniciais, type ContaDemo,
+  CATALOGO_DE_PERMISSOES, CRACHAS_DA_CONTA_COMPARTILHADA, PERFIS, contasIniciais, type ContaDemo,
 } from "./contas";
 
 const CHAVE_CONTAS = "mock.contas";
@@ -58,8 +58,14 @@ const porEmail = (email: string) =>
   contas().find(c => c.email.toLowerCase() === email.trim().toLowerCase());
 const perfil = (id: number | null) => PERFIS.find(p => p.id === id) ?? null;
 
+// D22: o perfil é o MODELO de onde as permissões saem na aprovação. Depois
+// disso vale a lista da conta, que o gestor pode ajustar uma a uma. Conta sem
+// lista ainda não foi aprovada nem ajustada: cai no modelo.
+const permissoesDe = (conta: ContaDemo) =>
+  conta.permissoes ?? perfil(conta.perfilId)?.permissoes ?? [];
+
 function montarSessao(conta: ContaDemo, identificado?: string): LoginResponse {
-  const perms = perfil(conta.perfilId)?.permissoes ?? [];
+  const perms = permissoesDe(conta);
   const session: Session = {
     token: "mock",
     nome: identificado ? `${identificado} (${conta.nome})` : conta.nome,
@@ -69,6 +75,7 @@ function montarSessao(conta: ContaDemo, identificado?: string): LoginResponse {
     userId: conta.id,
     permissions: perms,
     accountType: conta.tipo,
+    roleName: perfil(conta.perfilId)?.name ?? undefined,
   };
   let onboardingDone = true;
   try { onboardingDone = localStorage.getItem(ONBOARDING(conta.id)) === "1"; } catch { /* sem localStorage */ }
@@ -236,12 +243,51 @@ export const mockUsers: DataSource["users"] = {
     if (!perfil(roleId)) throw new Error("Perfil inválido.");
     conta.status = "active";
     conta.perfilId = roleId;
+    // Copia o modelo do perfil, como a approve_user do banco (D22). A partir
+    // daqui a lista é da conta e pode ser ajustada permissão a permissão.
+    conta.permissoes = [...(perfil(roleId)?.permissoes ?? [])];
     salvarContas();
   },
 
   async listRoles(): Promise<RoleOption[]> {
     await esperar();
     return PERFIS.map(({ id, code, name }) => ({ id, code, name }));
+  },
+
+  async listPermissions() {
+    await esperar();
+    return CATALOGO_DE_PERMISSOES.map(p => ({ ...p }));
+  },
+
+  async getPermissions(userId, session) {
+    await esperar();
+    const conta = contas().find(c => c.id === userId);
+    if (!conta) throw new Error("Usuário não encontrado.");
+    // A RLS do banco deixa ver as próprias ou, com users.approve, as de
+    // qualquer um. Aqui a mesma regra, para a tela se comportar igual.
+    if (conta.id !== session?.userId && !podeAprovar(session)) {
+      throw new Error("Você não tem permissão para ver as permissões de outro usuário.");
+    }
+    return [...permissoesDe(conta)].sort().map(code => ({
+      code,
+      grantedBy: conta.permissoes ? "Gabriela Gestora" : "",
+      grantedAt: new Date().toISOString(),
+    }));
+  },
+
+  async setPermissions(userId, permissions, session) {
+    await esperar();
+    if (!podeAprovar(session)) throw new Error("Você não tem permissão para alterar permissões de usuários.");
+    const conta = contas().find(c => c.id === userId);
+    if (!conta) throw new Error("Usuário não encontrado.");
+    const conhecidas = new Set(CATALOGO_DE_PERMISSOES.map(p => p.code));
+    const invalida = permissions.find(c => !conhecidas.has(c));
+    // O banco recusa pela chave estrangeira; aqui a recusa é explícita, para
+    // o erro ser o mesmo nos dois modos.
+    if (invalida) throw new Error(`Permissão desconhecida: "${invalida}".`);
+    conta.permissoes = [...new Set(permissions)].sort();
+    salvarContas();
+    avisar();
   },
 
   async adminCreateUser() { throw naoExiste("Criar usuário pelo painel"); },

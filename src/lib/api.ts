@@ -14,6 +14,12 @@ export interface Session {
   source?: "gas" | "supabase" | "mock";
   userId?: string;
   permissions?: string[];
+  /**
+   * Nome do perfil em português ("Gestor", "Distribuidor"). A tela mostrava
+   * um rótulo deduzido das permissões, que acertava por acaso: duas pessoas
+   * com o mesmo conjunto apareciam iguais mesmo tendo perfis diferentes.
+   */
+  roleName?: string;
   accountType?: "personal" | "shared" | "display";
 }
 

@@ -22,7 +22,7 @@ async function buildSession(): Promise<LoginResponse> {
 
   const { data: profile, error } = await sb
     .from("profiles")
-    .select("id, full_name, status, account_type")
+    .select("id, full_name, status, account_type, roles(name)")
     .eq("id", authSession.user.id)
     .single();
   if (error || !profile) throw toError(error, "Perfil não encontrado.");
@@ -40,6 +40,10 @@ async function buildSession(): Promise<LoginResponse> {
     userId: profile.id,
     permissions: perms,
     accountType: profile.account_type as Session["accountType"],
+    // O nome do perfil vem junto para a tela não ter de deduzi-lo das
+    // permissões: deduzir faz duas pessoas de perfis diferentes com o mesmo
+    // conjunto aparecerem iguais.
+    roleName: (profile.roles as { name: string } | null)?.name ?? undefined,
   };
   let onboardingDone = true;
   try { onboardingDone = localStorage.getItem(ONBOARDING_KEY(profile.id)) === "1"; } catch { /* sem localStorage */ }

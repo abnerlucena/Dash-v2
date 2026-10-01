@@ -57,7 +57,31 @@ const TURNOS = {
   'EXTRA 2°T':   { turno: 2, modo: 'overtime' },
   'HORA EXTRA':  { turno: 1, modo: 'overtime' },
   'H. EXTRA':    { turno: 1, modo: 'overtime' },
+  // Setembro/26 passou a escrever o turno depois de "HORA EXTRA". Mesmo
+  // significado dos rotulos acima, que o gestor ja revisou.
+  'HORA EXTRA 1°': { turno: 1, modo: 'overtime' },
+  'HORA EXTRA 2°': { turno: 2, modo: 'overtime' },
 };
+
+// ─── 2.1 Linhas com a data errada na planilha ──────────────────────────────
+// A data de uma linha vem da coluna A, e quando ela falta o extrator repete a
+// de cima (abril escreve a data só na linha do T1, de propósito). No pé da aba
+// SET 26 isso encontrou duas linhas que ninguém corrigiu:
+//
+//   L53 — data VAZIA. Acima dela só havia linhas vazias de 25/08, então as
+//         96.104 peças do bloco principal iriam parar em agosto.
+//   L54 — data 29/09, mas o 29/09 T2 ja esta na L48. Seria o turno em dobro.
+//
+// O gestor conferiu contra a planilha aberta: as duas sao 30/09, T1 e T2. A
+// conferencia foi numero a numero (L53 fecha em 96.104 e L54 em 45.442, os
+// mesmos totais que a planilha mostra para o dia 30).
+//
+// Correcao por LINHA, nao por celula: o que esta errado e a data da linha
+// inteira, e o resto dela esta certo.
+const DATAS = [
+  { aba: 'SET 26', linha: 53, data: '2026-09-30' },
+  { aba: 'SET 26', linha: 54, data: '2026-09-30' },
+];
 
 // A aba "10 de Jan 26" é um sábado lançado à parte, com o rótulo "T1". O
 // gestor confirmou que foi hora extra, no primeiro turno.
@@ -112,4 +136,4 @@ const ZERO = {
   depois: 'turno sem produção — a planilha não informa o motivo',
 };
 
-module.exports = { CENTROS, TURNOS, ABAS_HORA_EXTRA, CASOS, RETRABALHO, ZERO };
+module.exports = { DATAS, CENTROS, TURNOS, ABAS_HORA_EXTRA, CASOS, RETRABALHO, ZERO };
