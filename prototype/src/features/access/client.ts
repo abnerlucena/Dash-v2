@@ -43,12 +43,10 @@ export interface AccessClient {
 }
 
 /*
- * Sessão da UI nova no modo real: chave PRÓPRIA, não a `prod_session_v3` do app
- * antigo. No Pages os dois apps ficam na mesma origem (/ e /nova/), e até a
- * virada o antigo fala com o Apps Script: com a mesma chave, entrar num app
- * derrubava a sessão do outro (a sessão do Apps Script não vale no Supabase e
- * era apagada, e vice-versa). O login do Supabase em si (sb-…-auth-token) é do
- * supabase-js e continua compartilhado, o que é coerente: mesmo banco, mesma pessoa.
+ * Sessão da interface no modo real: uma chave por fonte (`dash-proto.session.supabase`,
+ * `.gas`, `.mock`), para uma sessão de uma fonte nunca ser lida como de outra ao
+ * trocar `VITE_DATA_SOURCE`. O login do Supabase em si (sb-…-auth-token) é guardado
+ * pelo supabase-js.
  */
 function realStore(kind: string): AccessClient["store"] {
   const key = `dash-proto.session.${kind}`;

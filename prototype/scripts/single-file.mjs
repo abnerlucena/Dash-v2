@@ -1,11 +1,11 @@
 // Junta o build (prototype/dist) num único HTML com CSS e JS embutidos,
 // para abrir sem servidor ou publicar como página.
-// Uso: npm run proto:html  →  prototype/dist/dash-producao-prototipo.html
+// Uso: npm run build:html  →  prototype/dist/dash-producao.html
 import { readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-const [folder = "dist", source = "index.html", target = "dash-producao-prototipo.html"] = process.argv.slice(2);
+const [folder = "dist", source = "index.html", target = "dash-producao.html"] = process.argv.slice(2);
 const dist = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", folder);
 let html = readFileSync(path.join(dist, source), "utf8");
 

@@ -5,6 +5,10 @@
 > [`2026-10-01-direcionamento-para-a-ui.md`](2026-10-01-direcionamento-para-a-ui.md) (§ 8)
 > e continua [`2026-10-01-previa-da-ui-nova-no-pages.md`](2026-10-01-previa-da-ui-nova-no-pages.md).
 
+> **Atualização de 03/10:** a prévia em `/nova/` virou o app na raiz do Pages, e a
+> variável `NOVA_DATA_SOURCE` agora se chama `DATA_SOURCE`. Ver
+> [`2026-10-03-ui-antiga-aposentada.md`](2026-10-03-ui-antiga-aposentada.md).
+
 ## Em uma linha
 
 A UI nova passa a ler os dados reais pela camada de vocês (`data.production.getAll`,

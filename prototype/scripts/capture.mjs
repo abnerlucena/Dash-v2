@@ -1,5 +1,5 @@
 // Gera as capturas de tela dos estados principais do protótipo.
-// Uso: com o servidor rodando (npm run proto:dev), execute
+// Uso: com o servidor rodando (npm run dev), execute
 //   node prototype/scripts/capture.mjs [url]
 import { chromium } from "@playwright/test";
 import { mkdirSync } from "node:fs";
@@ -32,7 +32,7 @@ const openRow = (label) => async (page) => {
   await page.locator(`tbody tr[aria-label^="${label}"]`).click();
 };
 const demoState = (label) => async (page) => {
-  await page.getByRole("button", { name: "Estados do protótipo" }).click();
+  await page.getByRole("button", { name: "Estados de demonstração" }).click();
   await page.getByRole("menuitemradio", { name: label }).click();
 };
 

@@ -1,7 +1,7 @@
 import { defineConfig } from "vitest/config";
 import path from "node:path";
 
-// Testes do protótipo (UI nova): lógica pura, sem navegador
+// Testes da interface (prototype/): lógica pura, sem navegador
 export default defineConfig({
   root: __dirname,
   test: {

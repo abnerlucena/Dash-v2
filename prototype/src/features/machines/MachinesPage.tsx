@@ -232,7 +232,7 @@ export function MachinesPage({
   const onAction = (action: string, m: Machine) => {
     if (action === "export") notify("Exportação pronta", `${m.name} · ${periodText} (.xlsx)`);
     else if (action === "entry") window.location.hash = "/apontamento";
-    else notify("Histórico da máquina", "Esta tela ainda não faz parte do protótipo.");
+    else notify("Histórico da máquina", "Ainda não existe uma tela só da máquina. Os apontamentos dela estão no Histórico.");
   };
 
   const exportAll = () => {
@@ -302,7 +302,7 @@ export function MachinesPage({
         </span>
       ) : (
         previous && !previous.range
-          ? "Sem período anterior nos dados do protótipo"
+          ? "Sem período anterior nos dados"
           : groupId || presetShift
             ? `Produção de ${periodText}${shiftLabel ? ` no ${shiftLabel.toLowerCase()}` : ""}`
             : `Recorte filtrado${shiftLabel ? ` · ${shiftLabel}` : ""}`

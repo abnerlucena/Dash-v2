@@ -27,9 +27,12 @@ Ao começar, descubra de qual lado você está e respeite a divisão.
 |---|---|---|
 | `prototype/src/features/**`, `prototype/src/components/**` | **interface** | as telas |
 | `supabase/**`, `docs/database/**` | **banco** | migrations e documentação |
-| `src/lib/repositories/**`, `src/lib/supabase.ts`, `src/lib/database.types.ts`, `src/lib/metas.ts` | **banco** | a camada de dados, que a UI nova vai usar |
+| `prototype/src/data/fromBackend.ts`, `e2e/`, `.github/workflows/deploy.yml` e `ci.yml` | **interface** | adaptador de leitura, fumaça no navegador, publicação |
+| `src/lib/**`, `src/test/**` | **banco** | a camada de dados que a interface usa, e os testes dela |
 | `prototype/src/data/machines.ts` | **compartilhado** | combine antes de mexer |
-| `src/` (telas antigas) | congelado | só conserto se atrapalhar alguém hoje (D44) |
+
+A UI antiga (telas de `src/`) foi aposentada em 03/10/2026: `prototype/` é a única
+interface. Não recrie telas fora dela.
 
 Regras que evitam a maior parte do atrito:
 

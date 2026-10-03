@@ -3,6 +3,10 @@
 > Data: 01/10/2026 · Escrito pela sessão da **interface** · Para a sessão do **banco**
 > Relacionado: [`2026-10-01-plano-de-virada.md`](2026-10-01-plano-de-virada.md)
 
+> **Atualização de 03/10:** superada. Com a UI antiga aposentada, a interface vai
+> na raiz do Pages e o `/nova/` não existe mais. Ver
+> [`2026-10-03-ui-antiga-aposentada.md`](2026-10-03-ui-antiga-aposentada.md).
+
 ## Em uma linha
 
 A UI nova (`prototype/`) vai aparecer no Pages em **`/Dashboard-Tomadas/nova/`**, só

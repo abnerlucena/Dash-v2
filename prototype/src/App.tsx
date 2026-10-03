@@ -261,8 +261,8 @@ function Shell() {
               }}
             >
               {DATA_ORIGIN === "backend"
-                ? `Prévia da interface nova · dados reais, só leitura · ${PERIOD_LABEL}`
-                : `Protótipo de interface · dados de demonstração de ${PERIOD_LABEL}`}
+                ? `Dados do banco · só leitura por enquanto · ${PERIOD_LABEL}`
+                : `Modo de demonstração · dados fictícios de ${PERIOD_LABEL}`}
             </Banner>
           )
         }
@@ -275,11 +275,11 @@ function Shell() {
               </TopNavMiddle>
               <TopNavEnd>
                 <Notifications unreadFeedbacks={unread.size} />
-                {/* No mobile, ajuda fica no menu lateral e tema/estados vão para o menu do avatar */}
+                {/* No mobile, ajuda fica no menu lateral e tema/estados vão para o menu do avatar (estados só na demonstração) */}
                 <span className="hidden items-center gap-050 s:flex">
                   <IconButton icon={CircleHelp} label="Ajuda" onClick={() => (window.location.hash = "/ajuda")} />
                   <ThemeMenu preference={colorMode.preference} resolved={colorMode.resolved} onChange={colorMode.setPreference} />
-                  <DemoMenu value={demoState} onChange={setDemoState} />
+                  {DATA_ORIGIN === "demo" && <DemoMenu value={demoState} onChange={setDemoState} />}
                 </span>
                 <UserMenu
                   colorMode={colorMode.preference}
@@ -379,8 +379,8 @@ function Shell() {
               <h1 className="font-heading-large text-default">{current?.label ?? "Página não encontrada"}</h1>
               <EmptyState
                 icon={current?.icon ?? LayoutDashboard}
-                title="Fora do escopo do protótipo"
-                hint="Este protótipo detalha apenas o Dashboard de máquinas. A navegação, os estados de seleção e o layout já funcionam em todas as páginas."
+                title="Página não encontrada"
+                hint="Este endereço não existe no Dash de Produção. Use o menu ao lado para escolher uma tela."
                 action={{ label: "Ir para o Dashboard", icon: LayoutDashboard, onClick: () => (window.location.hash = "/dashboard") }}
               />
             </div>
@@ -611,7 +611,7 @@ function DemoMenu({ value, onChange }: { value: DemoState; onChange: (s: DemoSta
       <MenuTrigger asChild>
         <IconButton
           icon={FlaskConical}
-          label="Estados do protótipo"
+          label="Estados de demonstração"
           isSelected={value !== "live"}
           className="data-[state=open]:bg-neutral-subtle-pressed"
         />
@@ -674,14 +674,18 @@ function UserMenu({ colorMode, onColorModeChange, demoState, onDemoStateChange }
               <MenuRadioItem value="dark">Escuro</MenuRadioItem>
               <MenuRadioItem value="auto">Igual ao sistema</MenuRadioItem>
             </MenuRadioGroup>
-            <MenuSeparator />
-            <MenuLabel>Estados do protótipo</MenuLabel>
-            <MenuRadioGroup value={demoState} onValueChange={(v) => onDemoStateChange(v as DemoState)}>
-              <MenuRadioItem value="live">Normal</MenuRadioItem>
-              <MenuRadioItem value="loading">Carregando</MenuRadioItem>
-              <MenuRadioItem value="empty">Vazio</MenuRadioItem>
-              <MenuRadioItem value="error">Erro</MenuRadioItem>
-            </MenuRadioGroup>
+            {DATA_ORIGIN === "demo" && (
+              <>
+                <MenuSeparator />
+                <MenuLabel>Estados de demonstração</MenuLabel>
+                <MenuRadioGroup value={demoState} onValueChange={(v) => onDemoStateChange(v as DemoState)}>
+                  <MenuRadioItem value="live">Normal</MenuRadioItem>
+                  <MenuRadioItem value="loading">Carregando</MenuRadioItem>
+                  <MenuRadioItem value="empty">Vazio</MenuRadioItem>
+                  <MenuRadioItem value="error">Erro</MenuRadioItem>
+                </MenuRadioGroup>
+              </>
+            )}
             <MenuSeparator />
           </>
         )}
