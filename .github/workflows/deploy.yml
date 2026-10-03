@@ -28,13 +28,21 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # Dados: demonstração, a menos que a variável do repositório DATA_SOURCE seja
+      # "supabase" (Settings → Secrets and variables → Actions). Aí o app fala com o
+      # banco, com os segredos VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY.
+      # Qualquer outro valor cai na demonstração. Nada disso fica no repositório.
       - name: Build
+        env:
+          VITE_DATA_SOURCE: ${{ vars.DATA_SOURCE == 'supabase' && 'supabase' || '' }}
+          VITE_SUPABASE_URL: ${{ vars.DATA_SOURCE == 'supabase' && secrets.VITE_SUPABASE_URL || '' }}
+          VITE_SUPABASE_ANON_KEY: ${{ vars.DATA_SOURCE == 'supabase' && secrets.VITE_SUPABASE_ANON_KEY || '' }}
         run: npm run build
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: ./dist
+          path: ./prototype/dist
 
   deploy:
     needs: build

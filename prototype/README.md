@@ -1,27 +1,29 @@
 # Dash de Produção — a interface do sistema
 
-> **Esta pasta não é mais um protótipo.** Em 26/09/2026 ficou decidido que é
-> **esta** a interface do Dash de Produção; a UI antiga em `src/` vai ser
-> substituída por ela. O nome da pasta continua `prototype/` por enquanto só
-> para não quebrar branches em andamento — ver a decisão **D44** em
-> [`../docs/database/03-decisoes.md`](../docs/database/03-decisoes.md).
+> **Esta pasta não é um protótipo:** é a interface do Dash de Produção, a única
+> (decisão **D44** em [`../docs/database/03-decisoes.md`](../docs/database/03-decisoes.md)).
+> A UI antiga de `src/` foi aposentada em 03/10/2026, e o nome da pasta fica
+> `prototype/` só até a troca combinada com a sessão do banco.
 >
-> O que ainda falta: ela roda com **dados fictícios**. A transição é ligá-la à
-> camada de dados que já existe em `src/lib/repositories/`, que fala com o
-> Supabase e com o Apps Script.
+> **Dados:** sem configuração, roda com dados **fictícios** (modo de demonstração).
+> Com `VITE_DATA_SOURCE=supabase`, lê o banco pela camada de dados de
+> `src/lib/repositories/` (adaptador em `src/data/fromBackend.ts`). Por ora só lê:
+> Apontamento, Metas, OPs e Feedbacks mostram que ainda não estão ligadas ao banco.
 
 Interface de alta fidelidade do **Dash de Produção** (todas as páginas do menu),
 construída sobre um sistema de tokens derivado do Atlassian Design System
-(fundações → componentes → padrões), com a marca WEG. Hoje ainda roda isolada do
-app: Vite, Tailwind e tokens próprios, reaproveitando os `node_modules` da raiz.
+(fundações → componentes → padrões), com a marca WEG: Vite, Tailwind e tokens
+próprios, com os `node_modules` da raiz.
 
 ## Como rodar
 
 ```bash
-npm run proto:dev        # http://localhost:8090
-npm run proto:typecheck  # verificação de tipos
-npm run proto:build      # build em prototype/dist
-npm run proto:html       # HTML único (CSS + JS embutidos) em prototype/dist
+npm run dev              # http://localhost:8090
+npm run typecheck        # verificação de tipos (interface e camada de dados)
+npm test                 # testes de unidade (camada de dados + adaptador da interface)
+npm run test:e2e         # fumaça no navegador, modo de demonstração (e2e/)
+npm run build            # build em prototype/dist (o que vai para o GitHub Pages)
+npm run build:html       # HTML único (CSS + JS embutidos) em prototype/dist/dash-producao.html
 node prototype/scripts/capture.mjs   # regera prototype/screenshots (servidor rodando)
 ```
 
@@ -117,8 +119,9 @@ Decisões que valem para todas as abas:
 Atalhos: `Ctrl+[` alterna a navegação, `/` foca a busca e `Esc` fecha flyout, overlay e painel.
 Na tabela, `↑`/`↓` navegam pelas linhas e `Enter` abre o painel.
 
-O ícone de frasco na barra superior ("Estados do protótipo") alterna os dados entre
-Normal, Carregando, Vazio e Erro.
+No modo de demonstração, o ícone de frasco na barra superior ("Estados de
+demonstração") alterna os dados entre Normal, Carregando, Vazio e Erro. Com o
+banco, ele some.
 
 Os dados são fictícios (março de 2026). Produção e meta vêm do briefing; dias,
 tendência e ordens são gerados de forma determinística.

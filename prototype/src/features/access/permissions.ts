@@ -72,7 +72,7 @@ export const STRONG_PERMISSIONS = new Set<string>(["system.admin", "users.approv
 
 /**
  * Modo Apps Script (legado): a sessão não traz permissões, só `role`.
- * admin = tudo; user = o que o operador fazia no app antigo.
+ * admin = tudo; user = o que o operador fazia no sistema da planilha.
  */
 const LEGACY_USER: Permission[] = [
   "production.create",
