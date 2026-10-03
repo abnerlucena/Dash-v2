@@ -18,7 +18,7 @@ import type { Holiday, Machine, OrdemProducao, ProdRecord } from "../../api";
 export type SummaryRow = Tables<"production_summary">;
 export type OrderRow = Pick<Tables<"production_orders">, "production_record_id" | "order_number" | "quantity" | "is_rework" | "notes">;
 export type MachineRow = Pick<Tables<"machines">, "id" | "name" | "has_target" | "status"> &
-  Partial<Pick<Tables<"machines">, "standard_operator_count">>;
+  Partial<Pick<Tables<"machines">, "standard_operator_count" | "process">>;
 export type CalendarRow = Pick<Tables<"calendar_events">, "id" | "event_date" | "description" | "event_type" | "created_by" | "created_at"> & {
   calendar_event_shifts?: { shift_id: number }[] | null;
 };
@@ -120,6 +120,9 @@ export function toMachine(row: MachineRow, target: number | undefined): Machine 
     status: MACHINE_STATUS_TO_LEGACY[row.status] ?? row.status,
     // Lotação padrão do posto: é o divisor da meta rateada (D47).
     standardOperatorCount: row.standard_operator_count ?? null,
+    // Só quando o banco disse. Sem a coluna na consulta, o campo fica ausente:
+    // inventar uma linha aqui seria pior do que não ter nenhuma.
+    ...(row.process === "assembly" || row.process === "packaging" ? { process: row.process } : {}),
   };
 }
 
