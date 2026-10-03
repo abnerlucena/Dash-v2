@@ -351,7 +351,7 @@ export function AccessPage() {
           {body}
         </section>
         {isDemo && (
-          <p className="text-center font-body-small text-subtlest">Protótipo · contas e cadastros de demonstração, sem servidor</p>
+          <p className="text-center font-body-small text-subtlest">Modo de demonstração · contas e cadastros fictícios, sem servidor</p>
         )}
       </div>
     </main>

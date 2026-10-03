@@ -33,3 +33,7 @@ supabase/import/preparo.sql
 
 # Configuração local do Claude Code (permissões desta máquina)
 .claude/settings.local.json
+
+# Playwright (relatórios locais)
+test-results/
+playwright-report/

@@ -12,38 +12,29 @@ Interruptores. Vite + React + TypeScript.
 
 | Pasta | O que é |
 |---|---|
-| `src/` | O app **em uso hoje**: telas antigas + a **camada de dados** (`src/lib/repositories/`), que fala com o Apps Script e com o Supabase |
-| `prototype/` | A **interface oficial** do sistema, que vai substituir as telas de `src/`. Ainda roda com dados fictícios — ver decisão **D44** |
-| `supabase/` | Migrations, seeds e testes SQL do banco |
+| `prototype/` | **A interface** do sistema (o nome da pasta é provisório, ver D44). Publicada no GitHub Pages |
+| `src/lib/` | A **camada de dados** (`repositories/`, `supabase.ts`, `metas.ts`…), que a interface usa para falar com o Supabase |
+| `src/test/` | Testes de unidade da camada de dados |
+| `e2e/` | Teste de fumaça no navegador (Playwright), no modo de demonstração |
+| `supabase/` | Migrations, seeds, testes SQL, importação da planilha e calendário |
 | `docs/database/` | **Fonte da verdade sobre o banco**: visão geral, referência técnica, decisões (ADR) e ata de mudanças |
-| `Main.gs` | Sistema **legado em produção** (Google Apps Script + planilhas). Não alterar sem pedido explícito |
-| `tests/` | Teste de ponta a ponta (Playwright), pulado sem credenciais |
+| `Main.gs` | Sistema **legado** (Google Apps Script + planilhas), ainda usado pela fábrica até a virada. Não alterar sem pedido explícito |
 
-Duas interfaces convivem de propósito durante a transição: o Apps Script ainda é
-o sistema que a fábrica usa. A chave liga/desliga é a variável
-`VITE_DATA_SOURCE` (`gas`, padrão, ou `supabase`) — ver
-`src/lib/repositories/index.ts`.
+A UI antiga (telas de `src/`) foi aposentada em 03/10/2026, antes de ir para
+produção: a interface de `prototype/` é a única.
 
 ## Como rodar
 
 ```bash
 npm ci
-npm run dev            # app atual        → http://localhost:8080/Dashboard-Tomadas/
-npm run proto:dev      # interface nova   → http://localhost:8090/
+npm run dev            # interface → http://localhost:8090/
 ```
 
-Para construir telas **sem banco nenhum**, use o modo de demonstração — só
-funciona em `npm run dev`; um build de produção ignora a variável e cai no `gas`:
+Sem configuração, a interface abre no **modo de demonstração**: dados e contas
+fictícios, sem servidor (`gestor@demo.weg`, senha `demo123`, e as outras contas
+listadas na tela de entrada).
 
-```
-VITE_DATA_SOURCE=mock
-```
-
-Ele simula a área de acesso inteira (login, crachá, cadastro pendente, aprovação,
-bloqueio, recuperação de senha) com contas fictícias listadas em
-`src/lib/repositories/mock/contas.ts`, todas com a senha `123456`.
-
-Para o modo Supabase, crie um `.env.local` (não versionado):
+Para falar com o Supabase, crie um `.env.local` na raiz (não versionado):
 
 ```
 VITE_DATA_SOURCE=supabase
@@ -51,15 +42,27 @@ VITE_SUPABASE_URL=...
 VITE_SUPABASE_ANON_KEY=...
 ```
 
+Para construir telas contra a **área de acesso da camada de dados** sem banco,
+use `VITE_DATA_SOURCE=mock` (só em `npm run dev`; um build ignora). As contas
+estão em `src/lib/repositories/mock/contas.ts`, com a senha `123456`.
+
+## Publicação
+
+O GitHub Pages publica a interface a cada push na `main`
+(`.github/workflows/deploy.yml`). Ela sai em modo de demonstração, a menos que a
+variável do repositório `DATA_SOURCE` valha `supabase` e existam os segredos
+`VITE_SUPABASE_URL` e `VITE_SUPABASE_ANON_KEY` (*Settings → Secrets and variables
+→ Actions*). Cada PR passa por tipos, lint, testes e build (`ci.yml`).
+
 ## Verificação
 
 ```bash
-npm test               # testes de unidade (vitest)
+npm run typecheck      # tipos (interface e camada de dados)
 npm run lint           # eslint
-npm run build          # build do app atual
-npm run proto:build    # build da interface nova
+npm test               # testes de unidade (vitest)
+npm run test:e2e       # fumaça no navegador (Playwright)
+npm run build          # build da interface → prototype/dist
 npm run test:integration   # camada de dados contra o Supabase (precisa de .env.local)
-npm run test:e2e       # ponta a ponta (Playwright); pulado sem E2E_ADMIN_PASSWORD
 ```
 
 ## Antes de mexer no banco
