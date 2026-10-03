@@ -37,6 +37,20 @@ test("apontamento valida a OP e salva (demonstração)", async ({ page }) => {
   await expect(page.getByText("Apontamento salvo")).toBeVisible();
 });
 
+test("meta por pessoa exige o nº de operadores; OP aceita até 15 dígitos", async ({ page }) => {
+  await entrar(page, "gestor@demo.weg");
+  await page.goto("/#/apontamento");
+  const granel = "Bancada de embalagem a granel";
+  await page.getByLabel(`Nº da OP, linha 1, ${granel}`).fill("1234567890123");
+  await page.getByLabel(`Quantidade, linha 1, ${granel}`).fill("20000");
+  await page.getByRole("button", { name: "Salvar apontamento" }).click();
+  await expect(page.getByText("Informe o nº de operadores")).toBeVisible();
+  await expect(page.getByText("Informe quantas pessoas trabalharam")).toBeVisible();
+  await page.locator("li", { has: page.locator("h3", { hasText: granel }) }).getByLabel("Nº de operadores").fill("3");
+  await page.getByRole("button", { name: "Salvar apontamento" }).click();
+  await expect(page.getByText("Apontamento salvo")).toBeVisible();
+});
+
 test("operador não vê a gestão de usuários", async ({ page }) => {
   await entrar(page, "operador@demo.weg");
   await page.goto("/#/usuarios");

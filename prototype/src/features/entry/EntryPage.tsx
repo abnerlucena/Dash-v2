@@ -37,7 +37,7 @@ import { TagGroup } from "@/components/ui/Tag";
 import { TextArea, TextField } from "@/components/ui/TextField";
 import { DateField } from "@/components/ui/DateField";
 import { baseLabel } from "@/features/metas/metaBase";
-import { useDayTargets, type DayTarget } from "./dayTargets";
+import { exigeOperadores, useDayTargets, type DayTarget } from "./dayTargets";
 import { planSaves, type ExistingRecord } from "./payload";
 
 /* ---------- Modelo do formulário ---------- */
@@ -113,7 +113,8 @@ function currentShift(now = new Date()): { date: string; shift: Shift } {
   return { date: toIsoDate(day), shift };
 }
 
-const OP_PATTERN = /^\d{7}$/;
+// Nº da OP: só números, até 15 dígitos (D57). O banco recusa o resto, e uma OP ruim barra o apontamento inteiro
+const OP_PATTERN = /^\d{1,15}$/;
 const qtyOf = (r: OpRow) => (r.qty.trim() === "" ? 0 : Number(r.qty));
 
 function rowErrors(r: OpRow) {
@@ -121,7 +122,7 @@ function rowErrors(r: OpRow) {
   const errors: { op?: string; qty?: string } = {};
   if (qty !== "" && (!Number.isInteger(Number(qty)) || Number(qty) < 0)) errors.qty = "Use um número inteiro";
   if (qtyOf(r) > 0 && !r.op.trim()) errors.op = "Informe o número da OP";
-  else if (r.op.trim() && !OP_PATTERN.test(r.op.trim())) errors.op = "Use 7 dígitos (ex.: 4501234)";
+  else if (r.op.trim() && !OP_PATTERN.test(r.op.trim())) errors.op = "Use só números, até 15 dígitos";
   return errors;
 }
 
@@ -205,6 +206,16 @@ export function EntryPage({ notify }: EntryPageProps) {
     const [y, mo, d] = date.split("-");
     const when = `${SHIFT_META[shift].label}${overtime ? " · hora extra" : ""} · ${d}/${mo}/${y}`;
     const plan = planSaves(form, existing, MACHINES, { date, shift, overtime, savedBy: session?.nome ?? "" });
+    // Meta por pessoa sem o nº de operadores: o banco recusaria no fim (D54); avisa antes, com o nome da máquina
+    const missingPeople = plan
+      .filter((p) => targets.status === "ready" && exigeOperadores(targets.byMachine[p.machineId]?.base) && !form[p.machineId].people.trim())
+      .map((p) => machineById(p.machineId).name);
+    if (missingPeople.length) {
+      setShowErrors(true);
+      notify("Informe o nº de operadores", `${missingPeople.join(", ")}: a meta é por pessoa, e o número é obrigatório.`, "error");
+      window.setTimeout(() => bodyRef.current?.querySelector<HTMLElement>("[aria-invalid=true]")?.focus(), 0);
+      return;
+    }
     if (!plan.length) {
       notify("Nada para salvar", "Lance a quantidade de pelo menos uma OP, ou mude a observação ou o nº de operadores.", "error");
       return;
@@ -255,7 +266,7 @@ export function EntryPage({ notify }: EntryPageProps) {
     else if (ok) notify(`${ok} salvas, ${failedCount} com erro`, "As máquinas com erro continuam no formulário, com o motivo ao lado.", "error");
     else notify("Nada foi salvo", failed[plan[0].machineId], "error");
     if (!refreshed) notify("Salvo, mas a tela não atualizou", "Recarregue a página para ver os números novos.", "error");
-  }, [saving, live, targets.status, errorCount, notify, date, shift, overtime, form, existing, session, client]);
+  }, [saving, live, targets, errorCount, notify, date, shift, overtime, form, existing, session, client]);
 
   // Ctrl+S salva
   useEffect(() => {
@@ -532,6 +543,7 @@ function MachineEntryRow({
   const percent = meta ? Math.round((total / meta) * 100) : 0;
   const status = statusFor(percent);
   const tooHigh = hasMeta && total > meta * 2;
+  const peopleRequired = exigeOperadores(target?.base);
 
   const setRow = (key: string, patch: Partial<OpRow>) =>
     onChange((e) => ({ ...e, rows: e.rows.map((r) => (r.key === key ? { ...r, ...patch } : r)) }));
@@ -616,7 +628,8 @@ function MachineEntryRow({
           placeholder={turn.dependeDaLotacao && crew ? String(crew) : "–"}
           value={entry.people}
           onChange={(e) => onChange((x) => ({ ...x, people: e.target.value.replace(/\D/g, "").slice(0, 2) }))}
-          helper={peopleHelp}
+          helper={peopleRequired ? `Obrigatório. ${peopleHelp}` : peopleHelp}
+          error={peopleRequired && showErrors && !entry.people.trim() && (total > 0 || !!existing) ? "Informe quantas pessoas trabalharam" : null}
           inputClassName="text-right tabular-nums"
           className="mt-050"
         />
@@ -639,8 +652,8 @@ function MachineEntryRow({
                 placeholder="Ex.: 4501234"
                 list={listId}
                 value={r.op}
-                onChange={(e) => setRow(r.key, { op: e.target.value.replace(/\D/g, "").slice(0, 7) })}
-                error={showErrors || r.op.length >= 7 || (r.qty && !r.op) ? errors.op : null}
+                onChange={(e) => setRow(r.key, { op: e.target.value.replace(/\D/g, "").slice(0, 15) })}
+                error={showErrors || (r.qty && !r.op) ? errors.op : null}
                 inputClassName="font-code"
                 className="w-field-op flex-1 basis-field-op s:flex-none"
               />

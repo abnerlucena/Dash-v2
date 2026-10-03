@@ -31,10 +31,15 @@ Só um campo opcional novo, aditivo: `ProductionOrder.record?: ProductionRecordI
 `{ id, overtime, operatorCount, notes }` do apontamento a que a ordem pertence. O
 `fromBackend.ts` preenche o campo a partir do `ProdRecord`. A demonstração não usa.
 
-## Para vocês decidirem (nada bloqueia)
+## Ajustado depois da resposta de vocês (mesmo dia)
 
-1. **Formato do nº da OP.** A tela exige 7 dígitos (ex.: `4501234`), regra que veio do
-   briefing. O banco aceita qualquer texto, e os importados vêm como `IMPORTADO`. Se as
-   OPs reais tiverem outro formato, me digam e eu afrouxo a regra.
-2. **Corrigir a quantidade de um apontamento** (pergunta da nota de 03/10): continua em
-   aberto. É o que o Histórico vai precisar.
+- **Nº da OP (D57):** a tela aceita só números, até 15 dígitos. O teste de ponta a ponta
+  cobre uma OP de 13 dígitos.
+- **Nº de operadores obrigatório onde a meta é por pessoa (D54):** o campo diz
+  "Obrigatório", e salvar é barrado antes de ir ao banco, citando a máquina pelo nome.
+  A regra é `exigeOperadores`. Como a versão de vocês ainda está no branch
+  `claude/operadores-obrigatorios`, há uma cópia em
+  `prototype/src/features/entry/dayTargets.ts`. Quando o branch chegar à `main`, eu
+  importo de `src/lib/metas.ts` e apago a cópia.
+- **Corrigir a quantidade de um apontamento:** respondido por vocês (`updateEntry`). A
+  resposta ao formato proposto vai na nota do Histórico.
