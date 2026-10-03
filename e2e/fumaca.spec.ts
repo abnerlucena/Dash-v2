@@ -25,6 +25,18 @@ test("gestor entra e navega pelas telas principais", async ({ page }) => {
   expect(erros).toEqual([]);
 });
 
+test("apontamento valida a OP e salva (demonstração)", async ({ page }) => {
+  await entrar(page, "gestor@demo.weg");
+  await page.goto("/#/apontamento");
+  const maquina = "Máquina de tomadas Composé (Aumaq)";
+  await page.getByLabel(`Quantidade, linha 1, ${maquina}`).fill("5000");
+  await page.getByRole("button", { name: "Salvar apontamento" }).click();
+  await expect(page.getByText("Corrija os campos destacados")).toBeVisible();
+  await page.getByLabel(`Nº da OP, linha 1, ${maquina}`).fill("4511111");
+  await page.getByRole("button", { name: "Salvar apontamento" }).click();
+  await expect(page.getByText("Apontamento salvo")).toBeVisible();
+});
+
 test("operador não vê a gestão de usuários", async ({ page }) => {
   await entrar(page, "operador@demo.weg");
   await page.goto("/#/usuarios");

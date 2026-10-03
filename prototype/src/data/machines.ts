@@ -117,6 +117,19 @@ export interface ProductionOrder {
   recordedAt: Date;
   /** Observação do operador (vira mensagem na conversa da OP) */
   note: OrderNote | null;
+  /** Só com dados do banco: o apontamento (máquina + dia + turno + regime) a que esta linha pertence */
+  record?: ProductionRecordInfo;
+}
+
+/** O apontamento no banco: um por máquina + dia + turno + regime (D10, D27); as linhas acima são as ordens dele */
+export interface ProductionRecordInfo {
+  id: string;
+  /** hora extra (D27): fica fora da meta, e é um apontamento separado do turno normal */
+  overtime: boolean;
+  /** nº de operadores gravado; null = não informado */
+  operatorCount: number | null;
+  /** observação do apontamento */
+  notes: string;
 }
 
 export interface DayPoint {

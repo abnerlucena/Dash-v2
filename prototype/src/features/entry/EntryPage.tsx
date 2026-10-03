@@ -1,7 +1,11 @@
-import { ChevronDown, MessageSquarePlus, Plus, RotateCcw, Save, Search, Trash2 } from "lucide-react";
+import { ChevronDown, History, MessageSquarePlus, Plus, RefreshCw, RotateCcw, Save, Search, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { ProdRecord } from "../../../../src/lib/api";
+import { mensagemDeErro } from "../../../../src/lib/erros";
+import { metaDoTurno } from "../../../../src/lib/metas";
 import {
   DATA_END,
+  DATA_ORIGIN,
   DATA_START,
   LINE_ACCENT,
   MACHINE_GROUPS,
@@ -11,25 +15,30 @@ import {
   STATUS_META,
   endOfMonth,
   machineById,
-  metaPerShift,
+  opLabel,
   statusFor,
   toIsoDate,
   type Shift,
 } from "@/data/machines";
+import { reloadBackendData } from "@/data/fromBackend";
 import { cn, formatNumber, readToken, type Notify } from "@/lib/utils";
+import { useAccess } from "@/features/access/AccessContext";
 import { useOps } from "@/features/ops/OpsStore";
+import { shiftAt } from "@/features/tv/tvMetrics";
 import { PageBody, PageHeader } from "@/components/layout/PageHeader";
 import { SegmentedBar } from "@/components/data/SegmentedBar";
 import { Button, IconButton } from "@/components/ui/Button";
 import { Checkbox } from "@/components/ui/Checkbox";
-import { EmptyState } from "@/components/ui/Feedback";
+import { EmptyState, ErrorMessage } from "@/components/ui/Feedback";
 import { Lozenge } from "@/components/ui/Lozenge";
 import { Modal } from "@/components/ui/Modal";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { TagGroup } from "@/components/ui/Tag";
 import { TextArea, TextField } from "@/components/ui/TextField";
 import { DateField } from "@/components/ui/DateField";
-import { baseLabel, crewOf, shiftMeta, useBases } from "@/features/metas/metaBase";
+import { baseLabel } from "@/features/metas/metaBase";
+import { useDayTargets, type DayTarget } from "./dayTargets";
+import { planSaves, type ExistingRecord } from "./payload";
 
 /* ---------- Modelo do formulário ---------- */
 interface OpRow {
@@ -39,39 +48,69 @@ interface OpRow {
   rework: boolean;
 }
 interface MachineEntry {
+  /** ordens NOVAS deste lançamento: salvar acrescenta às já gravadas (D30) */
   rows: OpRow[];
   note: string;
   noteOpen: boolean;
-  /** já existia apontamento salvo para esta data/turno */
-  existing: boolean;
   /**
    * Nº de operadores no posto, em TODA máquina (D12, D52). Vazio = não
    * informado; ao salvar vira 0, que é o que apaga um valor gravado antes.
    */
   people: string;
+  /** o banco recusou o último salvar desta máquina (o que foi digitado continua aqui) */
+  error?: string;
 }
 type Form = Record<string, MachineEntry>;
+
+/** O que já está gravado para a máquina neste dia, turno e regime: aparece, mas não se edita aqui */
+interface Existing extends ExistingRecord {
+  good: number;
+  rework: number;
+  ops: string[];
+}
 
 let rowSeq = 0;
 const newRow = (op = "", qty = "", rework = false): OpRow => ({ key: `r${rowSeq++}`, op, qty, rework });
 
-/** Carrega o que já foi apontado para a data/turno (edição) ou um formulário vazio */
-function loadForm(date: string, shift: Shift): Form {
+/**
+ * Formulário vazio para a data/turno/regime, com o que já foi apontado ao lado.
+ * As ordens gravadas NÃO voltam para os campos: salvar de novo acrescenta (D30),
+ * e reenviar as mesmas ordens as duplicaria. Corrigir o que já está gravado é no
+ * Histórico. A observação e o nº de pessoas, que são do apontamento, voltam.
+ */
+function loadForm(date: string, shift: Shift, overtime: boolean): { form: Form; existing: Record<string, Existing> } {
   const form: Form = {};
+  const existing: Record<string, Existing> = {};
   for (const m of MACHINES) {
-    const orders = m.orders.filter((o) => toIsoDate(o.date) === date && o.shift === shift);
+    const orders = (m.backend?.orders ?? m.orders).filter(
+      (o) => toIsoDate(o.date) === date && o.shift === shift && (o.record?.overtime ?? false) === overtime,
+    );
+    const record = orders.find((o) => o.record)?.record;
+    if (orders.length)
+      existing[m.id] = {
+        id: record?.id ?? "",
+        operatorCount: record?.operatorCount ?? null,
+        notes: record ? record.notes : (orders.find((o) => o.note)?.note?.text ?? ""),
+        good: orders.reduce((s, o) => s + (o.rework ? 0 : o.quantity), 0),
+        rework: orders.reduce((s, o) => s + (o.rework ? o.quantity : 0), 0),
+        ops: [...new Set(orders.filter((o) => o.quantity > 0).map(opLabel))],
+      };
+    const ex = existing[m.id];
     form[m.id] = {
-      rows: orders.length
-        ? orders.map((o) => newRow(o.opId.replace("OP ", ""), String(o.quantity), o.rework))
-        : [newRow()],
-      note: orders.find((o) => o.note)?.note?.text ?? "",
-      noteOpen: orders.some((o) => o.note),
-      existing: orders.length > 0,
-      // Demonstração: os apontamentos de mentira não guardam o nº de pessoas
-      people: "",
+      rows: [newRow()],
+      note: ex?.notes ?? "",
+      noteOpen: !!ex?.notes,
+      people: ex?.operatorCount ? String(ex.operatorCount) : "",
     };
   }
-  return form;
+  return { form, existing };
+}
+
+/** Dia e turno de agora: o T3 da madrugada pertence ao dia em que começou */
+function currentShift(now = new Date()): { date: string; shift: Shift } {
+  const shift = shiftAt(now);
+  const day = shift === 3 && now.getHours() < 12 ? new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1) : now;
+  return { date: toIsoDate(day), shift };
 }
 
 const OP_PATTERN = /^\d{7}$/;
@@ -91,27 +130,39 @@ interface EntryPageProps {
 }
 
 export function EntryPage({ notify }: EntryPageProps) {
-  const [date, setDate] = useState(toIsoDate(DATA_END));
-  const [shift, setShift] = useState<Shift>(1);
-  const [form, setForm] = useState<Form>(() => loadForm(toIsoDate(DATA_END), 1));
+  const { client, session } = useAccess();
+  // Com o banco, grava de verdade; na demonstração, só simula
+  const live = DATA_ORIGIN === "backend";
+  const start = useMemo(() => (live ? currentShift() : { date: toIsoDate(DATA_END), shift: 1 as Shift }), [live]);
+  const [date, setDate] = useState(start.date);
+  const [shift, setShift] = useState<Shift>(start.shift);
+  const [overtime, setOvertime] = useState(false);
+  const [loaded, setLoaded] = useState(() => loadForm(start.date, start.shift, false));
+  const form = loaded.form;
+  const existing = loaded.existing;
+  const setForm = (fn: (f: Form) => Form) => setLoaded((l) => ({ ...l, form: fn(l.form) }));
+  const [targetsAttempt, setTargetsAttempt] = useState(0);
+  const targets = useDayTargets(date, targetsAttempt);
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
   const [savedAt, setSavedAt] = useState<Date | null>(null);
   const [showErrors, setShowErrors] = useState(false);
   const [search, setSearch] = useState("");
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
-  const [pending, setPending] = useState<{ date: string; shift: Shift } | null>(null);
+  const [pending, setPending] = useState<{ date: string; shift: Shift; overtime: boolean } | null>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
 
-  const switchContext = (next: { date: string; shift: Shift }) => {
-    // Trocar data/turno com alterações não salvas pede confirmação
+  type Context = { date: string; shift: Shift; overtime: boolean };
+  const switchContext = (next: Context) => {
+    // Trocar data/turno/regime com alterações não salvas pede confirmação
     if (dirty) return setPending(next);
     applyContext(next);
   };
-  const applyContext = (next: { date: string; shift: Shift }) => {
+  const applyContext = (next: Context) => {
     setDate(next.date);
     setShift(next.shift);
-    setForm(loadForm(next.date, next.shift));
+    setOvertime(next.overtime);
+    setLoaded(loadForm(next.date, next.shift, next.overtime));
     setDirty(false);
     setSavedAt(null);
     setShowErrors(false);
@@ -119,22 +170,27 @@ export function EntryPage({ notify }: EntryPageProps) {
   };
 
   const update = (machineId: string, fn: (e: MachineEntry) => MachineEntry) => {
-    setForm((f) => ({ ...f, [machineId]: fn(f[machineId]) }));
+    setForm((f) => ({ ...f, [machineId]: { ...fn(f[machineId]), error: undefined } }));
     setDirty(true);
     setSavedAt(null);
   };
 
+  // Produção boa do turno: o que já está gravado + o que está sendo lançado (retrabalho fica fora, D11)
   const totals = useMemo(
-    () => Object.fromEntries(Object.entries(form).map(([id, e]) => [id, e.rows.reduce((s, r) => s + qtyOf(r), 0)])),
-    [form],
+    () =>
+      Object.fromEntries(
+        Object.entries(form).map(([id, e]) => [id, (existing[id]?.good ?? 0) + e.rows.reduce((s, r) => s + (r.rework ? 0 : qtyOf(r)), 0)]),
+      ),
+    [form, existing],
   );
   const filled = Object.values(totals).filter((t) => t > 0).length;
   const errorCount = Object.values(form)
     .flatMap((e) => e.rows)
     .reduce((n, r) => n + Object.keys(rowErrors(r)).length, 0);
 
-  const save = useCallback(() => {
+  const save = useCallback(async () => {
     if (saving) return;
+    if (live && targets.status === "loading") return;
     if (errorCount > 0) {
       setShowErrors(true);
       notify(
@@ -146,18 +202,60 @@ export function EntryPage({ notify }: EntryPageProps) {
       window.setTimeout(() => bodyRef.current?.querySelector<HTMLElement>("[aria-invalid=true]")?.focus(), 0);
       return;
     }
+    const [y, mo, d] = date.split("-");
+    const when = `${SHIFT_META[shift].label}${overtime ? " · hora extra" : ""} · ${d}/${mo}/${y}`;
+    const plan = planSaves(form, existing, MACHINES, { date, shift, overtime, savedBy: session?.nome ?? "" });
+    if (!plan.length) {
+      notify("Nada para salvar", "Lance a quantidade de pelo menos uma OP, ou mude a observação ou o nº de operadores.", "error");
+      return;
+    }
     setSaving(true);
-    // Com o backend: data.production.saveEntries(...), com operatorCount = operatorCountFor(entry.people)
-    // em cada máquina (./payload.ts: vazio manda 0, que apaga)
-    window.setTimeout(() => {
-      setSaving(false);
-      setDirty(false);
-      setShowErrors(false);
-      setSavedAt(new Date());
-      const [y, mo, d] = date.split("-");
-      notify("Apontamento salvo", `${filled} ${filled === 1 ? "máquina" : "máquinas"} · ${SHIFT_META[shift].label} · ${d}/${mo}/${y}`);
-    }, readToken("--ds-motion-duration-skeleton") / 2);
-  }, [saving, errorCount, notify, date, filled, shift]);
+
+    // Demonstração: simula e mantém o que foi digitado
+    if (!live || !client.reads) {
+      window.setTimeout(() => {
+        setSaving(false);
+        setDirty(false);
+        setShowErrors(false);
+        setSavedAt(new Date());
+        notify("Apontamento salvo", `${plan.length} ${plan.length === 1 ? "máquina" : "máquinas"} · ${when}`);
+      }, readToken("--ds-motion-duration-skeleton") / 2);
+      return;
+    }
+
+    // Com o banco: uma máquina por vez. Se uma falhar, as outras seguem, e o que
+    // falhou continua no formulário com o motivo ao lado.
+    const reads = client.reads;
+    const failed: Record<string, string> = {};
+    for (const p of plan) {
+      try {
+        if (p.needsSave) await reads.production.saveEntries([p.payload], { workMode: overtime ? "overtime" : "regular" }, session);
+        if (p.clearNoteOf) await reads.production.updateObs({ id: p.clearNoteOf } as ProdRecord, "", session);
+      } catch (e) {
+        failed[p.machineId] = mensagemDeErro(e, "Não foi possível salvar esta máquina.");
+      }
+    }
+    let refreshed = true;
+    try {
+      await reloadBackendData(reads, session);
+    } catch {
+      refreshed = false;
+    }
+    const fresh = loadForm(date, shift, overtime);
+    for (const [id, message] of Object.entries(failed)) fresh.form[id] = { ...form[id], error: message };
+    setLoaded(fresh);
+    setSaving(false);
+
+    const ok = plan.length - Object.keys(failed).length;
+    const failedCount = Object.keys(failed).length;
+    setShowErrors(false);
+    setDirty(failedCount > 0);
+    setSavedAt(ok > 0 && !failedCount ? new Date() : null);
+    if (!failedCount) notify("Apontamento salvo", `${ok} ${ok === 1 ? "máquina" : "máquinas"} · ${when}`);
+    else if (ok) notify(`${ok} salvas, ${failedCount} com erro`, "As máquinas com erro continuam no formulário, com o motivo ao lado.", "error");
+    else notify("Nada foi salvo", failed[plan[0].machineId], "error");
+    if (!refreshed) notify("Salvo, mas a tela não atualizou", "Recarregue a página para ver os números novos.", "error");
+  }, [saving, live, targets.status, errorCount, notify, date, shift, overtime, form, existing, session, client]);
 
   // Ctrl+S salva
   useEffect(() => {
@@ -171,11 +269,30 @@ export function EntryPage({ notify }: EntryPageProps) {
     return () => window.removeEventListener("keydown", onKey);
   }, [save]);
 
+  // Apontar atrasado é permitido (D10): de 31 dias atrás (ou do primeiro dado) até hoje
+  const todayIso = toIsoDate(new Date());
+  const monthAgo = new Date();
+  monthAgo.setDate(monthAgo.getDate() - 31);
+  const minDate = live && monthAgo < DATA_START ? monthAgo : DATA_START;
+
   const q = search.trim().toLowerCase();
   const groups = MACHINE_GROUPS.map((g) => ({
     ...g,
     machines: g.machineIds.map(machineById).filter((m) => !q || m.name.toLowerCase().includes(q)),
   })).filter((g) => g.machines.length > 0);
+
+  // Apps Script: o salvar de lá SUBSTITUI as ordens do turno, e esta tela acrescenta (D30)
+  if (live && client.kind === "gas")
+    return (
+      <div className="px-200 pt-300 m:px-400">
+        <h1 className="font-heading-large text-default">Apontamento</h1>
+        <EmptyState
+          icon={Save}
+          title="Apontar daqui só com o Supabase"
+          hint="No modo Apps Script, salvar substitui as ordens do turno, e esta tela foi feita para acrescentar. Aponte pela planilha até a virada."
+        />
+      </div>
+    );
 
   const status = savedAt ? (
     <Lozenge appearance="success">
@@ -197,7 +314,7 @@ export function EntryPage({ notify }: EntryPageProps) {
               appearance="subtle"
               iconBefore={RotateCcw}
               isDisabled={!dirty}
-              onClick={() => applyContext({ date, shift })}
+              onClick={() => applyContext({ date, shift, overtime })}
             >
               Descartar alterações
             </Button>
@@ -209,15 +326,28 @@ export function EntryPage({ notify }: EntryPageProps) {
       />
 
       <PageBody>
+        {targets.status === "error" && (
+          <ErrorMessage
+            title="Não foi possível carregar as metas deste dia"
+            actions={
+              <Button iconBefore={RefreshCw} onClick={() => setTargetsAttempt((n) => n + 1)}>
+                Tentar de novo
+              </Button>
+            }
+          >
+            {targets.message} Dá para lançar e salvar: quem grava a meta do apontamento é o banco. Só a porcentagem desta tela fica sem
+            referência.
+          </ErrorMessage>
+        )}
         {/* ---------- Contexto: data, turno, busca, progresso ---------- */}
         <div className="flex flex-wrap items-start gap-x-300 gap-y-200 rounded-large bg-surface-sunken p-200">
           <DateField
             label="Data"
             value={date}
-            min={toIsoDate(DATA_START)}
-            max={toIsoDate(endOfMonth(DATA_END))}
-            today={toIsoDate(DATA_END)}
-            onChange={(d) => switchContext({ date: d, shift })}
+            min={toIsoDate(minDate)}
+            max={live ? todayIso : toIsoDate(endOfMonth(DATA_END))}
+            today={live ? todayIso : toIsoDate(DATA_END)}
+            onChange={(d) => switchContext({ date: d, shift, overtime })}
             className="w-1000 min-w-column-name"
           />
           <div className="flex flex-col gap-050">
@@ -229,8 +359,24 @@ export function EntryPage({ notify }: EntryPageProps) {
               size="control"
               iconOnly={false}
               value={String(shift)}
-              onChange={(v) => switchContext({ date, shift: Number(v) as Shift })}
+              onChange={(v) => switchContext({ date, shift: Number(v) as Shift, overtime })}
               options={SHIFTS.map((s) => ({ value: String(s), label: SHIFT_META[s].label }))}
+            />
+          </div>
+          <div className="flex flex-col gap-050">
+            <span id="entry-mode" className="font-body-small font-semibold text-subtle">
+              Regime <span className="font-normal text-subtlest">· hora extra fica fora da meta</span>
+            </span>
+            <SegmentedControl
+              label="Regime"
+              size="control"
+              iconOnly={false}
+              value={overtime ? "overtime" : "regular"}
+              onChange={(v) => switchContext({ date, shift, overtime: v === "overtime" })}
+              options={[
+                { value: "regular", label: "Normal" },
+                { value: "overtime", label: "Hora extra" },
+              ]}
             />
           </div>
           <TextField
@@ -311,6 +457,9 @@ export function EntryPage({ notify }: EntryPageProps) {
                         key={m.id}
                         machineId={m.id}
                         entry={form[m.id]}
+                        existing={existing[m.id]}
+                        target={targets.status === "ready" ? targets.byMachine[m.id] : undefined}
+                        overtime={overtime}
                         total={totals[m.id]}
                         showErrors={showErrors}
                         onChange={(fn) => update(m.id, fn)}
@@ -342,12 +491,19 @@ export function EntryPage({ notify }: EntryPageProps) {
 function MachineEntryRow({
   machineId,
   entry,
+  existing,
+  target,
+  overtime,
   total,
   showErrors,
   onChange,
 }: {
   machineId: string;
   entry: MachineEntry;
+  existing: Existing | undefined;
+  /** meta que vale na data apontada; undefined = ainda carregando ou indisponível */
+  target: DayTarget | undefined;
+  overtime: boolean;
   total: number;
   showErrors: boolean;
   onChange: (fn: (e: MachineEntry) => MachineEntry) => void;
@@ -357,22 +513,25 @@ function MachineEntryRow({
   // OPs liberadas para esta máquina: o campo sugere os números
   const openOps = ops.filter((op) => op.machineId === m.id && (op.stage === "running" || op.stage === "paused"));
   const listId = `ops-${m.id}`;
-  // Meta do turno pela base vigente e pelas pessoas informadas — a conta é a de src/lib/metas.ts (teto D49)
-  const bases = useBases();
-  const base = bases[m.id] ?? "per_shift";
-  const turn = shiftMeta(m.id, m.hasTarget ? metaPerShift(m) : 0, base, entry.people);
-  const meta = m.hasTarget ? turn.valor : 0;
-  const crew = crewOf(m.id);
+  // Meta do turno NA DATA apontada, pela base e pelas pessoas informadas — a conta é a de src/lib/metas.ts (teto D49)
+  const base = target?.base ?? "per_shift";
+  const crew = target?.lotacao ?? null;
+  const turn = metaDoTurno({ cadastrada: m.hasTarget ? (target?.cadastrada ?? 0) : 0, base, pessoas: entry.people, lotacaoPadrao: crew });
+  // Hora extra não tem meta (D27); sem meta cadastrada na data, também não
+  const hasMeta = m.hasTarget && !overtime && turn.valor > 0;
+  const meta = hasMeta ? turn.valor : 0;
   const peopleHelp = !m.hasTarget
     ? "Só registra a presença: centro por demanda, sem meta."
-    : !turn.dependeDaLotacao
+    : overtime
+      ? "Só registra a presença: hora extra fica fora da meta."
+      : !turn.dependeDaLotacao
       ? "Só registra a presença: a meta desta máquina não muda com o nº de pessoas."
       : base === "per_operator"
         ? `A meta é por pessoa: ${formatNumber(turn.cadastrada)} × pessoas.`
         : `A meta acompanha o nº de pessoas${crew ? `, até a lotação padrão de ${crew}` : ""}. Gente a mais não aumenta a meta.`;
   const percent = meta ? Math.round((total / meta) * 100) : 0;
   const status = statusFor(percent);
-  const tooHigh = m.hasTarget && total > meta * 2;
+  const tooHigh = hasMeta && total > meta * 2;
 
   const setRow = (key: string, patch: Partial<OpRow>) =>
     onChange((e) => ({ ...e, rows: e.rows.map((r) => (r.key === key ? { ...r, ...patch } : r)) }));
@@ -383,10 +542,28 @@ function MachineEntryRow({
       <div className="flex min-w-0 flex-col gap-100 l:w-column-name l:shrink-0">
         <div className="flex flex-wrap items-center gap-100">
           <h3 className="font-heading-xsmall text-default">{m.name}</h3>
-          {entry.existing && <Lozenge appearance="information">Já apontado</Lozenge>}
+          {existing && <Lozenge appearance="information">Já apontado</Lozenge>}
         </div>
         <TagGroup items={m.lines} accentFor={(l) => LINE_ACCENT[l] ?? "gray"} />
-        {m.hasTarget ? (
+        {existing && (
+          <p className="font-body-small text-subtle">
+            Gravado: <span className="font-semibold tabular-nums text-default">{formatNumber(existing.good)}</span> peças
+            {existing.rework > 0 && <> + {formatNumber(existing.rework)} de retrabalho</>}
+            {existing.ops.length > 0 && (
+              <>
+                {" "}
+                em {existing.ops.length === 1 ? "OP" : "OPs"} <span className="font-code">{existing.ops.join(", ")}</span>
+              </>
+            )}
+            . O que lançar abaixo <strong className="font-semibold">soma</strong> a isso.{" "}
+            <a href="#/historico" className="inline-flex items-center gap-025 text-link hover:underline">
+              <History aria-hidden className="size-icon-small" />
+              Corrigir no Histórico
+            </a>
+          </p>
+        )}
+        {entry.error && <p className="font-body-small text-danger" role="alert">Não salvou: {entry.error}</p>}
+        {hasMeta ? (
           <>
             <div className="mt-050 flex flex-wrap items-center gap-100">
               <SegmentedBar percent={percent} status={status} label={`${m.name}: ${percent}% da meta do turno`} />
@@ -403,8 +580,14 @@ function MachineEntryRow({
           </>
         ) : (
           <p className="mt-050 font-body-small text-subtlest">
-            <span className="font-semibold tabular-nums text-default">{formatNumber(total)}</span> peças no turno · centro por
-            demanda, sem meta
+            <span className="font-semibold tabular-nums text-default">{formatNumber(total)}</span> peças no turno ·{" "}
+            {!m.hasTarget
+              ? "centro por demanda, sem meta"
+              : overtime
+                ? "hora extra, fora da meta"
+                : target
+                  ? "sem meta cadastrada nesta data"
+                  : "carregando a meta do dia…"}
           </p>
         )}
         {openOps.length > 0 && (

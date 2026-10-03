@@ -3,6 +3,7 @@ import type { DataSource, MetaInfoRaw, TargetHistoryItem } from "../../../src/li
 import { metaDoTurno } from "../../../src/lib/metas";
 import {
   endOfMonth,
+  installBackendData,
   fromIsoDate,
   isWeekendDate,
   toIsoDate,
@@ -11,6 +12,7 @@ import {
   type Line,
   type MetaChange,
   type ProductionOrder,
+  type ProductionRecordInfo,
   type Shift,
 } from "./machines";
 
@@ -61,6 +63,15 @@ export async function loadBackendData(source: ReadSource, session: Session | nul
     holidays: (calendar.holidays ?? []) as Holiday[],
     now: new Date(),
   });
+}
+
+/**
+ * Busca de novo e reinstala os dados do banco, depois de uma gravação. As telas
+ * que montarem em seguida já leem o conjunto novo; a tela que gravou recarrega o
+ * próprio estado.
+ */
+export async function reloadBackendData(source: ReadSource, session: Session | null) {
+  installBackendData(await loadBackendData(source, session));
 }
 
 /* ---------- Datas ---------- */
@@ -166,6 +177,14 @@ export function buildBackendData(input: BackendInput): BackendData {
     const operator = rec.savedBy || "Sem autor";
     const base = rec.id ?? `${rec.date}-${shift}-${rec.machineId}`;
     const orders: ProductionOrder[] = [];
+    const record: ProductionRecordInfo | undefined = rec.id
+      ? {
+          id: rec.id,
+          overtime: rec.workMode === "overtime",
+          operatorCount: rec.operatorCount && rec.operatorCount > 0 ? rec.operatorCount : null,
+          notes: String(rec.obs ?? "").trim(),
+        }
+      : undefined;
     const push = (opId: string, quantity: number, rework: boolean, note: string | undefined) =>
       orders.push({
         id: `${base}-${orders.length}`,
@@ -182,6 +201,7 @@ export function buildBackendData(input: BackendInput): BackendData {
         operator,
         recordedAt,
         note: note ? { id: `n-${base}-${orders.length}`, text: note, author: operator } : null,
+        record,
       });
 
     for (const o of rec.ordensProducao ?? []) {

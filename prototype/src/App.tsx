@@ -261,7 +261,7 @@ function Shell() {
               }}
             >
               {DATA_ORIGIN === "backend"
-                ? `Dados do banco · só leitura por enquanto · ${PERIOD_LABEL}`
+                ? `Dados do banco · ${PERIOD_LABEL}`
                 : `Modo de demonstração · dados fictícios de ${PERIOD_LABEL}`}
             </Banner>
           )
