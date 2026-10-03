@@ -56,6 +56,21 @@ export interface ProductionEntryPayload {
   operatorCount?: number;
 }
 
+/**
+ * O que corrigir num apontamento (production.updateEntry, D59). Campo ausente
+ * = não mexer. Vazio = apagar: `obs: ""` apaga a observação e
+ * `operatorCount: 0` apaga o nº de pessoas (D52).
+ */
+export interface UpdateEntryChanges {
+  /** SUBSTITUI as OPs do apontamento. Para tirar todas, apague o apontamento. */
+  ordensProducao?: OrdemProducao[];
+  date?: string;
+  turno?: string;
+  workMode?: "regular" | "overtime";
+  obs?: string;
+  operatorCount?: number;
+}
+
 export interface SaveEntriesOptions {
   /** Só modo Supabase: 'overtime' marca o lote como hora extra (D27). */
   workMode?: "regular" | "overtime";
@@ -149,6 +164,21 @@ export interface DataSource {
     getAll(session: Session | null): Promise<{ data: ProdRecord[] | unknown[] }>;
     saveEntries(entries: ProductionEntryPayload[], options: SaveEntriesOptions, session: Session | null): Promise<void>;
     updateObs(record: ProdRecord, obs: string, session: Session | null): Promise<void>;
+    /**
+     * Corrige UM apontamento: OPs, quantidade, retrabalho, data, turno, modo,
+     * observação, nº de pessoas (D59). É o que a tela de Histórico usa.
+     *
+     * Diferente de `saveEntries`, que ACRESCENTA OPs a um apontamento (D30),
+     * aqui as OPs informadas SUBSTITUEM as que estavam lá.
+     *
+     * Mudar a data refaz a meta do apontamento com a do dia novo — exceto nos
+     * importados, que guardam a meta da planilha. O banco cobra as mesmas
+     * regras do apontamento: OP só com números (D57) e, onde a meta é por
+     * pessoa, o nº de pessoas (D54).
+     *
+     * Só Supabase. No Apps Script não existe.
+     */
+    updateEntry(id: string, changes: UpdateEntryChanges, session: Session | null): Promise<void>;
     bulkDelete(ids: string[], session: Session | null): Promise<void>;
     bulkMove(ids: string[], newDate: string, session: Session | null): Promise<void>;
     bulkEditTurno(ids: string[], newTurno: string, session: Session | null): Promise<void>;
