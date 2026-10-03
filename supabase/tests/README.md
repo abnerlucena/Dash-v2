@@ -14,6 +14,7 @@ cada execução acontece dentro de uma transação que termina em `rollback`
 | `05_carga_importacao.sql` | Carga e reversão do lote (migration 0019). **Monta o próprio lote de rascunho** — não depende de haver um lote na área de preparo |
 | `06_meta_por_lotacao.sql` | Meta que depende da lotação (migrations 0021 e 0022): as três bases, a conta na leitura, e `save_machine_targets` preservando a base |
 | `07_operadores_obrigatorios.sql` | Nº de operadores obrigatório onde a meta é por pessoa (migration 0028): quem exige, o que recusa, e que o passado importado continua lido como 1 pessoa |
+| `08_calendario_pelo_app.sql` | O gestor mantém o calendário sozinho, pelo app: feriado de dia inteiro, parada de um turno, escopo municipal, remoção — e o operador não consegue. Confere também que o turno anulado sai do atingimento |
 
 ## Como rodar (SQL Editor do Supabase)
 
