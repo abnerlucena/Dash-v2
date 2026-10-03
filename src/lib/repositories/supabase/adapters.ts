@@ -14,6 +14,7 @@
 //     atingimento.
 import type { Tables } from "../../database.types";
 import type { Holiday, Machine, OrdemProducao, ProdRecord } from "../../api";
+import type { UpdateEntryChanges } from "../types";
 
 export type SummaryRow = Tables<"production_summary">;
 export type OrderRow = Pick<Tables<"production_orders">, "production_record_id" | "order_number" | "quantity" | "is_rework" | "notes">;
@@ -100,6 +101,38 @@ export function buildProdRecords(rows: SummaryRow[], orders: OrderRow[], names: 
 }
 
 /** Ordens da tela (formato legado) → JSON esperado por save_production_record. */
+/**
+ * Argumentos de update_production_record a partir de uma correção (D59).
+ * Só entra o que veio: no banco, parâmetro ausente quer dizer "mantém".
+ */
+export function toUpdateEntryArgs(id: string, c: UpdateEntryChanges) {
+  const args: {
+    p_id: string;
+    p_orders?: ReturnType<typeof toOrdersJson>;
+    p_production_date?: string;
+    p_shift_id?: number;
+    p_work_mode?: "regular" | "overtime";
+    p_notes?: string;
+    p_operator_count?: number;
+  } = { p_id: id };
+
+  if (c.ordensProducao !== undefined) {
+    const orders = toOrdersJson(c.ordensProducao);
+    // Apontamento sem OP nenhuma não faz sentido: tirar tudo é apagar, e
+    // apagar tem a sua própria operação e a sua própria permissão.
+    if (orders.length === 0) throw new Error("Para tirar todas as OPs, apague o apontamento.");
+    args.p_orders = orders;
+  }
+  if (c.date !== undefined) args.p_production_date = c.date;
+  if (c.turno !== undefined) args.p_shift_id = shiftIdFromTurno(c.turno);
+  if (c.workMode !== undefined) args.p_work_mode = c.workMode;
+  if (c.obs !== undefined) args.p_notes = c.obs;              // "" apaga
+  if (c.operatorCount !== undefined) args.p_operator_count = c.operatorCount;  // 0 apaga (D52)
+
+  if (Object.keys(args).length === 1) throw new Error("Nada para corrigir.");
+  return args;
+}
+
 export function toOrdersJson(ordens: OrdemProducao[] | undefined) {
   return (ordens || [])
     .filter(o => Number(o.quantidade) > 0)

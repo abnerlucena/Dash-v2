@@ -17,6 +17,47 @@ Formato de cada entrada:
 
 ---
 
+## [0.23.0] — 03/10/2026 — Corrigir um apontamento, e mover de dia leva a meta junto
+- Status: **Implementado** — aplicada no Supabase em 03/10/2026
+- Migration: `20261003110000_corrigir_apontamento.sql` (0030)
+- Decisões: D59 (nova), D08, D52, D54, D57
+
+### O defeito
+Mover um apontamento de dia — um só ou em massa — não atualizava a meta. Ele
+ficava com a meta do dia antigo. Prova num apontamento real (transação desfeita):
+Horizontal N°1, 03/02/2026, meta 7.000, movido para 08/10/2026, quando a meta
+vigente é 10.000 → continuava 7.000.
+
+### Alterado
+- `update_production_record` corrige um apontamento inteiro e passa a seguir
+  D52 (zero apaga o nº de pessoas), D54 (onde a meta é por pessoa o número é
+  obrigatório, conferido na data final) e D57 (formato da OP). As OPs informadas
+  **substituem** as antigas. Valida também o modo de trabalho.
+- `update_production_record` e `bulk_update_production_records`: **mudar a data
+  refaz a meta e a base** com as do dia de destino. Trocar só o turno não mexe
+  na meta, que é do dia.
+- **Exceção: o importado mantém a meta da planilha.** Para datas anteriores a
+  25/09/2026 a linha do tempo de metas do banco guarda os valores de reserva
+  (500, 600, 160) que nunca foram reais (D38). Recalcular trocaria 7.000 por 500.
+- `insert_production_orders` ganhou `p_permite_importado`: corrigir a quantidade
+  de um apontamento importado não exige trocar a OP `IMPORTADO`. Sem isso, com a
+  D57, nenhum número do histórico seria corrigível. Num apontamento do app,
+  `IMPORTADO` continua recusado. A assinatura antiga foi derrubada antes (D53.1).
+- Função interna nova `refazer_meta_do_apontamento(id)`, para a regra morar num
+  lugar só.
+
+### Testes
+- Suíte 10 nova (12 casos). Antes da migration falhavam os casos de D52, D54, da
+  meta ao mover e o de corrigir um importado. As outras 9 suítes continuam passando.
+
+### Impacto no frontend
+- Contrato: `production.updateEntry(id, changes, session)`, com
+  `UpdateEntryChanges` em `types.ts`. Campo ausente mantém; `obs: ""` apaga a
+  observação; `operatorCount: 0` apaga as pessoas. Tirar todas as OPs é recusado
+  no próprio adaptador: para isso se apaga o apontamento.
+
+---
+
 ## [0.22.0] — 03/10/2026 — O nº da OP passa a ter formato
 - Status: **Implementado** — aplicada no Supabase em 03/10/2026
 - Migration: `20261003100000_formato_do_numero_da_op.sql` (0029)

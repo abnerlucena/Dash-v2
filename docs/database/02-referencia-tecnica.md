@@ -1,6 +1,6 @@
 # Referência Técnica do Schema
 
-> Versão do schema: `v0.22.0` · Última atualização: 03/10/2026 · Status: **implementado no Supabase**, no projeto que virou o de produção (D55), com o histórico da planilha já carregado. A interface oficial é a de `prototype/` (D56). O sistema em uso na fábrica continua sendo o Google Sheets até a virada.
+> Versão do schema: `v0.23.0` · Última atualização: 03/10/2026 · Status: **implementado no Supabase**, no projeto que virou o de produção (D55), com o histórico da planilha já carregado. A interface oficial é a de `prototype/` (D56). O sistema em uso na fábrica continua sendo o Google Sheets até a virada.
 > SGBD: PostgreSQL (Supabase) · Schema: `public` (+ `auth`, gerenciado pelo Supabase)
 > Decisões citadas como `[Dxx]` estão em [03-decisoes.md](03-decisoes.md).
 
@@ -335,7 +335,8 @@ Ambas criadas com `security_invoker = true`: respeitam o RLS de quem consulta.
 | `machine_target_basis_on(p_machine_id, p_date)` | `text` | Base da meta vigente na data (`per_shift` \| `per_shift_prorated` \| `per_operator`), mesma regra da anterior. O número sem a base é ambíguo [D39, D46, D47] |
 | `list_profile_names()` | `table(id, full_name)` | Só id + nome, só para usuários ativos (exibir "quem apontou" sem expor crachá) |
 | `can_edit_production_record(created_by, created_at)` / `can_delete_production_record(...)` | `boolean` | Regra D24. Nunca devolve `NULL`: apontamento **sem autor** só é editável/apagável com `production.edit` / `production.delete` (correção 0.10.3) |
-| `insert_production_orders(record_id, orders jsonb)` | `integer` | Interna (sem permissão de execução para o app). Recusa nº de OP fora do formato de 1 a 15 dígitos (D57) |
+| `insert_production_orders(record_id, orders jsonb, permite_importado boolean = false)` | `integer` | Interna. Recusa nº de OP fora do formato de 1 a 15 dígitos (D57); `IMPORTADO` só é aceito com `permite_importado`, que só a correção de um apontamento importado liga (D59) |
+| `refazer_meta_do_apontamento(id)` | `void` | Interna. Troca a meta e a base gravadas no apontamento pelas do seu dia atual; não toca nos importados (D59) |
 
 ### 6.2 Funções RPC (chamadas pelo app)
 

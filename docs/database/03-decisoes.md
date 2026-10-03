@@ -65,6 +65,7 @@ Status possíveis: `Aprovada` · `Assumida` (sem confirmação explícita) · `S
 | D56 | A UI antiga sai; a virada vai com a interface nova | Aprovada | 03/10/2026 |
 | D57 | O nº da OP é só números, até 15 | Aprovada | 03/10/2026 |
 | D58 | Os números de capacidade não são sigilosos | Aprovada | 03/10/2026 |
+| D59 | Mover um apontamento de dia leva a meta junto; o importado guarda a da planilha | Aprovada | 03/10/2026 |
 
 ---
 
@@ -1125,3 +1126,36 @@ ensaiada antes da virada.
   `efficiency` e `started_on` da máquina, e os tempos dos turnos. A lotação por
   turno e os descontos de cada turno (refeição, ginástica, pausa, troca) ainda
   não existem no banco.
+
+### D59 — Mover um apontamento de dia leva a meta junto; o importado guarda a da planilha
+- **Status:** Aprovada (03/10/2026), com o gestor. Migration 0030.
+- **Contexto:** a tela de Histórico da interface nova corrige um apontamento,
+  inclusive a data. Ao conferir as funções, apareceu um defeito: mover de dia
+  não atualizava a meta, e o apontamento ficava comparado com a meta do dia
+  antigo. Como cada apontamento guarda uma foto da meta do seu dia (D08), mudar
+  o dia tem de mudar a foto.
+- **A armadilha que impediu a correção ingênua:** antes de 25/09/2026, a linha
+  do tempo de metas do banco guarda os valores de reserva do app antigo (500,
+  600, 160), que nunca foram reais (D38). As metas verdadeiras daquela época
+  estão na foto de cada apontamento importado, vindas da planilha. Recalcular
+  um importado trocaria, por exemplo, 7.000 por 500.
+- **Decisão:**
+  - apontamento feito pelo app → ao mudar de data, pega a meta e a base do dia
+    de destino;
+  - apontamento importado → mantém a meta da planilha;
+  - trocar só o turno não mexe na meta (ela é do dia, não do turno).
+- **Por que a regra continua certa no futuro:** se a linha do tempo antiga for
+  corrigida um dia, o recálculo de um importado daria o mesmo valor da planilha.
+  A exceção deixaria de ser necessária, mas não ficaria errada.
+- **Junto, porque a mesma função estava desatualizada:** `update_production_record`
+  passou a seguir D52, D54 (na data final) e D57. E corrigir a quantidade de um
+  importado não exige trocar a OP `IMPORTADO` — sem isso nenhum número do
+  histórico seria corrigível.
+- **Alternativa rejeitada:** recalcular sempre, inclusive os importados. Trocaria
+  metas reais da planilha por valores de reserva.
+- **Em aberto (não resolvido aqui):** a linha do tempo de metas anterior a
+  25/09/2026 continua com os valores de reserva. Isso aparece em dois lugares
+  para o usuário: o histórico de metas (`getHistory`) mostra os degraus de
+  reserva, e `getMetasEm` de uma data antiga devolve 500. Corrigir é trocar esses
+  degraus pelos reais, derivados da planilha — decisão do gestor, porque reescreve
+  a linha do tempo (D13).

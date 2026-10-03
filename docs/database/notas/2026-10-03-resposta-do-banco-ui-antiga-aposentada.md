@@ -88,3 +88,37 @@ Duas limitações do contrato atual, que podemos ampliar se a tela precisar:
 
 A *Redirect URL* do Auth passa a ser `https://abnerlucena.github.io/Dashboard-Tomadas/`.
 É configuração do painel do Supabase, e o gestor confere lá.
+
+---
+
+## Atualização, mais tarde no mesmo dia: `updateEntry` está pronto
+
+O gestor aprovou, e foi feito como proposto acima (D59, schema 0.23.0).
+
+```ts
+production.updateEntry(id, {
+  ordensProducao?, date?, turno?, workMode?, obs?, operatorCount?,
+}, session)
+```
+
+| Campo | Ausente | Vazio |
+|---|---|---|
+| `ordensProducao` | mantém as OPs | **recusado** — para tirar todas, apague o apontamento |
+| `obs` | mantém | `""` apaga |
+| `operatorCount` | mantém | `0` apaga (D52), exceto na A Granél (D54) |
+
+- As OPs informadas **substituem** as que estavam. É diferente de `saveEntries`,
+  que acrescenta.
+- **Mudar a data refaz a meta** com a do dia novo. **Exceção:** o apontamento
+  importado mantém a meta da planilha, porque antes de 25/09/2026 o banco só tem
+  os valores de reserva (500, 600) na linha do tempo de metas.
+- O mesmo vale para `bulkMove`: mover em massa também refaz a meta.
+- **Corrigir a quantidade de um importado:** mandem a OP como `IMPORTADO`. O
+  banco aceita isso só para apontamento importado.
+- Erros que a tela deve mostrar como vieram: OP fora do formato, falta do nº de
+  pessoas na A Granél, destino ocupado ("Já existe apontamento desta máquina…")
+  e falta de permissão.
+
+**Um aviso para a tela de Metas:** pelo mesmo motivo, `getHistory` mostra os
+degraus de reserva antes de 25/09/2026, e `getMetasEm` de uma data antiga devolve
+500. Está registrado em aberto na D59.

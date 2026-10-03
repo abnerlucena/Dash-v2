@@ -16,6 +16,7 @@ cada execução acontece dentro de uma transação que termina em `rollback`
 | `07_operadores_obrigatorios.sql` | Nº de operadores obrigatório onde a meta é por pessoa (migration 0028): quem exige, o que recusa, e que o passado importado continua lido como 1 pessoa |
 | `08_calendario_pelo_app.sql` | O gestor mantém o calendário sozinho, pelo app: feriado de dia inteiro, parada de um turno, escopo municipal, remoção — e o operador não consegue. Confere também que o turno anulado sai do atingimento |
 | `09_formato_da_op.sql` | Nº da OP só com números, até 15 dígitos (migration 0029): o que aceita, o que recusa, que uma OP ruim barra o apontamento inteiro, e que o histórico `IMPORTADO` ficou |
+| `10_corrigir_apontamento.sql` | Corrigir um apontamento (migration 0030): OPs substituídas, D52, D54 e D57 na correção, mover de dia refaz a meta, o importado mantém a da planilha e aceita `IMPORTADO`, e o operador não corrige o apontamento de outra pessoa |
 
 ## Como rodar (SQL Editor do Supabase)
 
