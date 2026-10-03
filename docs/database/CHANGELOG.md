@@ -17,6 +17,45 @@ Formato de cada entrada:
 
 ---
 
+## [0.22.0] — 03/10/2026 — O nº da OP passa a ter formato
+- Status: **Implementado** — aplicada no Supabase em 03/10/2026
+- Migration: `20261003100000_formato_do_numero_da_op.sql` (0029)
+- Decisões: D57 (nova), D35
+
+### O problema
+O banco aceitava qualquer texto como nº da OP, inclusive vazio. Foi de
+propósito enquanto a fábrica não registrava OP: o histórico inteiro entrou como
+`IMPORTADO` (D35). A interface nova pede a OP em todo apontamento, e o gestor
+definiu o formato em 03/10/2026: **só números, até 15**.
+
+### Alterado
+- `insert_production_orders` recusa OP vazia, ausente, com letra, traço ou
+  espaço no meio, ou com mais de 15 dígitos. Espaço nas pontas é tirado, não
+  recusado. A conferência acontece **antes** de gravar qualquer linha: uma OP
+  ruim no meio de várias barra o apontamento inteiro.
+- A mensagem cita a OP recusada e a regra: *Nº da OP inválido: "45-01". Use só
+  números, até 15 dígitos.*
+- Linha de OP com quantidade 0 continua sendo ignorada, e por isso não é cobrada.
+
+### Não alterado
+- Os 2.713 registros `IMPORTADO` ficam como estão. A importação grava direto na
+  tabela e não passa por esta função.
+- Não é restrição `check`, pelo mesmo motivo da D54: teria de nascer `not valid`.
+
+### Testes
+- Suíte 09 nova (11 casos). Conferido que os 6 casos da regra falham sem a
+  migration e os outros 5 já passavam.
+- As suítes 01 e 02 usavam OPs de uma letra (`"X"`, `"A"`) como dado de teste. A
+  regra nova as recusou, como devia; passaram a usar números.
+
+### Impacto no frontend
+- A tela de apontamento da interface nova já limita a 7 dígitos; o banco aceita
+  até 15. Quem decide o limite visível é a tela, desde que fique dentro de 15.
+- Contrato: `Machine` ganhou `process?: "assembly" | "packaging"` (a linha do
+  centro, D37). Não é mudança de banco: a coluna existe desde a 0013.
+
+---
+
 ## [0.21.0] — 01/10/2026 — Nº de operadores obrigatório onde a meta é por pessoa
 - Status: **Implementado** — aplicada no Supabase (projeto de testes) em 01/10/2026
 - Migration: `20261001100000_operadores_obrigatorios_por_pessoa.sql` (0028)

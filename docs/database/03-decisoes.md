@@ -62,6 +62,9 @@ Status possíveis: `Aprovada` · `Assumida` (sem confirmação explícita) · `S
 | D53 | A base da meta é definida pelo app, junto com o valor | Aprovada | 30/09/2026 |
 | D54 | Nº de operadores obrigatório onde a meta é por pessoa | Aprovada | 01/10/2026 |
 | D55 | O banco de testes vira o banco de produção | Aprovada | 01/10/2026 |
+| D56 | A UI antiga sai; a virada vai com a interface nova | Aprovada | 03/10/2026 |
+| D57 | O nº da OP é só números, até 15 | Aprovada | 03/10/2026 |
+| D58 | Os números de capacidade não são sigilosos | Aprovada | 03/10/2026 |
 
 ---
 
@@ -1079,3 +1082,46 @@ poucos MB por ano, contra um limite de 500 MB.
 O problema é só a ausência de cópia. **Backup que nunca foi restaurado não é
 backup** — qualquer que seja a saída escolhida, a restauração precisa ser
 ensaiada antes da virada.
+
+### D56 — A UI antiga sai; a virada vai com a interface nova
+- **Status:** Aprovada (03/10/2026), pelo gestor. Complementa a D44.
+- **Contexto:** a D44 fez da interface de `prototype/` a oficial, mas as telas
+  antigas de `src/` continuavam no repositório, e o plano de virada de 01/10
+  previa abrir com elas, porque eram as únicas que já gravavam no banco.
+- **Decisão:** o projeto ainda não foi para produção e as telas antigas não têm
+  uso. Elas saíram do repositório (PR #27), a interface nova passa a ser
+  publicada na raiz do Pages, e **a virada vai com ela**.
+- **O que fica em `src/`:** só a camada de dados (`src/lib/**`) e os testes dela,
+  que a interface nova usa.
+- **Consequência para a data da virada:** a interface nova ainda só lê. A
+  virada passa a depender de ela gravar apontamento, histórico, metas,
+  calendário e máquinas — não só do banco.
+- **Pendências registradas pela interface** (sem pressa): o cache de `api.ts`,
+  `completeOnboarding` e as funções só do Apps Script podem sair; renomear
+  `prototype/` fica para uma PR combinada.
+
+### D57 — O nº da OP é só números, até 15
+- **Status:** Aprovada (03/10/2026). Migration 0029.
+- **Contexto:** enquanto não havia OP de verdade, o banco aceitava qualquer
+  texto, até vazio (D35). A interface nova pede a OP em todo apontamento.
+- **Decisão do gestor:** só números, no máximo 15 dígitos. Espaço nas pontas é
+  tirado; vazio, letra e símbolo são recusados.
+- **Onde:** em `insert_production_orders`, a única porta de escrita do app
+  (`production_orders` só tem política de leitura). O histórico `IMPORTADO`
+  não passa por ela e fica como está.
+- **Alternativa rejeitada:** restrição `check` — teria de nascer `not valid`
+  para conviver com o histórico (mesmo raciocínio da D54).
+- **Em aberto:** o formato real da OP na WEG tem um tamanho fixo? Se tiver, o
+  limite pode virar exato; hoje é "até 15".
+
+### D58 — Os números de capacidade não são sigilosos
+- **Status:** Aprovada (03/10/2026), pelo gestor.
+- **Contexto:** o simulador de capacidade da interface usava valores
+  fictícios, por tratar peças/minuto, eficiência e lotação como sigilosos.
+  Os valores reais, porém, já estavam no banco e no seed, que é público.
+- **Decisão:** não são sigilosos. O simulador pode ler do banco os valores
+  reais, e o seed continua no repositório como está.
+- **Consequência:** a próxima etapa é o contrato entregar `pieces_per_minute`,
+  `efficiency` e `started_on` da máquina, e os tempos dos turnos. A lotação por
+  turno e os descontos de cada turno (refeição, ginástica, pausa, troca) ainda
+  não existem no banco.

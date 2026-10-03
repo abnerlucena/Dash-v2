@@ -12,7 +12,14 @@
 
 ---
 
-## 1. A virada vai com as telas ANTIGAS, não com a UI nova
+> **Atualizado em 03/10/2026 — este § 1 deixou de valer (D56).** As telas
+> antigas saíram do repositório e a virada vai com a interface nova. Abrir
+> passa a ser cadastrar no GitHub a variável `DATA_SOURCE=supabase` e os
+> segredos `VITE_SUPABASE_URL` e `VITE_SUPABASE_ANON_KEY`. A data agora depende
+> também de a interface nova gravar (apontamento, histórico, metas, calendário
+> e máquinas). O texto abaixo fica como registro do raciocínio de 01/10.
+
+## 1. ~~A virada vai com as telas ANTIGAS, não com a UI nova~~
 
 A UI nova (`prototype/`) ainda não fala com o banco — a nota de
 [direcionamento](2026-10-01-direcionamento-para-a-ui.md) lista o que falta.
